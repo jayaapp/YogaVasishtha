@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yoga Vasishtha EPUB Reader</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="app.css">
+</head>
+<body class="light-theme">
+    <!-- Fixed Header Bar -->
+    <header class="header-bar">
+        <div class="header-left">
+            <h1 class="app-title">Yoga Vasishtha</h1>
+            <select id="book-selector" class="book-selector" aria-label="Select book">
+                <option value="">Loading books...</option>
+            </select>
+        </div>
+        <nav class="header-controls">
+            <button id="toc-btn" class="icon-btn" aria-label="Table of Contents" title="Table of Contents">
+                <span class="material-icons">menu_book</span>
+            </button>
+            <button id="help-btn" class="icon-btn" aria-label="Help" title="Help">
+                <span class="material-icons">help</span>
+            </button>
+            <button id="settings-btn" class="icon-btn" aria-label="Settings" title="Settings">
+                <span class="material-icons">settings</span>
+            </button>
+            <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle theme">
+                <span class="material-icons">dark_mode</span>
+            </button>
+        </nav>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+        <div id="loading-indicator" class="loading-indicator">
+            <div class="spinner"></div>
+            <p>Loading EPUB files...</p>
+        </div>
+
+        <article id="book-content" class="book-content" hidden>
+            <!-- EPUB content will be inserted here -->
+        </article>
+
+        <div id="error-message" class="error-message" hidden>
+            <div class="error-icon">
+                <span class="material-icons">error</span>
+            </div>
+            <h2>Unable to Load Book</h2>
+            <p id="error-text">Please try selecting a different book or refreshing the page.</p>
+        </div>
+    </main>
+
+    <!-- Table of Contents Modal -->
+    <div id="toc-modal" class="modal-overlay" aria-hidden="true">
+        <div class="modal" role="dialog" aria-labelledby="toc-title" aria-modal="true">
+            <header class="modal-header">
+                <h2 id="toc-title" class="modal-title">Table of Contents</h2>
+                <button class="close-btn" aria-label="Close">
+                    <span class="material-icons">close</span>
+                </button>
+            </header>
+            <div class="modal-content">
+                <nav id="toc-content" class="toc-content">
+                    <!-- TOC will be generated here -->
+                </nav>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal-overlay" aria-hidden="true">
+        <div class="modal" role="dialog" aria-labelledby="settings-title" aria-modal="true">
+            <header class="modal-header">
+                <h2 id="settings-title" class="modal-title">Settings</h2>
+                <button class="close-btn" aria-label="Close">
+                    <span class="material-icons">close</span>
+                </button>
+            </header>
+            <div class="modal-content">
+                <div class="settings-grid">
+                    <div class="setting-group">
+                        <label for="font-family">Font Family</label>
+                        <select id="font-family" class="setting-control">
+                            <option value="Georgia, serif">Georgia</option>
+                            <option value="'Times New Roman', serif">Times New Roman</option>
+                            <option value="Arial, sans-serif">Arial</option>
+                            <option value="'Courier New', monospace">Courier New</option>
+                            <option value="'Noto Serif Devanagari', serif">Noto Serif Devanagari</option>
+                        </select>
+                    </div>
+                    <div class="setting-group">
+                        <label for="font-size">Font Size</label>
+                        <select id="font-size" class="setting-control">
+                            <option value="14px">Small</option>
+                            <option value="16px">Medium</option>
+                            <option value="18px">Large</option>
+                            <option value="20px">Extra Large</option>
+                            <option value="24px">Huge</option>
+                        </select>
+                    </div>
+                    <div class="setting-group">
+                        <label for="line-height">Line Height</label>
+                        <select id="line-height" class="setting-control">
+                            <option value="1.4">Compact</option>
+                            <option value="1.6">Normal</option>
+                            <option value="1.8">Relaxed</option>
+                            <option value="2.0">Spacious</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="help-modal" class="modal-overlay" aria-hidden="true">
+        <div class="modal" role="dialog" aria-labelledby="help-title" aria-modal="true">
+            <header class="modal-header">
+                <h2 id="help-title" class="modal-title">About</h2>
+                <button class="close-btn" aria-label="Close">
+                    <span class="material-icons">close</span>
+                </button>
+            </header>
+            <div class="modal-content">
+                <div id="help-content" class="help-content">
+                    <!-- Help content will be rendered here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lexicon Modal -->
+    <div id="lexicon-modal" class="modal-overlay" aria-hidden="true">
+        <div class="modal" role="dialog" aria-labelledby="lexicon-title" aria-modal="true">
+            <header class="modal-header">
+                <h2 id="lexicon-title" class="modal-title">Sanskrit Word Definition</h2>
+                <button class="close-btn" aria-label="Close">
+                    <span class="material-icons">close</span>
+                </button>
+            </header>
+            <div class="modal-content">
+                <div id="lexicon-content" class="lexicon-content">
+                    <!-- Lexicon content will be rendered here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- External Dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/1.9.1/showdown.min.js"></script>
+    <!-- JSZip for EPUB handling -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- Custom EPUB reader implementation -->
+    <script src="app.js"></script>
+</body>
+</html>
