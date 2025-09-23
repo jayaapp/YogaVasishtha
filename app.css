@@ -26,6 +26,8 @@ body {
 body.light-theme {
     --bg-color: #ffffff;
     --text-color: #2c3e50;
+    --text-primary: #2c3e50;
+    --text-secondary: #6c757d;
     --header-bg: #f8f9fa;
     --header-border: #e9ecef;
     --panel-bg: #ffffff;
@@ -33,6 +35,8 @@ body.light-theme {
     --button-bg: #f8f9fa;
     --button-hover: #e9ecef;
     --button-active: #dee2e6;
+    --hover-bg: #f8f9fa;
+    --content-bg: #ffffff;
     --modal-backdrop: rgba(0, 0, 0, 0.5);
     --shadow-light: rgba(0, 0, 0, 0.1);
     --shadow-medium: rgba(0, 0, 0, 0.15);
@@ -40,11 +44,16 @@ body.light-theme {
     --sanskrit-bg-hover: rgba(220, 53, 69, 0.1);
     --error-color: #dc3545;
     --success-color: #28a745;
+    --accent-color: #007bff;
+    --accent-color-dark: #0056b3;
+    --accent-color-20: rgba(0, 123, 255, 0.2);
 }
 
 body.dark-theme {
     --bg-color: #1a1a1a;
     --text-color: #e9ecef;
+    --text-primary: #e9ecef;
+    --text-secondary: #adb5bd;
     --header-bg: #2d3436;
     --header-border: #495057;
     --panel-bg: #2d3436;
@@ -52,6 +61,8 @@ body.dark-theme {
     --button-bg: #343a40;
     --button-hover: #495057;
     --button-active: #6c757d;
+    --hover-bg: #343a40;
+    --content-bg: #2d3436;
     --modal-backdrop: rgba(0, 0, 0, 0.7);
     --shadow-light: rgba(0, 0, 0, 0.3);
     --shadow-medium: rgba(0, 0, 0, 0.4);
@@ -59,6 +70,9 @@ body.dark-theme {
     --sanskrit-bg-hover: rgba(255, 107, 122, 0.2);
     --error-color: #ff6b7a;
     --success-color: #51cf66;
+    --accent-color: #4dabf7;
+    --accent-color-dark: #339af0;
+    --accent-color-20: rgba(77, 171, 247, 0.2);
 }
 
 /* ===== HEADER BAR ===== */
@@ -720,15 +734,6 @@ body.dark-theme {
     cursor: not-allowed;
 }
 
-.search-back-btn {
-    background-color: var(--accent-color);
-    color: white;
-    border-color: var(--accent-color);
-}
-
-.search-back-btn:hover {
-    background-color: var(--accent-color-dark);
-}
 
 .search-results-list {
     flex: 1;
@@ -776,7 +781,7 @@ body.dark-theme {
 
 .search-result-item.active {
     background-color: var(--accent-color);
-    color: white;
+    color: #ffffff;
     border-color: var(--accent-color);
 }
 
@@ -790,10 +795,20 @@ body.dark-theme {
 
 /* Search text highlighting */
 .search-highlight {
-    background-color: rgba(255, 235, 59, 0.3); /* Gentle transparent yellow */
     padding: 0.1em 0.2em;
     border-radius: 2px;
+    font-weight: 500;
     transition: background-color 0.3s ease;
+}
+
+body.light-theme .search-highlight {
+    background-color: rgba(255, 235, 59, 0.4); /* Yellow highlight for light theme */
+    color: #2c3e50;
+}
+
+body.dark-theme .search-highlight {
+    background-color: rgba(255, 193, 7, 0.3); /* Amber highlight for dark theme */
+    color: #ffffff;
 }
 
 /* ===== BOOKMARKS MODAL ===== */

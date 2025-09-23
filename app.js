@@ -299,6 +299,7 @@ const SearchManager = {
         };
 
         State.search.isOpen = true;
+        Elements.searchPanel.removeAttribute('hidden');
         Elements.searchPanel.classList.add('active');
         Elements.searchInput.focus();
 
@@ -311,6 +312,11 @@ const SearchManager = {
     closePanel(returnToOriginal = true) {
         State.search.isOpen = false;
         Elements.searchPanel.classList.remove('active');
+
+        // Add hidden attribute back after animation completes
+        setTimeout(() => {
+            Elements.searchPanel.setAttribute('hidden', '');
+        }, 300); // Match the CSS transition duration
 
         if (returnToOriginal && State.search.originalPosition) {
             // Return to original book and position
@@ -402,6 +408,16 @@ const SearchManager = {
                 return a.position - b.position;
             });
 
+            // Add simplified display labels with counters per book
+            const bookCounters = {};
+            allResults.forEach(result => {
+                if (!bookCounters[result.bookIndex]) {
+                    bookCounters[result.bookIndex] = 0;
+                }
+                bookCounters[result.bookIndex]++;
+                result.displayText = this.formatSimpleResultDisplay(result.bookTitle, bookCounters[result.bookIndex]);
+            });
+
             State.search.results = allResults.slice(0, 100); // Limit to 100 results
             State.search.currentIndex = -1;
             this.renderResults();
@@ -449,9 +465,12 @@ const SearchManager = {
         }
 
         chapters.forEach((chapter, chapterIndex) => {
-            const chapterTitle = chapter.getAttribute('data-title') || `Chapter ${chapterIndex + 1}`;
             const chapterAnchor = chapter.id;
             const text = chapter.textContent;
+
+            // Get proper chapter title using TOC mapping (same logic as bookmarks)
+            const chapterTitle = this.getChapterTitleFromTOC(chapter, bookIndex) ||
+                                BookmarkManager.extractBestChapterTitle(chapter);
 
             // Find all matches in this chapter
             let match;
@@ -492,7 +511,7 @@ const SearchManager = {
                     positionPercent,
                     exactMatch: match.exactMatch,
                     resultId: `${bookIndex}_${chapterIndex}_${matchIndex}`,
-                    displayText: this.formatResultDisplay(bookTitle, chapterTitle, positionPercent)
+                    displayText: '' // Will be set later with counter
                 });
             });
         });
@@ -503,8 +522,57 @@ const SearchManager = {
     /**
      * Format result display text
      */
+    /**
+     * Get chapter title from TOC mapping for search results
+     */
+    getChapterTitleFromTOC(chapterElement, bookIndex) {
+        const toc = State.bookTOCs[bookIndex];
+        if (!toc || !toc.length) return null;
+
+        const chapterId = chapterElement.id;
+        if (!chapterId) return null;
+
+        // Find matching TOC entry by anchor
+        const findTOCEntry = (items) => {
+            for (let item of items) {
+                if (item.anchor === chapterId) {
+                    return item.label;
+                }
+                // Check subitems recursively
+                if (item.subitems && item.subitems.length > 0) {
+                    const subResult = findTOCEntry(item.subitems);
+                    if (subResult) return subResult;
+                }
+            }
+            return null;
+        };
+
+        return findTOCEntry(toc);
+    },
+
+    formatSimpleResultDisplay(bookTitle, resultNumber) {
+        // Convert "Volume 3 Part 1 of 2" to "V3P1"
+        const volumeMatch = bookTitle.match(/Volume (\d+)/);
+        const partMatch = bookTitle.match(/Part (\d+)/);
+
+        let shortTitle = '';
+        if (volumeMatch) {
+            shortTitle += `V${volumeMatch[1]}`;
+        }
+        if (partMatch) {
+            shortTitle += `P${partMatch[1]}`;
+        }
+
+        // Fallback if pattern doesn't match
+        if (!shortTitle) {
+            shortTitle = bookTitle.substring(0, 3).toUpperCase();
+        }
+
+        return `${shortTitle}@${resultNumber}`;
+    },
+
     formatResultDisplay(bookTitle, chapterTitle, positionPercent) {
-        // Format like "Volume 1, 62% in Chapter XIII"
+        // Format like "Volume 1, 62% in Chapter XIII" (kept for compatibility)
         return `${bookTitle}, ${positionPercent}% in ${chapterTitle}`;
     },
 
@@ -539,9 +607,9 @@ const SearchManager = {
                     behavior: 'smooth'
                 });
 
-                // Highlight the search term
+                // Highlight the search term and scroll to the specific match
                 setTimeout(() => {
-                    this.highlightSearchTerm(result.matchText);
+                    this.highlightSearchTerm(result.matchText, result.position, result.chapterAnchor);
                     this.updateResultsDisplay();
                 }, 500);
             }
@@ -575,16 +643,27 @@ const SearchManager = {
     /**
      * Highlight search term in current view
      */
-    highlightSearchTerm(searchTerm) {
+    highlightSearchTerm(searchTerm, targetPosition = null, chapterAnchor = null) {
         // Clear previous highlights
         this.clearHighlights();
 
         if (!searchTerm) return;
 
-        // Find and highlight all instances of the search term
-        const bookContent = Elements.bookContent;
+        console.log('🎨 Highlighting search term:', searchTerm, 'at position:', targetPosition, 'in chapter:', chapterAnchor);
+
+        // Determine scope for highlighting
+        let searchScope = Elements.bookContent;
+        if (chapterAnchor) {
+            const chapterElement = document.getElementById(chapterAnchor);
+            if (chapterElement) {
+                searchScope = chapterElement;
+                console.log('🎯 Limiting search to chapter:', chapterAnchor);
+            }
+        }
+
+        // Find and highlight all instances in the search scope
         const walker = document.createTreeWalker(
-            bookContent,
+            searchScope,
             NodeFilter.SHOW_TEXT,
             null,
             false
@@ -596,23 +675,92 @@ const SearchManager = {
             textNodes.push(node);
         }
 
-        const searchPattern = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+        // Use the same pattern logic as the search to ensure consistency
+        let searchPattern;
+        try {
+            // Check if searchTerm contains regex special characters
+            if (/[.*+?^${}()|[\]\\]/.test(searchTerm) && searchTerm.length > 1) {
+                searchPattern = new RegExp(`(${searchTerm})`, 'gi');
+            } else {
+                searchPattern = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+            }
+        } catch (e) {
+            // Fallback to literal search if regex is invalid
+            searchPattern = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+        }
+
+        let highlightCount = 0;
+        let allHighlights = [];
+        let currentTextPosition = 0;
 
         textNodes.forEach(textNode => {
             const text = textNode.textContent;
+            const nodeStartPosition = currentTextPosition;
+
             if (searchPattern.test(text)) {
+                searchPattern.lastIndex = 0; // Reset for replace
                 const highlightedHTML = text.replace(searchPattern, '<span class="search-highlight">$1</span>');
 
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = highlightedHTML;
+                if (highlightedHTML !== text) {
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = highlightedHTML;
 
-                const parent = textNode.parentNode;
-                while (tempDiv.firstChild) {
-                    parent.insertBefore(tempDiv.firstChild, textNode);
+                    const parent = textNode.parentNode;
+                    while (tempDiv.firstChild) {
+                        const child = tempDiv.firstChild;
+                        parent.insertBefore(child, textNode);
+
+                        // Track highlight elements with their position within the scope
+                        if (child.classList && child.classList.contains('search-highlight')) {
+                            allHighlights.push({
+                                element: child,
+                                textPosition: nodeStartPosition
+                            });
+                        }
+                    }
+                    parent.removeChild(textNode);
+                    highlightCount++;
                 }
-                parent.removeChild(textNode);
             }
+
+            currentTextPosition += text.length;
         });
+
+        console.log(`🎨 Applied ${highlightCount} highlight instances in scope`);
+
+        // Scroll to the targeted highlight or first one
+        setTimeout(() => {
+            let highlightToScrollTo = null;
+
+            if (targetPosition !== null && allHighlights.length > 0) {
+                // Find the highlight closest to our target position within the chapter
+                let closestHighlight = allHighlights[0];
+                let closestDistance = Math.abs(allHighlights[0].textPosition - targetPosition);
+
+                for (let highlight of allHighlights) {
+                    const distance = Math.abs(highlight.textPosition - targetPosition);
+                    if (distance < closestDistance) {
+                        closestDistance = distance;
+                        closestHighlight = highlight;
+                    }
+                }
+
+                highlightToScrollTo = closestHighlight;
+                console.log(`📍 Found closest highlight at distance ${closestDistance} from target position ${targetPosition} within chapter`);
+            } else {
+                // No specific target, use first highlight
+                highlightToScrollTo = allHighlights[0];
+            }
+
+            if (highlightToScrollTo && highlightToScrollTo.element) {
+                highlightToScrollTo.element.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center',
+                    inline: 'nearest'
+                });
+                console.log('📍 Scrolled to targeted highlighted instance');
+            }
+        }, 100);
     },
 
     /**
