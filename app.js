@@ -337,10 +337,6 @@ const SearchManager = {
             });
 
             console.log('🏠 Returned to original position:', originalPos);
-        } else if (!returnToOriginal && State.search.originalPosition) {
-            // User closed search on different location - save bookmark automatically
-            BookmarkManager.addBookmarkAtPosition(State.search.originalPosition);
-            console.log('📖 Auto-saved bookmark for original position before closing search');
         }
 
         // Clear search state
@@ -2078,16 +2074,13 @@ const UIManager = {
 
                 const a = document.createElement('a');
                 a.className = 'toc-link';
-                a.href = '#';
+                a.href = `#${item.anchor}`;
                 a.textContent = item.label;
                 a.setAttribute('data-href', item.href);
                 a.setAttribute('role', 'button');
 
                 a.addEventListener('click', (e) => {
                     e.preventDefault();
-
-                    // Auto-save bookmark for current position before TOC navigation
-                    BookmarkManager.addBookmark();
 
                     // Use the anchor from our TOC item
                     const targetId = item.anchor || `chapter_${item.href.replace(/[^a-zA-Z0-9]/g, '_')}`;
@@ -2205,9 +2198,6 @@ const UIManager = {
      * Navigate to a specific chapter in V3P2
      */
     navigateToV3P2Chapter(anchor) {
-        // Auto-save bookmark before navigation
-        BookmarkManager.addBookmark();
-
         // Navigate to the anchor
         const targetElement = document.getElementById(anchor);
         if (targetElement) {
@@ -2383,10 +2373,7 @@ const EventHandlers = {
         // Save current reading position before switching books
         SettingsManager.savePosition();
 
-        // Auto-save bookmark for current position
-        BookmarkManager.addBookmark();
-
-        console.log(`💾 Saved position and bookmark for book ${State.currentBookIndex} before switching`);
+        console.log(`💾 Saved position for book ${State.currentBookIndex} before switching`);
 
         State.currentBookIndex = newIndex;
         SettingsManager.save(CONFIG.STORAGE_KEYS.CURRENT_BOOK, newIndex);
