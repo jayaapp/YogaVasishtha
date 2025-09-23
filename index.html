@@ -20,6 +20,12 @@
             <button id="toc-btn" class="icon-btn" aria-label="Table of Contents" title="Table of Contents">
                 <span class="material-icons">menu_book</span>
             </button>
+            <button id="search-btn" class="icon-btn" aria-label="Global Search" title="Global Search">
+                <span class="material-icons">search</span>
+            </button>
+            <button id="bookmarks-btn" class="icon-btn" aria-label="Bookmarks" title="Bookmarks">
+                <span class="material-icons">bookmark</span>
+            </button>
             <button id="help-btn" class="icon-btn" aria-label="Help" title="Help">
                 <span class="material-icons">help</span>
             </button>
@@ -51,6 +57,38 @@
             <p id="error-text">Please try selecting a different book or refreshing the page.</p>
         </div>
     </main>
+
+    <!-- Search Panel -->
+    <div id="search-panel" class="search-panel" hidden>
+        <div class="search-panel-content">
+            <div class="search-input-row">
+                <input type="text" id="search-input" class="search-input" placeholder="Search across all books (supports regex)...">
+                <button id="search-clear" class="search-clear-btn" aria-label="Clear search" title="Clear search">
+                    <span class="material-icons">close</span>
+                </button>
+                <button id="search-close" class="search-close-btn" aria-label="Close search panel" title="Close search panel">
+                    <span class="material-icons">keyboard_arrow_down</span>
+                </button>
+            </div>
+            <div class="search-results-row">
+                <button id="search-back" class="search-nav-btn search-back-btn" aria-label="Back to last reading position" title="Back to last reading position">
+                    <span class="material-icons">home</span>
+                    <span class="btn-text">Back to reading</span>
+                </button>
+                <button id="search-prev" class="search-nav-btn" aria-label="Previous result" title="Previous result" disabled>
+                    <span class="material-icons">keyboard_arrow_left</span>
+                    <span class="btn-text">Prev</span>
+                </button>
+                <div id="search-results" class="search-results-list">
+                    <div class="search-no-results">Enter a search term to find matches across all books</div>
+                </div>
+                <button id="search-next" class="search-nav-btn" aria-label="Next result" title="Next result" disabled>
+                    <span class="btn-text">Next</span>
+                    <span class="material-icons">keyboard_arrow_right</span>
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- Table of Contents Modal -->
     <div id="toc-modal" class="modal-overlay" aria-hidden="true">
@@ -143,6 +181,36 @@
             <div class="modal-content">
                 <div id="lexicon-content" class="lexicon-content">
                     <!-- Lexicon content will be rendered here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bookmarks Modal -->
+    <div id="bookmarks-modal" class="modal-overlay" aria-hidden="true">
+        <div class="modal" role="dialog" aria-labelledby="bookmarks-title" aria-modal="true">
+            <header class="modal-header">
+                <h2 id="bookmarks-title" class="modal-title">Bookmarks</h2>
+                <div class="modal-header-actions">
+                    <button id="add-bookmark-btn" class="icon-btn" aria-label="Add Bookmark" title="Add Current Position">
+                        <span class="material-icons">add</span>
+                    </button>
+                    <button class="close-btn" aria-label="Close">
+                        <span class="material-icons">close</span>
+                    </button>
+                </div>
+            </header>
+            <div class="modal-content">
+                <div class="bookmarks-tabs">
+                    <button id="current-book-tab" class="bookmark-tab active" data-tab="current">
+                        Volume 1
+                    </button>
+                    <button id="other-books-tab" class="bookmark-tab" data-tab="other">
+                        Other Volumes
+                    </button>
+                </div>
+                <div id="bookmarks-content" class="bookmarks-content">
+                    <div class="no-bookmarks">No bookmarks saved yet.</div>
                 </div>
             </div>
         </div>

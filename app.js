@@ -59,6 +59,14 @@ const State = {
     bookContents: [],
     bookTOCs: [],
     lexicon: {},
+    search: {
+        isOpen: false,
+        query: '',
+        results: [],
+        currentIndex: -1,
+        originalPosition: null // Store original position when search opens
+    },
+    bookmarks: {}, // Structure: { bookIndex: [bookmark1, bookmark2, ...] }
     isLoading: true,
     isInitialized: false,
     settings: {
@@ -125,11 +133,8 @@ const Utils = {
      * Show element with animation
      */
     show(element, animationClass = 'fade-in') {
-        console.log(`🟢 Utils.show() called on:`, element?.id || element?.tagName);
-        console.log(`  Before: hidden=${element?.hidden}, display=${window.getComputedStyle(element).display}`);
         element.hidden = false;
         element.classList.add(animationClass);
-        console.log(`  After: hidden=${element?.hidden}, display=${window.getComputedStyle(element).display}`);
         setTimeout(() => element.classList.remove(animationClass), 300);
     },
 
@@ -137,10 +142,7 @@ const Utils = {
      * Hide element
      */
     hide(element) {
-        console.log(`🔴 Utils.hide() called on:`, element?.id || element?.tagName);
-        console.log(`  Before: hidden=${element?.hidden}, display=${window.getComputedStyle(element).display}`);
         element.hidden = true;
-        console.log(`  After: hidden=${element?.hidden}, display=${window.getComputedStyle(element).display}`);
     },
 
     /**
@@ -273,23 +275,980 @@ const SettingsManager = {
     }
 };
 
+// ===== SEARCH MANAGER =====
+const SearchManager = {
+    /**
+     * Toggle search panel visibility
+     */
+    togglePanel() {
+        if (State.search.isOpen) {
+            this.closePanel();
+        } else {
+            this.openPanel();
+        }
+    },
+
+    /**
+     * Open search panel and save current position
+     */
+    openPanel() {
+        // Save current reading position
+        State.search.originalPosition = {
+            bookIndex: State.currentBookIndex,
+            scrollTop: window.pageYOffset || document.documentElement.scrollTop
+        };
+
+        State.search.isOpen = true;
+        Elements.searchPanel.classList.add('active');
+        Elements.searchInput.focus();
+
+        console.log('🔍 Search panel opened, saved position:', State.search.originalPosition);
+    },
+
+    /**
+     * Close search panel and optionally return to original position
+     */
+    closePanel(returnToOriginal = true) {
+        State.search.isOpen = false;
+        Elements.searchPanel.classList.remove('active');
+
+        if (returnToOriginal && State.search.originalPosition) {
+            // Return to original book and position
+            const originalPos = State.search.originalPosition;
+
+            if (originalPos.bookIndex !== State.currentBookIndex) {
+                State.currentBookIndex = originalPos.bookIndex;
+                Elements.bookSelector.value = originalPos.bookIndex;
+                UIManager.displayCurrentBook();
+            }
+
+            // Restore original scroll position
+            requestAnimationFrame(() => {
+                window.scrollTo({
+                    top: originalPos.scrollTop,
+                    behavior: 'smooth'
+                });
+            });
+
+            console.log('🏠 Returned to original position:', originalPos);
+        } else if (!returnToOriginal && State.search.originalPosition) {
+            // User closed search on different location - save bookmark automatically
+            BookmarkManager.addBookmarkAtPosition(State.search.originalPosition);
+            console.log('📖 Auto-saved bookmark for original position before closing search');
+        }
+
+        // Clear search state
+        State.search.originalPosition = null;
+        State.search.currentIndex = -1;
+        this.clearHighlights();
+    },
+
+    /**
+     * Return to original reading position
+     */
+    returnToOriginal() {
+        if (State.search.originalPosition) {
+            const originalPos = State.search.originalPosition;
+
+            if (originalPos.bookIndex !== State.currentBookIndex) {
+                State.currentBookIndex = originalPos.bookIndex;
+                Elements.bookSelector.value = originalPos.bookIndex;
+                UIManager.displayCurrentBook();
+            }
+
+            requestAnimationFrame(() => {
+                window.scrollTo({
+                    top: originalPos.scrollTop,
+                    behavior: 'smooth'
+                });
+            });
+
+            console.log('🏠 Returned to original reading position');
+        }
+    },
+
+    /**
+     * Perform search across all books
+     */
+    async performSearch(query) {
+        if (!query || query.trim().length < 2) {
+            State.search.results = [];
+            State.search.query = '';
+            this.renderResults();
+            return;
+        }
+
+        const cleanQuery = query.trim();
+        State.search.query = cleanQuery;
+        State.search.results = [];
+
+        try {
+            // Search across all books
+            const allResults = [];
+
+            for (let bookIndex = 0; bookIndex < State.bookContents.length; bookIndex++) {
+                const content = State.bookContents[bookIndex];
+                if (!content) continue;
+
+                const bookResults = await this.searchInBook(content, bookIndex, cleanQuery);
+                allResults.push(...bookResults);
+            }
+
+            // Sort results by relevance (exact matches first, then by position)
+            allResults.sort((a, b) => {
+                if (a.exactMatch && !b.exactMatch) return -1;
+                if (!a.exactMatch && b.exactMatch) return 1;
+                if (a.bookIndex !== b.bookIndex) return a.bookIndex - b.bookIndex;
+                return a.position - b.position;
+            });
+
+            State.search.results = allResults.slice(0, 100); // Limit to 100 results
+            State.search.currentIndex = -1;
+            this.renderResults();
+
+            console.log(`🔍 Found ${State.search.results.length} results for "${cleanQuery}"`);
+
+        } catch (error) {
+            console.error('Search error:', error);
+            State.search.results = [];
+            this.renderResults();
+        }
+    },
+
+    /**
+     * Search within a single book
+     */
+    async searchInBook(content, bookIndex, query) {
+        const results = [];
+        const bookTitle = Utils.getBookTitle(CONFIG.EPUB_FILES[bookIndex]);
+
+        // Create temporary DOM to search through
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = content;
+
+        // Remove script and style elements
+        tempDiv.querySelectorAll('script, style').forEach(el => el.remove());
+
+        // Get all chapter divs
+        const chapters = tempDiv.querySelectorAll('.chapter-content');
+
+        // Prepare search pattern (support simple regex)
+        let searchPattern;
+        let isRegex = false;
+        try {
+            // Check if query contains regex special characters
+            if (/[.*+?^${}()|[\]\\]/.test(query) && query.length > 1) {
+                searchPattern = new RegExp(query, 'gi');
+                isRegex = true;
+            } else {
+                searchPattern = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+            }
+        } catch (e) {
+            // Fallback to literal search if regex is invalid
+            searchPattern = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+        }
+
+        chapters.forEach((chapter, chapterIndex) => {
+            const chapterTitle = chapter.getAttribute('data-title') || `Chapter ${chapterIndex + 1}`;
+            const chapterAnchor = chapter.id;
+            const text = chapter.textContent;
+
+            // Find all matches in this chapter
+            let match;
+            const matches = [];
+
+            while ((match = searchPattern.exec(text)) !== null) {
+                matches.push({
+                    index: match.index,
+                    matchText: match[0],
+                    exactMatch: match[0].toLowerCase() === query.toLowerCase()
+                });
+
+                // Prevent infinite loop for zero-length matches
+                if (match.index === searchPattern.lastIndex) {
+                    searchPattern.lastIndex++;
+                }
+            }
+
+            // Process matches to create result objects
+            matches.forEach((match, matchIndex) => {
+                const contextStart = Math.max(0, match.index - 80);
+                const contextEnd = Math.min(text.length, match.index + match.matchText.length + 80);
+                const context = text.substring(contextStart, contextEnd).trim();
+
+                // Calculate position percentage in chapter
+                const chapterLength = text.length;
+                const positionPercent = Math.round((match.index / chapterLength) * 100);
+
+                results.push({
+                    bookIndex,
+                    bookTitle,
+                    chapterIndex,
+                    chapterTitle,
+                    chapterAnchor,
+                    matchText: match.matchText,
+                    context,
+                    position: match.index,
+                    positionPercent,
+                    exactMatch: match.exactMatch,
+                    resultId: `${bookIndex}_${chapterIndex}_${matchIndex}`,
+                    displayText: this.formatResultDisplay(bookTitle, chapterTitle, positionPercent)
+                });
+            });
+        });
+
+        return results;
+    },
+
+    /**
+     * Format result display text
+     */
+    formatResultDisplay(bookTitle, chapterTitle, positionPercent) {
+        // Format like "Volume 1, 62% in Chapter XIII"
+        return `${bookTitle}, ${positionPercent}% in ${chapterTitle}`;
+    },
+
+    /**
+     * Navigate to search result
+     */
+    navigateToResult(resultIndex) {
+        if (resultIndex < 0 || resultIndex >= State.search.results.length) return;
+
+        const result = State.search.results[resultIndex];
+        State.search.currentIndex = resultIndex;
+
+        console.log(`🎯 Navigating to result ${resultIndex + 1}/${State.search.results.length}:`, result.displayText);
+
+        // Switch book if necessary
+        if (result.bookIndex !== State.currentBookIndex) {
+            State.currentBookIndex = result.bookIndex;
+            Elements.bookSelector.value = result.bookIndex;
+            UIManager.displayCurrentBook();
+        }
+
+        // Navigate to chapter and highlight match
+        requestAnimationFrame(() => {
+            const targetElement = document.getElementById(result.chapterAnchor);
+            if (targetElement) {
+                const headerOffset = 80;
+                const elementPosition = targetElement.offsetTop;
+                const offsetPosition = elementPosition - headerOffset;
+
+                window.scrollTo({
+                    top: offsetPosition,
+                    behavior: 'smooth'
+                });
+
+                // Highlight the search term
+                setTimeout(() => {
+                    this.highlightSearchTerm(result.matchText);
+                    this.updateResultsDisplay();
+                }, 500);
+            }
+        });
+    },
+
+    /**
+     * Navigate to previous result
+     */
+    navigatePrevious() {
+        if (State.search.results.length === 0) return;
+
+        let newIndex = State.search.currentIndex - 1;
+        if (newIndex < 0) newIndex = State.search.results.length - 1;
+
+        this.navigateToResult(newIndex);
+    },
+
+    /**
+     * Navigate to next result
+     */
+    navigateNext() {
+        if (State.search.results.length === 0) return;
+
+        let newIndex = State.search.currentIndex + 1;
+        if (newIndex >= State.search.results.length) newIndex = 0;
+
+        this.navigateToResult(newIndex);
+    },
+
+    /**
+     * Highlight search term in current view
+     */
+    highlightSearchTerm(searchTerm) {
+        // Clear previous highlights
+        this.clearHighlights();
+
+        if (!searchTerm) return;
+
+        // Find and highlight all instances of the search term
+        const bookContent = Elements.bookContent;
+        const walker = document.createTreeWalker(
+            bookContent,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+
+        const textNodes = [];
+        let node;
+        while (node = walker.nextNode()) {
+            textNodes.push(node);
+        }
+
+        const searchPattern = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+
+        textNodes.forEach(textNode => {
+            const text = textNode.textContent;
+            if (searchPattern.test(text)) {
+                const highlightedHTML = text.replace(searchPattern, '<span class="search-highlight">$1</span>');
+
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = highlightedHTML;
+
+                const parent = textNode.parentNode;
+                while (tempDiv.firstChild) {
+                    parent.insertBefore(tempDiv.firstChild, textNode);
+                }
+                parent.removeChild(textNode);
+            }
+        });
+    },
+
+    /**
+     * Clear search highlights
+     */
+    clearHighlights() {
+        const highlights = Elements.bookContent.querySelectorAll('.search-highlight');
+        highlights.forEach(highlight => {
+            const parent = highlight.parentNode;
+            parent.replaceChild(document.createTextNode(highlight.textContent), highlight);
+            parent.normalize(); // Merge adjacent text nodes
+        });
+    },
+
+    /**
+     * Clear search input and results
+     */
+    clearSearch() {
+        Elements.searchInput.value = '';
+        State.search.query = '';
+        State.search.results = [];
+        State.search.currentIndex = -1;
+        this.renderResults();
+        this.clearHighlights();
+    },
+
+    /**
+     * Render search results in the UI
+     */
+    renderResults() {
+        const container = Elements.searchResults;
+        container.innerHTML = '';
+
+        if (State.search.results.length === 0) {
+            const message = State.search.query
+                ? `No results found for "${State.search.query}"`
+                : 'Enter a search term to find matches across all books';
+
+            container.innerHTML = `<div class="search-no-results">${message}</div>`;
+
+            // Disable navigation buttons
+            Elements.searchPrev.disabled = true;
+            Elements.searchNext.disabled = true;
+            return;
+        }
+
+        // Enable navigation buttons
+        Elements.searchPrev.disabled = false;
+        Elements.searchNext.disabled = false;
+
+        // Create result items
+        State.search.results.forEach((result, index) => {
+            const item = document.createElement('div');
+            item.className = 'search-result-item';
+            if (index === State.search.currentIndex) {
+                item.classList.add('active');
+            }
+
+            item.textContent = result.displayText;
+            item.title = result.context;
+
+            item.addEventListener('click', () => {
+                this.navigateToResult(index);
+            });
+
+            container.appendChild(item);
+        });
+
+        this.updateResultsDisplay();
+    },
+
+    /**
+     * Update results display (scroll to current result)
+     */
+    updateResultsDisplay() {
+        const resultItems = Elements.searchResults.querySelectorAll('.search-result-item');
+
+        // Remove active class from all items
+        resultItems.forEach(item => item.classList.remove('active'));
+
+        // Add active class to current item and scroll to it
+        if (State.search.currentIndex >= 0 && State.search.currentIndex < resultItems.length) {
+            const currentItem = resultItems[State.search.currentIndex];
+            currentItem.classList.add('active');
+            currentItem.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+    }
+};
+
+// ===== BOOKMARK MANAGER =====
+const BookmarkManager = {
+    MAX_BOOKMARKS_PER_BOOK: 10,
+    activeTab: 'current',
+
+    /**
+     * Initialize bookmark manager
+     */
+    init() {
+        this.loadFromStorage();
+    },
+
+    /**
+     * Switch between current book and other books tabs
+     */
+    switchTab(tab) {
+        this.activeTab = tab;
+
+        // Update tab UI
+        Elements.currentBookTab.classList.toggle('active', tab === 'current');
+        Elements.otherBooksTab.classList.toggle('active', tab === 'other');
+
+        // Re-render bookmarks for the selected tab
+        this.renderBookmarks();
+    },
+
+    /**
+     * Add bookmark for current position
+     */
+    addBookmark() {
+        const position = this.getCurrentPosition();
+        if (!position) return;
+
+        this.addBookmarkAtPosition({
+            bookIndex: State.currentBookIndex,
+            scrollTop: window.pageYOffset || document.documentElement.scrollTop
+        });
+    },
+
+    /**
+     * Add bookmark at specific position
+     */
+    addBookmarkAtPosition(position) {
+        const currentChapter = this.getCurrentChapter(position.scrollTop);
+        if (!currentChapter) return;
+
+        const bookmark = {
+            id: this.generateId(),
+            bookIndex: position.bookIndex,
+            bookTitle: Utils.getBookTitle(CONFIG.EPUB_FILES[position.bookIndex]),
+            chapterTitle: currentChapter.title,
+            chapterAnchor: currentChapter.anchor,
+            scrollPosition: position.scrollTop,
+            positionPercent: currentChapter.positionPercent,
+            timestamp: new Date().toISOString(),
+            displayText: this.formatBookmarkDisplay(
+                Utils.getBookTitle(CONFIG.EPUB_FILES[position.bookIndex]),
+                currentChapter.title,
+                currentChapter.positionPercent
+            )
+        };
+
+        // Initialize bookmarks array for this book if needed
+        if (!State.bookmarks[position.bookIndex]) {
+            State.bookmarks[position.bookIndex] = [];
+        }
+
+        const bookBookmarks = State.bookmarks[position.bookIndex];
+
+        // Check if we already have a bookmark very close to this position (within 5% of chapter)
+        const existingIndex = bookBookmarks.findIndex(b =>
+            b.chapterAnchor === bookmark.chapterAnchor &&
+            Math.abs(b.positionPercent - bookmark.positionPercent) < 5
+        );
+
+        if (existingIndex >= 0) {
+            // Update existing bookmark
+            bookBookmarks[existingIndex] = bookmark;
+            console.log('📖 Updated existing bookmark:', bookmark.displayText);
+        } else {
+            // Add new bookmark to beginning of array (most recent first)
+            bookBookmarks.unshift(bookmark);
+
+            // Keep only the 10 most recent bookmarks
+            if (bookBookmarks.length > this.MAX_BOOKMARKS_PER_BOOK) {
+                bookBookmarks.splice(this.MAX_BOOKMARKS_PER_BOOK);
+            }
+
+            console.log('📖 Added new bookmark:', bookmark.displayText);
+        }
+
+        this.saveToStorage();
+        this.renderBookmarks();
+
+        return bookmark;
+    },
+
+    /**
+     * Get current position info
+     */
+    getCurrentPosition() {
+        return {
+            bookIndex: State.currentBookIndex,
+            scrollTop: window.pageYOffset || document.documentElement.scrollTop
+        };
+    },
+
+    /**
+     * Get current chapter info with position percentage
+     */
+    getCurrentChapter(scrollTop = null) {
+        if (scrollTop === null) {
+            scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        }
+
+        const chapters = document.querySelectorAll('.chapter-content');
+        if (!chapters.length) return null;
+
+        const viewportHeight = window.innerHeight;
+        const viewportCenter = scrollTop + viewportHeight / 2;
+        const headerOffset = 80; // Account for fixed header
+
+        let bestChapter = chapters[0]; // Fallback to first chapter
+        let maxVisibleArea = 0;
+
+        // Find the chapter with the most visible area in the current viewport
+        chapters.forEach(chapter => {
+            const rect = chapter.getBoundingClientRect();
+            const chapterTop = scrollTop + rect.top;
+            const chapterBottom = chapterTop + rect.height;
+
+            // Calculate visible area of this chapter in the current viewport
+            const visibleTop = Math.max(chapterTop, scrollTop + headerOffset);
+            const visibleBottom = Math.min(chapterBottom, scrollTop + viewportHeight);
+            const visibleArea = Math.max(0, visibleBottom - visibleTop);
+
+            // Prefer the chapter with the most visible area
+            if (visibleArea > maxVisibleArea) {
+                maxVisibleArea = visibleArea;
+                bestChapter = chapter;
+            }
+            // If visible areas are close, prefer the chapter containing the viewport center
+            else if (Math.abs(visibleArea - maxVisibleArea) < 100) {
+                if (viewportCenter >= chapterTop && viewportCenter <= chapterBottom) {
+                    bestChapter = chapter;
+                    maxVisibleArea = visibleArea;
+                }
+            }
+        });
+
+        // Calculate position percentage within the chapter
+        const chapterRect = bestChapter.getBoundingClientRect();
+        const chapterTop = scrollTop + chapterRect.top;
+        const chapterHeight = chapterRect.height;
+        const relativePosition = Math.max(0, scrollTop + headerOffset - chapterTop);
+        const positionPercent = Math.max(0, Math.min(100, Math.round((relativePosition / chapterHeight) * 100)));
+
+        // Get the title using TOC mapping first, fallback to chapter extraction
+        let chapterTitle = this.getTitleFromTOC(bestChapter) || this.extractBestChapterTitle(bestChapter);
+
+        return {
+            title: chapterTitle,
+            anchor: bestChapter.id,
+            positionPercent
+        };
+    },
+
+    /**
+     * Get chapter title from TOC mapping for accurate naming
+     */
+    getTitleFromTOC(chapterElement) {
+        const toc = State.bookTOCs[State.currentBookIndex];
+        if (!toc || !toc.length) return null;
+
+        const chapterId = chapterElement.id;
+        if (!chapterId) return null;
+
+        // Find matching TOC entry by anchor
+        const findTOCEntry = (items) => {
+            for (let item of items) {
+                if (item.anchor === chapterId) {
+                    return item.label;
+                }
+                // Check subitems recursively
+                if (item.subitems && item.subitems.length > 0) {
+                    const subResult = findTOCEntry(item.subitems);
+                    if (subResult) return subResult;
+                }
+            }
+            return null;
+        };
+
+        return findTOCEntry(toc);
+    },
+
+    /**
+     * Extract the best available chapter title from a chapter element
+     */
+    extractBestChapterTitle(chapterElement) {
+        // First, try to find actual chapter headings in the content
+        const chapterText = this.findChapterHeading(chapterElement);
+        if (chapterText) {
+            return chapterText;
+        }
+
+        // Try to get title from headings, but filter out Project Gutenberg titles
+        const headings = chapterElement.querySelectorAll('h1, h2, h3, h4, h5, h6');
+        for (let heading of headings) {
+            let title = heading.textContent
+                .replace(/\[[^\]]*\]/g, '') // Remove footnote references like [22]
+                .replace(/\s+/g, ' ')
+                .trim();
+
+            // Skip Project Gutenberg titles
+            if (title.includes('Project Gutenberg') || title.includes('eBook') || title.length > 100) {
+                continue;
+            }
+
+            if (title && title.length > 3 && title.length < 200) {
+                return title
+                    .replace(/:$/, '') // Remove trailing colon
+                    .replace(/\.$/, '') // Remove trailing dot
+                    .trim();
+            }
+        }
+
+        // Fallback to data-title, but clean it up
+        let dataTitle = chapterElement.getAttribute('data-title');
+        if (dataTitle) {
+            // Check if it's a Project Gutenberg section or filename fallback
+            if (dataTitle.startsWith('Section: ') && dataTitle.includes('.htm')) {
+                // This is a filename fallback, try to find something better
+                const alternativeTitle = this.findAlternativeTitle(chapterElement);
+                if (alternativeTitle) {
+                    return alternativeTitle;
+                }
+                // If no alternative found, at least clean up the section name
+                return dataTitle.replace('Section: ', '').replace(/[_\d\-\.htm]+/g, '').trim() || 'Unknown Chapter';
+            }
+
+            // Skip Project Gutenberg titles in data-title too
+            if (!dataTitle.includes('Project Gutenberg') && !dataTitle.includes('eBook')) {
+                dataTitle = dataTitle
+                    .replace(/\[[^\]]*\]/g, '') // Remove footnote references
+                    .replace(/:$/, '') // Remove trailing colon
+                    .replace(/\.$/, '') // Remove trailing dot
+                    .trim();
+
+                if (dataTitle.length > 0) {
+                    return dataTitle;
+                }
+            }
+        }
+
+        return 'Unknown Chapter';
+    },
+
+    /**
+     * Find chapter heading text in the content
+     */
+    findChapterHeading(chapterElement) {
+        // Look for chapter patterns in the text content
+        const textContent = chapterElement.textContent;
+
+        // Pattern 1: "CHAPTER I." or "CHAPTER 1." followed by title
+        const chapterMatch = textContent.match(/CHAPTER\s+[IVXLCDM\d]+\.?\s*([^\n\r.]*\.?)/i);
+        if (chapterMatch) {
+            let fullTitle = chapterMatch[0].trim();
+            // Clean up the title
+            fullTitle = fullTitle
+                .replace(/\[[^\]]*\]/g, '') // Remove footnote references
+                .replace(/\s+/g, ' ')
+                .trim();
+
+            if (fullTitle.length > 5 && fullTitle.length < 200) {
+                return fullTitle;
+            }
+        }
+
+        // Pattern 2: Look for any bold or emphasized text that contains "CHAPTER"
+        const strongElements = chapterElement.querySelectorAll('strong, b, em, i');
+        for (let element of strongElements) {
+            const text = element.textContent.trim();
+            if (text.match(/CHAPTER\s+[IVXLCDM\d]+/i) && text.length > 5 && text.length < 200) {
+                return text
+                    .replace(/\[[^\]]*\]/g, '')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+            }
+        }
+
+        // Pattern 3: Look in paragraph text at the beginning of the chapter
+        const paragraphs = chapterElement.querySelectorAll('p');
+        for (let i = 0; i < Math.min(3, paragraphs.length); i++) {
+            const pText = paragraphs[i].textContent;
+            const match = pText.match(/CHAPTER\s+[IVXLCDM\d]+\.?\s*([^\n\r.]*\.?)/i);
+            if (match) {
+                let title = match[0].trim();
+                title = title
+                    .replace(/\[[^\]]*\]/g, '')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+
+                if (title.length > 5 && title.length < 200) {
+                    return title;
+                }
+            }
+        }
+
+        return null;
+    },
+
+    /**
+     * Find alternative title by looking at content structure
+     */
+    findAlternativeTitle(chapterElement) {
+        // Look for any bold or emphasized text that might be a chapter title
+        const strongElements = chapterElement.querySelectorAll('strong, b, em, i');
+        for (let element of strongElements) {
+            const text = element.textContent.trim();
+            if (text.match(/^CHAPTER\s+[IVXLCDM\d]+/i) || text.length > 10) {
+                return text
+                    .replace(/\[[^\]]*\]/g, '')
+                    .replace(/:$/, '')
+                    .replace(/\.$/, '')
+                    .trim();
+            }
+        }
+
+        // Look for any text that looks like a chapter heading
+        const textContent = chapterElement.textContent;
+        const chapterMatch = textContent.match(/CHAPTER\s+[IVXLCDM\d]+[^.]*\.?/i);
+        if (chapterMatch) {
+            return chapterMatch[0]
+                .replace(/\[[^\]]*\]/g, '')
+                .replace(/:$/, '')
+                .replace(/\.$/, '')
+                .trim();
+        }
+
+        return null;
+    },
+
+    /**
+     * Format bookmark display text
+     */
+    formatBookmarkDisplay(bookTitle, chapterTitle, positionPercent) {
+        // Format like "Volume 1, 62% in Chapter XIII"
+        return `${bookTitle}, ${positionPercent}% in ${chapterTitle}`;
+    },
+
+    /**
+     * Navigate to bookmark
+     */
+    navigateToBookmark(bookmark) {
+        console.log('🎯 Navigating to bookmark:', bookmark.displayText);
+
+        // Switch book if necessary
+        if (bookmark.bookIndex !== State.currentBookIndex) {
+            State.currentBookIndex = bookmark.bookIndex;
+            Elements.bookSelector.value = bookmark.bookIndex;
+            UIManager.displayCurrentBook();
+        }
+
+        // Navigate to saved position
+        requestAnimationFrame(() => {
+            window.scrollTo({
+                top: bookmark.scrollPosition,
+                behavior: 'smooth'
+            });
+        });
+
+        ModalManager.close('bookmarks');
+    },
+
+    /**
+     * Remove bookmark
+     */
+    removeBookmark(bookmarkId) {
+        Object.keys(State.bookmarks).forEach(bookIndex => {
+            State.bookmarks[bookIndex] = State.bookmarks[bookIndex].filter(
+                bookmark => bookmark.id !== bookmarkId
+            );
+        });
+
+        this.saveToStorage();
+        this.renderBookmarks();
+        console.log('🗑️ Removed bookmark:', bookmarkId);
+    },
+
+    /**
+     * Save bookmarks to localStorage
+     */
+    saveToStorage() {
+        try {
+            localStorage.setItem('epub-bookmarks', JSON.stringify(State.bookmarks));
+        } catch (error) {
+            console.error('Failed to save bookmarks:', error);
+        }
+    },
+
+    /**
+     * Load bookmarks from localStorage
+     */
+    loadFromStorage() {
+        try {
+            const saved = localStorage.getItem('epub-bookmarks');
+            State.bookmarks = saved ? JSON.parse(saved) : {};
+        } catch (error) {
+            console.error('Failed to load bookmarks:', error);
+            State.bookmarks = {};
+        }
+    },
+
+    /**
+     * Render bookmarks in modal
+     */
+    renderBookmarks() {
+        // Update tab title for current book
+        const currentBookTitle = Utils.getBookTitle(CONFIG.EPUB_FILES[State.currentBookIndex]);
+        Elements.currentBookTab.textContent = currentBookTitle;
+
+        const container = Elements.bookmarksContent;
+        container.innerHTML = '';
+
+        if (this.activeTab === 'current') {
+            this.renderCurrentBookBookmarks(container);
+        } else {
+            this.renderOtherBooksBookmarks(container);
+        }
+    },
+
+    /**
+     * Render bookmarks for current book
+     */
+    renderCurrentBookBookmarks(container) {
+        const currentBookmarks = State.bookmarks[State.currentBookIndex];
+
+        if (!currentBookmarks || currentBookmarks.length === 0) {
+            container.innerHTML = '<div class="no-bookmarks">No bookmarks in current book yet.</div>';
+            return;
+        }
+
+        const bookmarksList = document.createElement('div');
+        bookmarksList.className = 'bookmarks-list';
+
+        currentBookmarks.forEach(bookmark => {
+            const item = this.createBookmarkItem(bookmark);
+            bookmarksList.appendChild(item);
+        });
+
+        container.appendChild(bookmarksList);
+    },
+
+    /**
+     * Render bookmarks for other books
+     */
+    renderOtherBooksBookmarks(container) {
+        const currentBookIndex = State.currentBookIndex;
+        const otherBooksWithBookmarks = Object.keys(State.bookmarks)
+            .filter(bookIndex =>
+                parseInt(bookIndex) !== currentBookIndex &&
+                State.bookmarks[bookIndex] &&
+                State.bookmarks[bookIndex].length > 0
+            )
+            .sort((a, b) => parseInt(a) - parseInt(b)); // Sort by book index
+
+        if (otherBooksWithBookmarks.length === 0) {
+            container.innerHTML = '<div class="no-bookmarks">No bookmarks in other volumes yet.</div>';
+            return;
+        }
+
+        // Create a single list for all bookmarks from other books
+        const bookmarksList = document.createElement('div');
+        bookmarksList.className = 'bookmarks-list';
+
+        // Collect all bookmarks from other books and sort by book order
+        otherBooksWithBookmarks.forEach(bookIndex => {
+            const bookmarks = State.bookmarks[bookIndex];
+            bookmarks.forEach(bookmark => {
+                const item = this.createBookmarkItem(bookmark);
+                bookmarksList.appendChild(item);
+            });
+        });
+
+        container.appendChild(bookmarksList);
+    },
+
+    /**
+     * Create bookmark item element
+     */
+    createBookmarkItem(bookmark) {
+        const item = document.createElement('div');
+        item.className = 'bookmark-item';
+
+        const date = new Date(bookmark.timestamp);
+        const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+
+        item.innerHTML = `
+            <div class="bookmark-info" title="Go to bookmark">
+                <div class="bookmark-chapter">${bookmark.displayText}</div>
+                <div class="bookmark-meta">${formattedDate}</div>
+            </div>
+            <div class="bookmark-actions">
+                <button class="bookmark-action-btn" data-action="remove" data-id="${bookmark.id}"
+                        aria-label="Remove bookmark" title="Remove bookmark">
+                    <span class="material-icons">delete</span>
+                </button>
+            </div>
+        `;
+
+        // Add event listeners
+        item.querySelector('.bookmark-info').addEventListener('click', () => {
+            this.navigateToBookmark(bookmark);
+        });
+
+        item.querySelector('[data-action="remove"]').addEventListener('click', () => {
+            this.removeBookmark(bookmark.id);
+        });
+
+        return item;
+    },
+
+    /**
+     * Generate unique ID for bookmark
+     */
+    generateId() {
+        return 'bookmark_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+};
+
 // ===== EPUB MANAGER =====
 const EPUBManager = {
     /**
      * Load all EPUB files
      */
     async loadAll() {
-        console.log('Loading EPUB files with custom EPUB3 reader...');
-
         for (let i = 0; i < CONFIG.EPUB_FILES.length; i++) {
             const fileName = CONFIG.EPUB_FILES[i];
-            console.log(`📚 Loading ${i + 1}/${CONFIG.EPUB_FILES.length}: ${fileName}`);
 
             try {
                 await this.loadSingle(fileName, i);
-                console.log(`✓ Loaded: ${fileName}`);
             } catch (error) {
-                console.error(`✗ Failed: ${fileName}`, error);
+                console.error(`Failed to load EPUB: ${fileName}`, error);
                 // Add placeholder for failed book
                 State.epubBooks[i] = null;
                 State.bookContents[i] = `<div class="error-content">
@@ -301,7 +1260,6 @@ const EPUBManager = {
             }
         }
 
-        console.log(`🎉 All EPUBs loaded: ${State.epubBooks.filter(book => book).length}/${CONFIG.EPUB_FILES.length} books`);
     },
 
     /**
@@ -315,15 +1273,11 @@ const EPUBManager = {
         }
 
         const arrayBuffer = await response.arrayBuffer();
-        console.log(`EPUB file size: ${arrayBuffer.byteLength} bytes`);
-
         // Load EPUB with JSZip
         const zip = await JSZip.loadAsync(arrayBuffer);
-        console.log(`EPUB archive loaded with ${Object.keys(zip.files).length} files`);
 
         // Parse EPUB structure
         const epubData = await this.parseEPUB(zip);
-        console.log(`EPUB parsed: version ${epubData.version}, ${epubData.spine.length} spine items`);
 
         // Extract content and get filtered spine
         const { content, filteredSpine } = await this.extractContentFromZip(zip, epubData);
@@ -346,7 +1300,6 @@ const EPUBManager = {
         const containerDoc = new DOMParser().parseFromString(containerXML, 'application/xml');
         const opfPath = containerDoc.querySelector('rootfile').getAttribute('full-path');
 
-        console.log(`OPF file path: ${opfPath}`);
 
         // Read OPF file
         const opfXML = await zip.file(opfPath).async('text');
@@ -412,7 +1365,6 @@ const EPUBManager = {
         const filteredSpine = [];
         const basePath = epubData.opfPath.replace(/[^/]*$/, ''); // Get directory path
 
-        console.log(`Extracting content from ${epubData.spine.length} spine items`);
 
         for (let i = 0; i < epubData.spine.length; i++) {
             const spineItem = epubData.spine[i];
@@ -424,7 +1376,6 @@ const EPUBManager = {
                 // Get file from ZIP
                 const file = zip.file(filePath);
                 if (!file) {
-                    console.warn(`File not found in ZIP: ${filePath}`);
                     chapters.push(`<p><em>Chapter ${i + 1}: File not found</em></p>`);
                     continue;
                 }
@@ -478,7 +1429,6 @@ const EPUBManager = {
 
                     // Skip sections marked for removal
                     if (chapterTitle === '__SKIP_SECTION__') {
-                        console.log(`🗑️ Skipping section: ${spineItem.href}`);
                         continue; // Skip this iteration entirely
                     }
 
@@ -499,13 +1449,11 @@ const EPUBManager = {
                 }
 
             } catch (error) {
-                console.error(`Error processing chapter ${i + 1}:`, error);
                 chapters.push(`<p><em>Chapter ${i + 1}: Error loading - ${error.message}</em></p>`);
             }
         }
 
         const fullContent = chapters.join('\n<div class="chapter-separator"></div>\n');
-        console.log(`📖 Extracted ${chapters.length} chapters (${filteredSpine.length} after filtering), ${fullContent.length} chars total`);
         return { content: fullContent, filteredSpine };
     },
 
@@ -550,7 +1498,6 @@ const EPUBManager = {
         });
 
         if (linkCount > 0) {
-            console.log(`🔗 Fixed ${linkCount} internal links`);
         }
 
         return html;
@@ -605,10 +1552,8 @@ const EPUBManager = {
         const pgSections = this.detectProjectGutenbergSection(html, href);
         if (pgSections) {
             if (pgSections === '__SKIP_SECTION__') {
-                console.log(`🗑️ Skipping empty section: ${href}`);
                 return pgSections;
             }
-            console.log(`📖 Detected PG section: "${pgSections}" from ${href}`);
             return pgSections;
         }
 
@@ -644,7 +1589,6 @@ const EPUBManager = {
                         .replace(/\s*\.\s*$/, '.') // Ensure single dot at end
                         .replace(/([A-Z])\s+([A-Z])/g, '$1 $2'); // Fix spacing
 
-                    console.log(`📖 Extracted title: "${title}" from ${href}`);
                     return title;
                 }
             }
@@ -652,7 +1596,6 @@ const EPUBManager = {
 
         // Last resort: use filename but make it more readable
         const fileName = href.split('/').pop().replace(/\.(x?html?)$/, '');
-        console.log(`⚠️ Using filename fallback for ${href}: ${fileName}`);
         return `Section: ${fileName}`;
     },
 
@@ -676,7 +1619,6 @@ const EPUBManager = {
             };
         });
 
-        console.log(`Generated TOC with ${toc.length} items (filtered: ${!!filteredSpine})`);
         return toc;
     },
 
@@ -687,7 +1629,6 @@ const EPUBManager = {
         const toc = State.bookTOCs[State.currentBookIndex];
         if (!toc) return;
 
-        console.log('🔄 Updating TOC with extracted chapter titles...');
 
         // Find all chapter content divs and extract titles from actual content
         document.querySelectorAll('.chapter-content').forEach((chapterDiv, index) => {
@@ -697,11 +1638,9 @@ const EPUBManager = {
             const pgSection = this.detectProjectGutenbergSection(chapterDiv.innerHTML, '');
             if (pgSection) {
                 if (pgSection === '__SKIP_SECTION__') {
-                    console.log(`🗑️ Skipping section in TOC update: ${index}`);
                     return; // Skip this section in TOC
                 }
                 title = pgSection;
-                console.log(`📖 Detected PG section for chapter ${index}: "${title}"`);
             } else {
                 // Try to extract title from the actual rendered content
                 const heading = chapterDiv.querySelector('h1, h2, h3, h4, h5, h6');
@@ -719,11 +1658,9 @@ const EPUBManager = {
                         title = title.substring(0, 80) + '...';
                     }
 
-                    console.log(`📖 Found title for chapter ${index}: "${title}"`);
                 } else {
                     // Fallback to data-title attribute
                     title = chapterDiv.getAttribute('data-title');
-                    console.log(`📖 Using data-title for chapter ${index}: "${title}"`);
                 }
             }
 
@@ -732,7 +1669,6 @@ const EPUBManager = {
             }
         });
 
-        console.log('✅ TOC titles updated');
     },
 
     /**
@@ -749,7 +1685,6 @@ const EPUBManager = {
             const tocFile = zip.file(tocPath);
 
             if (!tocFile) {
-                console.warn(`TOC file not found: ${tocPath}`);
                 return this.extractTOCFromManifest(epubData);
             }
 
@@ -768,7 +1703,6 @@ const EPUBManager = {
 
             return this.extractTOCFromManifest(epubData);
         } catch (error) {
-            console.warn('Failed to parse detailed TOC:', error);
             return this.extractTOCFromManifest(epubData);
         }
     },
@@ -825,13 +1759,11 @@ const LexiconManager = {
      */
     async load() {
         try {
-            console.log('Loading lexicon...');
             const response = await fetch(CONFIG.LEXICON_FILE);
             if (response.ok) {
                 State.lexicon = await response.json();
-                console.log(`✓ Loaded lexicon with ${Object.keys(State.lexicon).length} entries`);
             } else {
-                console.warn('Lexicon file not found');
+                // Lexicon file not found
             }
         } catch (error) {
             console.error('Failed to load lexicon:', error);
@@ -941,10 +1873,6 @@ const UIManager = {
      * Display current book content
      */
     displayCurrentBook() {
-        console.log(`Displaying book ${State.currentBookIndex}`);
-        console.log(`Available books: ${State.bookContents.length}`);
-        console.log(`Book contents lengths:`, State.bookContents.map(c => c ? c.length : 'null'));
-
         const content = State.bookContents[State.currentBookIndex];
 
         if (!content) {
@@ -953,14 +1881,6 @@ const UIManager = {
             return;
         }
 
-        console.log(`Content length: ${content.length}`);
-
-        // Pre-display DOM state
-        console.log('🔍 BEFORE Display:');
-        console.log('  Loading indicator hidden:', Elements.loadingIndicator?.hidden);
-        console.log('  Loading indicator display:', window.getComputedStyle(Elements.loadingIndicator).display);
-        console.log('  Book content hidden:', Elements.bookContent?.hidden);
-        console.log('  Book content display:', window.getComputedStyle(Elements.bookContent).display);
 
         ErrorHandler.clearError();
         Utils.hide(Elements.loadingIndicator);
@@ -978,23 +1898,6 @@ const UIManager = {
 
         // Update TOC with extracted chapter titles
         EPUBManager.updateTOCWithTitles();
-
-        // Post-display DOM state
-        console.log('🔍 AFTER Display:');
-        console.log('  Loading indicator hidden:', Elements.loadingIndicator?.hidden);
-        console.log('  Loading indicator display:', window.getComputedStyle(Elements.loadingIndicator).display);
-        console.log('  Book content hidden:', Elements.bookContent?.hidden);
-        console.log('  Book content display:', window.getComputedStyle(Elements.bookContent).display);
-        console.log('  Book content innerHTML length:', Elements.bookContent.innerHTML.length);
-        console.log('  Book content first 100 chars:', Elements.bookContent.innerHTML.substring(0, 100));
-
-        console.log('📋 Element References:');
-        console.log('  loadingIndicator exists:', !!Elements.loadingIndicator);
-        console.log('  bookContent exists:', !!Elements.bookContent);
-        console.log('  loadingIndicator ID:', Elements.loadingIndicator?.id);
-        console.log('  bookContent ID:', Elements.bookContent?.id);
-
-        console.log('✅ Book content display process completed');
     },
 
     /**
@@ -1025,6 +1928,9 @@ const UIManager = {
 
                 a.addEventListener('click', (e) => {
                     e.preventDefault();
+
+                    // Auto-save bookmark for current position before TOC navigation
+                    BookmarkManager.addBookmark();
 
                     // Use the anchor from our TOC item
                     const targetId = item.anchor || `chapter_${item.href.replace(/[^a-zA-Z0-9]/g, '_')}`;
@@ -1112,6 +2018,12 @@ const ModalManager = {
         // Generate content for specific modals
         if (modalName === 'toc') {
             UIManager.generateTOC();
+        } else if (modalName === 'bookmarks') {
+            // Default to current book tab when opening bookmarks
+            BookmarkManager.activeTab = 'current';
+            Elements.currentBookTab.classList.add('active');
+            Elements.otherBooksTab.classList.remove('active');
+            BookmarkManager.renderBookmarks();
         }
     },
 
@@ -1153,7 +2065,25 @@ const EventHandlers = {
         Elements.themeBtn.addEventListener('click', this.onThemeToggle.bind(this));
         Elements.settingsBtn.addEventListener('click', () => ModalManager.open('settings'));
         Elements.tocBtn.addEventListener('click', () => ModalManager.open('toc'));
+        Elements.searchBtn.addEventListener('click', () => SearchManager.togglePanel());
+        Elements.bookmarksBtn.addEventListener('click', () => ModalManager.open('bookmarks'));
         Elements.helpBtn.addEventListener('click', () => ModalManager.open('help'));
+
+        // Search panel controls
+        Elements.searchInput.addEventListener('input', Utils.debounce((e) => {
+            SearchManager.performSearch(e.target.value);
+        }, 300));
+        Elements.searchInput.addEventListener('keydown', this.onSearchKeydown.bind(this));
+        Elements.searchClear.addEventListener('click', () => SearchManager.clearSearch());
+        Elements.searchClose.addEventListener('click', () => SearchManager.closePanel(true));
+        Elements.searchBack.addEventListener('click', () => SearchManager.returnToOriginal());
+        Elements.searchPrev.addEventListener('click', () => SearchManager.navigatePrevious());
+        Elements.searchNext.addEventListener('click', () => SearchManager.navigateNext());
+
+        // Bookmark controls
+        Elements.addBookmarkBtn.addEventListener('click', () => BookmarkManager.addBookmark());
+        Elements.currentBookTab.addEventListener('click', () => BookmarkManager.switchTab('current'));
+        Elements.otherBooksTab.addEventListener('click', () => BookmarkManager.switchTab('other'));
 
         // Settings controls
         Elements.fontFamilySelect.addEventListener('change', this.onFontFamilyChange.bind(this));
@@ -1203,7 +2133,11 @@ const EventHandlers = {
 
         // Save current reading position before switching books
         SettingsManager.savePosition();
-        console.log(`💾 Saved position for book ${State.currentBookIndex} before switching`);
+
+        // Auto-save bookmark for current position
+        BookmarkManager.addBookmark();
+
+        console.log(`💾 Saved position and bookmark for book ${State.currentBookIndex} before switching`);
 
         State.currentBookIndex = newIndex;
         SettingsManager.save(CONFIG.STORAGE_KEYS.CURRENT_BOOK, newIndex);
@@ -1273,11 +2207,54 @@ const EventHandlers = {
     },
 
     /**
+     * Handle search input keyboard shortcuts
+     */
+    onSearchKeydown(e) {
+        switch (e.key) {
+            case 'Escape':
+                SearchManager.closePanel(true);
+                break;
+            case 'ArrowUp':
+                e.preventDefault();
+                SearchManager.navigatePrevious();
+                break;
+            case 'ArrowDown':
+                e.preventDefault();
+                SearchManager.navigateNext();
+                break;
+            case 'Enter':
+                e.preventDefault();
+                if (State.search.results.length > 0) {
+                    if (State.search.currentIndex < 0) {
+                        SearchManager.navigateToResult(0);
+                    }
+                }
+                break;
+        }
+    },
+
+    /**
      * Handle global keyboard shortcuts
      */
     onGlobalKeydown(e) {
         if (e.key === 'Escape') {
-            ModalManager.closeAll();
+            if (State.search.isOpen) {
+                SearchManager.closePanel(true);
+            } else {
+                ModalManager.closeAll();
+            }
+        }
+
+        // Ctrl+F to open search
+        if (e.ctrlKey && e.key === 'f') {
+            e.preventDefault();
+            SearchManager.openPanel();
+        }
+
+        // Ctrl+B to open bookmarks
+        if (e.ctrlKey && e.key === 'b') {
+            e.preventDefault();
+            ModalManager.open('bookmarks');
         }
     }
 };
@@ -1293,6 +2270,8 @@ const App = {
         Elements.themeBtn = document.getElementById('theme-btn');
         Elements.settingsBtn = document.getElementById('settings-btn');
         Elements.tocBtn = document.getElementById('toc-btn');
+        Elements.searchBtn = document.getElementById('search-btn');
+        Elements.bookmarksBtn = document.getElementById('bookmarks-btn');
         Elements.helpBtn = document.getElementById('help-btn');
 
         // Content areas
@@ -1301,16 +2280,31 @@ const App = {
         Elements.errorMessage = document.getElementById('error-message');
         Elements.errorText = document.getElementById('error-text');
 
+        // Search panel
+        Elements.searchPanel = document.getElementById('search-panel');
+        Elements.searchInput = document.getElementById('search-input');
+        Elements.searchResults = document.getElementById('search-results');
+        Elements.searchBack = document.getElementById('search-back');
+        Elements.searchPrev = document.getElementById('search-prev');
+        Elements.searchNext = document.getElementById('search-next');
+        Elements.searchClear = document.getElementById('search-clear');
+        Elements.searchClose = document.getElementById('search-close');
+
         // Modals
         Elements.tocModal = document.getElementById('toc-modal');
         Elements.settingsModal = document.getElementById('settings-modal');
         Elements.helpModal = document.getElementById('help-modal');
         Elements.lexiconModal = document.getElementById('lexicon-modal');
+        Elements.bookmarksModal = document.getElementById('bookmarks-modal');
 
         // Modal content
         Elements.tocContent = document.getElementById('toc-content');
         Elements.helpContent = document.getElementById('help-content');
         Elements.lexiconContent = document.getElementById('lexicon-content');
+        Elements.bookmarksContent = document.getElementById('bookmarks-content');
+        Elements.addBookmarkBtn = document.getElementById('add-bookmark-btn');
+        Elements.currentBookTab = document.getElementById('current-book-tab');
+        Elements.otherBooksTab = document.getElementById('other-books-tab');
 
         // Settings controls
         Elements.fontFamilySelect = document.getElementById('font-family');
@@ -1326,7 +2320,6 @@ const App = {
      */
     async init() {
         try {
-            console.log('Initializing Yoga Vasishtha EPUB Reader...');
 
             // Initialize DOM elements
             this.initElements();
@@ -1339,6 +2332,9 @@ const App = {
             UIManager.initBookSelector();
             UIManager.initHelp();
             UIManager.showLoading();
+
+            // Initialize managers
+            BookmarkManager.init();
 
             // Load external data
             await Promise.all([
@@ -1358,7 +2354,6 @@ const App = {
             State.isInitialized = true;
             State.isLoading = false;
 
-            console.log('✓ Application initialized successfully');
 
         } catch (error) {
             ErrorHandler.handle(error, 'Initialization');
@@ -1387,9 +2382,8 @@ const App = {
                         behavior: 'smooth'
                     });
 
-                    console.log(`🎯 Scrolled to anchor: #${targetId}`);
                 } else {
-                    console.warn(`❌ Anchor not found: #${targetId}`);
+                    console.error(`Anchor not found: #${targetId}`);
                 }
             }
         });
