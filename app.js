@@ -40,16 +40,43 @@ const CONFIG = {
 - **Customizable reading**: Adjust fonts, sizes, and themes
 - **Reading progress**: Automatically saved position per book
 
-## Usage
-- Use the dropdown to switch between books
-- Click the book icon to view table of contents
-- Click on Sanskrit words to see definitions
-- Use settings to customize your reading experience
-- Toggle between light and dark themes
-
 ## Keyboard Shortcuts
 - **Escape**: Close any open modal
-- **Tab**: Navigate through interface elements`
+- **Tab**: Navigate through interface elements
+
+## Search
+
+The search functionality supports regex patterns with automatic fallback to literal search. Regex Test Examples:
+
+  1. Basic Pattern Matching
+
+  **\\bword\\b**        - Find exact word boundaries <br>
+  **chapter.*content**  - "chapter" followed by "content" <br>
+  **^Beginning**        - Lines starting with "Beginning" <br>
+  **ending$**           - Lines ending with "ending" <br>
+
+  2. Character Classes & Quantifiers
+
+  **\\d+**             - One or more digits <br>
+  **[Vv]asishtha**     - "Vasishtha" or "vasishtha" <br>
+  **\\w{5,10}**        - Words 5-10 characters long <br>
+  **colou?r**          - "color" or "colour" <br>
+
+  3. Advanced Patterns
+
+  **(yoga|meditation)** - Either "yoga" OR "meditation" <br>
+  **Chapter\\s+[IVX]+** - "Chapter" + Roman numerals <br>
+  **\\b[A-Z]{2,}\\b**   - All-caps words (2+ letters) <br>
+  **(?i)brahma**        - Case-insensitive "brahma" <br>
+
+  4. Content-Specific Examples
+
+  **\\bVol\.\\s*\\d+**    - Volume references (Vol. 1, Vol.2) <br>
+  **\\bBook\\s+[IVX]+**   - Book with Roman numerals <br>
+  **[Ss]elf.*[Rr]eali**   - "Self" to "realization" variations <br>
+  **\\bChapter\\s+\\w+**  - Chapter followed by any word <br>
+
+Each pattern searches across all books simultaneously, showing results with context and allowing navigation to exact locations in the text.`
 };
 
 // ===== APPLICATION STATE =====
