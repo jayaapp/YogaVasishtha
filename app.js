@@ -253,9 +253,10 @@ const SettingsManager = {
      * Save reading position
      */
     savePosition() {
-        const scrollTop = Elements.bookContent.scrollTop;
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
         const key = CONFIG.STORAGE_KEYS.READING_POSITION + State.currentBookIndex;
         localStorage.setItem(key, scrollTop.toString());
+        console.log(`💾 Saved scroll position ${scrollTop} for book ${State.currentBookIndex}`);
     },
 
     /**
@@ -265,7 +266,9 @@ const SettingsManager = {
         const key = CONFIG.STORAGE_KEYS.READING_POSITION + State.currentBookIndex;
         const savedPosition = localStorage.getItem(key);
         if (savedPosition) {
-            Elements.bookContent.scrollTop = parseInt(savedPosition, 10);
+            const position = parseInt(savedPosition, 10);
+            window.scrollTo({ top: position, behavior: 'auto' });
+            console.log(`📖 Restored scroll position ${position} for book ${State.currentBookIndex}`);
         }
     }
 };
@@ -966,7 +969,12 @@ const UIManager = {
         LexiconManager.processContent(Elements.bookContent);
 
         Utils.show(Elements.bookContent);
-        SettingsManager.restorePosition();
+
+        // Restore position after DOM has had time to render
+        requestAnimationFrame(() => {
+            SettingsManager.restorePosition();
+            console.log(`📖 Restored position for book ${State.currentBookIndex}`);
+        });
 
         // Update TOC with extracted chapter titles
         EPUBManager.updateTOCWithTitles();
@@ -1177,8 +1185,8 @@ const EventHandlers = {
         document.addEventListener('click', this.onSanskritWordClick.bind(this));
         document.addEventListener('keydown', this.onSanskritWordKeydown.bind(this));
 
-        // Reading position saving
-        Elements.bookContent.addEventListener('scroll',
+        // Reading position saving - listen to window scroll events
+        window.addEventListener('scroll',
             Utils.debounce(SettingsManager.savePosition.bind(SettingsManager), 500)
         );
 
@@ -1192,6 +1200,10 @@ const EventHandlers = {
     async onBookChange(e) {
         const newIndex = parseInt(e.target.value, 10);
         if (newIndex === State.currentBookIndex) return;
+
+        // Save current reading position before switching books
+        SettingsManager.savePosition();
+        console.log(`💾 Saved position for book ${State.currentBookIndex} before switching`);
 
         State.currentBookIndex = newIndex;
         SettingsManager.save(CONFIG.STORAGE_KEYS.CURRENT_BOOK, newIndex);
