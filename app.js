@@ -2052,8 +2052,6 @@ const UIManager = {
      * Generate and display table of contents
      */
     generateTOC() {
-        console.log('📖 generateTOC called for book index:', State.currentBookIndex);
-
         const toc = State.bookTOCs[State.currentBookIndex];
 
         if (!toc || toc.length === 0) {
@@ -2062,19 +2060,12 @@ const UIManager = {
         }
 
         // Special handling for V3P2 - extract and render the existing TOC table
-        console.log('🔍 Checking for V3P2 special handling...');
         if (this.isV3P2Book()) {
-            console.log('✅ V3P2 detected, extracting table...');
             const tocTableHTML = this.extractV3P2TOCTable();
             if (tocTableHTML) {
-                console.log('✅ V3P2 TOC table extracted, rendering...');
                 Elements.tocContent.innerHTML = tocTableHTML;
                 return;
-            } else {
-                console.log('❌ V3P2 TOC table extraction failed, falling back to normal TOC');
             }
-        } else {
-            console.log('❌ Not V3P2, using normal TOC');
         }
 
         const createTOCList = (items) => {
@@ -2147,16 +2138,7 @@ const UIManager = {
         const title = currentBook?.metadata?.title || '';
 
         // Check for Vol. 3, Part 2 pattern
-        const isV3P2 = title.includes('Vol. 3') && title.includes('Part 2');
-
-        console.log('🔍 Checking if V3P2:', {
-            currentBookIndex: State.currentBookIndex,
-            hasCurrentBook: !!currentBook,
-            title: title,
-            isV3P2: isV3P2
-        });
-
-        return isV3P2;
+        return title.includes('Vol. 3') && title.includes('Part 2');
     },
 
     /**
@@ -2165,27 +2147,11 @@ const UIManager = {
     extractV3P2TOCTable() {
         // Get the current book content
         const content = State.bookContents[State.currentBookIndex];
-        console.log('🔍 Extracting V3P2 TOC table:', {
-            hasContent: !!content,
-            contentLength: content?.length
-        });
-
-        if (!content) {
-            console.log('❌ No content available');
-            return null;
-        }
+        if (!content) return null;
 
         // Find the TOC table
         const tocTableMatch = content.match(/<table[^>]*data-summary="toc"[^>]*>[\s\S]*?<\/table>/i);
-        console.log('🔍 TOC table search result:', {
-            found: !!tocTableMatch,
-            matchLength: tocTableMatch?.[0]?.length
-        });
-
-        if (!tocTableMatch) {
-            console.log('❌ No TOC table found with data-summary="toc"');
-            return null;
-        }
+        if (!tocTableMatch) return null;
 
         // Parse the table and extract chapter data
         const tableHTML = tocTableMatch[0];
@@ -2216,8 +2182,6 @@ const UIManager = {
                 }
             }
         }
-
-        console.log(`📖 Extracted ${chapters.length} chapters from V3P2 TOC`);
 
         // Generate TOC list HTML in the same style as original
         const tocListHTML = chapters.map(chapter => {
@@ -2255,10 +2219,6 @@ const UIManager = {
                 top: offsetPosition,
                 behavior: 'smooth'
             });
-
-            console.log(`🧭 Navigated to V3P2 chapter: ${anchor}`);
-        } else {
-            console.log(`❌ Chapter anchor not found: ${anchor}`);
         }
     },
 
