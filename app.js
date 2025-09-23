@@ -2052,11 +2052,29 @@ const UIManager = {
      * Generate and display table of contents
      */
     generateTOC() {
+        console.log('📖 generateTOC called for book index:', State.currentBookIndex);
+
         const toc = State.bookTOCs[State.currentBookIndex];
 
         if (!toc || toc.length === 0) {
             Elements.tocContent.innerHTML = '<p>No table of contents available for this book.</p>';
             return;
+        }
+
+        // Special handling for V3P2 - extract and render the existing TOC table
+        console.log('🔍 Checking for V3P2 special handling...');
+        if (this.isV3P2Book()) {
+            console.log('✅ V3P2 detected, extracting table...');
+            const tocTableHTML = this.extractV3P2TOCTable();
+            if (tocTableHTML) {
+                console.log('✅ V3P2 TOC table extracted, rendering...');
+                Elements.tocContent.innerHTML = tocTableHTML;
+                return;
+            } else {
+                console.log('❌ V3P2 TOC table extraction failed, falling back to normal TOC');
+            }
+        } else {
+            console.log('❌ Not V3P2, using normal TOC');
         }
 
         const createTOCList = (items) => {
@@ -2119,6 +2137,129 @@ const UIManager = {
 
         Elements.tocContent.innerHTML = '';
         Elements.tocContent.appendChild(createTOCList(toc));
+    },
+
+    /**
+     * Check if current book is V3P2
+     */
+    isV3P2Book() {
+        const currentBook = State.epubBooks[State.currentBookIndex];
+        const title = currentBook?.metadata?.title || '';
+
+        // Check for Vol. 3, Part 2 pattern
+        const isV3P2 = title.includes('Vol. 3') && title.includes('Part 2');
+
+        console.log('🔍 Checking if V3P2:', {
+            currentBookIndex: State.currentBookIndex,
+            hasCurrentBook: !!currentBook,
+            title: title,
+            isV3P2: isV3P2
+        });
+
+        return isV3P2;
+    },
+
+    /**
+     * Extract and process V3P2's TOC table for display
+     */
+    extractV3P2TOCTable() {
+        // Get the current book content
+        const content = State.bookContents[State.currentBookIndex];
+        console.log('🔍 Extracting V3P2 TOC table:', {
+            hasContent: !!content,
+            contentLength: content?.length
+        });
+
+        if (!content) {
+            console.log('❌ No content available');
+            return null;
+        }
+
+        // Find the TOC table
+        const tocTableMatch = content.match(/<table[^>]*data-summary="toc"[^>]*>[\s\S]*?<\/table>/i);
+        console.log('🔍 TOC table search result:', {
+            found: !!tocTableMatch,
+            matchLength: tocTableMatch?.[0]?.length
+        });
+
+        if (!tocTableMatch) {
+            console.log('❌ No TOC table found with data-summary="toc"');
+            return null;
+        }
+
+        // Parse the table and extract chapter data
+        const tableHTML = tocTableMatch[0];
+        const chapters = [];
+
+        // Extract chapter links and descriptions
+        const rows = tableHTML.match(/<tr[^>]*>[\s\S]*?<\/tr>/gi) || [];
+
+        let currentChapter = null;
+
+        for (let row of rows) {
+            // Check for chapter link
+            const chapterMatch = row.match(/<a[^>]*href="[^"]*#([^"]*)"[^>]*>(CHAPTER[^<]*)<\/a>/i);
+            if (chapterMatch) {
+                currentChapter = {
+                    anchor: chapterMatch[1],
+                    title: chapterMatch[2].trim().replace(/\.$/, ''),
+                    description: ''
+                };
+            }
+            // Check for description in next row
+            else if (currentChapter && row.includes('class="tdl"')) {
+                const descMatch = row.match(/<td[^>]*class="tdl"[^>]*>([^<]*)<\/td>/i);
+                if (descMatch) {
+                    currentChapter.description = descMatch[1].trim();
+                    chapters.push(currentChapter);
+                    currentChapter = null;
+                }
+            }
+        }
+
+        console.log(`📖 Extracted ${chapters.length} chapters from V3P2 TOC`);
+
+        // Generate TOC list HTML in the same style as original
+        const tocListHTML = chapters.map(chapter => {
+            const fullTitle = chapter.description ?
+                `${chapter.title}. ${chapter.description}` :
+                chapter.title;
+
+            return `
+                <li class="toc-item">
+                    <a class="toc-link" href="#" onclick="UIManager.navigateToV3P2Chapter('${chapter.anchor}'); ModalManager.close('toc'); return false;" role="button">
+                        ${fullTitle}
+                    </a>
+                </li>
+            `;
+        }).join('');
+
+        return `<ul class="toc-list">${tocListHTML}</ul>`;
+    },
+
+    /**
+     * Navigate to a specific chapter in V3P2
+     */
+    navigateToV3P2Chapter(anchor) {
+        // Auto-save bookmark before navigation
+        BookmarkManager.addBookmark();
+
+        // Navigate to the anchor
+        const targetElement = document.getElementById(anchor);
+        if (targetElement) {
+            const headerOffset = 80;
+            const elementPosition = targetElement.offsetTop;
+            const offsetPosition = elementPosition - headerOffset;
+
+            window.scrollTo({
+                top: offsetPosition,
+                behavior: 'smooth'
+            });
+
+            console.log(`🧭 Navigated to V3P2 chapter: ${anchor}`);
+        } else {
+            console.log(`❌ Chapter anchor not found: ${anchor}`);
+        }
     },
 
     // navigateToSection removed - using direct anchor navigation now
