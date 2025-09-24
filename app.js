@@ -26,6 +26,7 @@ const CONFIG = {
         READING_POSITION: 'epub-position-'
     },
     DEVANAGARI_REGEX: /[\u0900-\u097F]+/g,
+    SANSKRIT_PATTERN_REGEX: /\[Sanskrit:\s*([^\]]+)\]/g,
     DEFAULTS: {
         THEME: 'light',
         FONT_FAMILY: 'Georgia, serif',
@@ -87,6 +88,8 @@ const State = {
     bookContents: [],
     bookTOCs: [],
     lexicon: {},
+    iastLexicon: {},
+    iastKeySet: new Set(), // For fast O(1) lookup
     search: {
         isOpen: false,
         query: '',
@@ -1931,14 +1934,30 @@ const LexiconManager = {
      */
     async load() {
         try {
-            const response = await fetch(CONFIG.LEXICON_FILE_DEVA);
-            if (response.ok) {
-                State.lexicon = await response.json();
+            // Load Devanagari lexicon
+            const devaResponse = await fetch(CONFIG.LEXICON_FILE_DEVA);
+            if (devaResponse.ok) {
+                State.lexicon = await devaResponse.json();
             } else {
-                // Lexicon file not found
+                console.warn('Devanagari lexicon file not found');
             }
         } catch (error) {
-            console.error('Failed to load lexicon:', error);
+            console.error('Failed to load Devanagari lexicon:', error);
+        }
+
+        try {
+            // Load IAST lexicon
+            const iastResponse = await fetch(CONFIG.LEXICON_FILE_IAST);
+            if (iastResponse.ok) {
+                State.iastLexicon = await iastResponse.json();
+                // Create fast lookup set for IAST keys
+                State.iastKeySet = new Set(Object.keys(State.iastLexicon));
+                console.log(`📚 Loaded ${State.iastKeySet.size} IAST lexicon entries`);
+            } else {
+                console.warn('IAST lexicon file not found');
+            }
+        } catch (error) {
+            console.error('Failed to load IAST lexicon:', error);
         }
     },
 
@@ -1968,14 +1987,89 @@ const LexiconManager = {
 
         textNodes.forEach(textNode => {
             const text = textNode.textContent;
-            if (!CONFIG.DEVANAGARI_REGEX.test(text)) return;
+            const matches = [];
 
+            // Find all Devanagari matches that exist in lexicon
+            CONFIG.DEVANAGARI_REGEX.lastIndex = 0;
+            let match;
+            while ((match = CONFIG.DEVANAGARI_REGEX.exec(text)) !== null) {
+                if (State.lexicon[match[0]]) {
+                    matches.push({
+                        index: match.index,
+                        length: match[0].length,
+                        text: match[0],
+                        type: 'devanagari'
+                    });
+                }
+            }
+
+            // Find all [Sanskrit: ...] patterns and process words within them
+            CONFIG.SANSKRIT_PATTERN_REGEX.lastIndex = 0;
+            while ((match = CONFIG.SANSKRIT_PATTERN_REGEX.exec(text)) !== null) {
+                const patternStart = match.index;
+                const patternEnd = match.index + match[0].length;
+                const sanskritContent = match[1]; // Content inside [Sanskrit: ...]
+
+                // Skip if this pattern overlaps with any Devanagari match
+                const patternOverlaps = matches.some(existing =>
+                    patternStart < existing.index + existing.length &&
+                    patternEnd > existing.index
+                );
+
+                if (patternOverlaps) continue;
+
+                // Extract individual words from the Sanskrit pattern content
+                const words = sanskritContent
+                    .split(/[,;]/) // Split on comma or semicolon
+                    .map(word => word.trim())
+                    .filter(word => word.length > 0)
+                    .map(word => word.replace(/\s+and\s+/g, ', ')) // Handle "and" between words
+                    .flatMap(word => word.split(/,\s*/)) // Split on remaining commas
+                    .map(word => word.trim())
+                    .filter(word => word.length > 0)
+                    .filter(word => !word.includes('|')) // Filter out long passages with |
+                    .filter(word => word.length < 100) // Filter out very long entries
+                    .flatMap(phrase => {
+                        // Split each phrase into individual words
+                        return phrase.split(/\s+/)
+                            .map(w => w.trim())
+                            .filter(w => w.length > 0)
+                            .filter(w => w.length > 1) // At least 2 characters
+                            .filter(w => !/^[.,:;!?()[\]{}]$/.test(w)); // Filter out punctuation
+                    });
+
+                // For each word, check if it exists in IAST lexicon and find its position in the pattern
+                words.forEach(word => {
+                    if (State.iastKeySet.has(word)) {
+                        // Find the word's position within the Sanskrit pattern content
+                        const wordIndex = sanskritContent.indexOf(word);
+                        if (wordIndex !== -1) {
+                            const absoluteIndex = patternStart + '[Sanskrit: '.length + wordIndex;
+
+                            matches.push({
+                                index: absoluteIndex,
+                                length: word.length,
+                                text: word,
+                                type: 'iast',
+                                patternStart: patternStart,
+                                patternEnd: patternEnd
+                            });
+                        }
+                    }
+                });
+            }
+
+            // If no matches found, skip processing
+            if (matches.length === 0) return;
+
+            // Sort matches by index
+            matches.sort((a, b) => a.index - b.index);
+
+            // Build fragment with clickable words
             const fragment = document.createDocumentFragment();
             let lastIndex = 0;
-            let match;
 
-            CONFIG.DEVANAGARI_REGEX.lastIndex = 0; // Reset regex
-            while ((match = CONFIG.DEVANAGARI_REGEX.exec(text)) !== null) {
+            matches.forEach(match => {
                 // Add text before match
                 if (match.index > lastIndex) {
                     fragment.appendChild(
@@ -1986,15 +2080,16 @@ const LexiconManager = {
                 // Create clickable Sanskrit word
                 const span = document.createElement('span');
                 span.className = 'sanskrit-word';
-                span.textContent = match[0];
-                span.setAttribute('data-word', match[0]);
+                span.textContent = match.text;
+                span.setAttribute('data-word', match.text);
+                span.setAttribute('data-type', match.type);
                 span.setAttribute('role', 'button');
                 span.setAttribute('tabindex', '0');
-                span.setAttribute('aria-label', `Sanskrit word: ${match[0]}`);
+                span.setAttribute('aria-label', `Sanskrit word: ${match.text}`);
                 fragment.appendChild(span);
 
-                lastIndex = match.index + match[0].length;
-            }
+                lastIndex = match.index + match.length;
+            });
 
             // Add remaining text
             if (lastIndex < text.length) {
@@ -2013,13 +2108,30 @@ const LexiconManager = {
      * Show lexicon entry for word
      */
     showEntry(word) {
-        const entry = State.lexicon[word];
+        let entry = null;
+        let lexiconType = '';
+
+        // First check Devanagari lexicon
+        if (State.lexicon[word]) {
+            entry = State.lexicon[word];
+            lexiconType = 'Devanagari';
+        }
+        // Then check IAST lexicon
+        else if (State.iastLexicon[word]) {
+            entry = State.iastLexicon[word];
+            lexiconType = 'IAST';
+        }
+
         const content = entry
             ? new showdown.Converter().makeHtml(entry)
-            : `<h2>${word}</h2><p>Definition not found in lexicon.</p>`;
+            : `<h2>${word}</h2><p>Definition not found in lexicon.</p><p><em>Searched in both Devanagari and IAST lexicons.</em></p>`;
 
         Elements.lexiconContent.innerHTML = Utils.createSafeHTML(content);
         ModalManager.open('lexicon');
+
+        if (entry) {
+            console.log(`📖 Displayed ${lexiconType} lexicon entry for: ${word}`);
+        }
     }
 };
 

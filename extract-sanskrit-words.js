@@ -38,7 +38,7 @@ function extractSanskritWords() {
             console.log(`Extracted ${newDevanagariWords.length} unique Devanagari words.`);
         }
 
-        // Extract romanized Sanskrit words from [Sanskrit: ...] patterns
+        // Extract romanized Sanskrit words ONLY from [Sanskrit: ...] patterns
         const sanskritPatternRegex = /\[Sanskrit:\s*([^\]]+)\]/g;
         const romanizedMatches = [];
         let match;
@@ -65,18 +65,6 @@ function extractSanskritWords() {
 
             romanizedMatches.push(...words);
         }
-
-        // Also extract standalone IAST words with diacritical marks
-        const iastRegex = /\b[a-zA-Z]*[āīūṛṝḷḹēōṃḥṅñṭḍṇśṣ][a-zA-Z]*\b/g;
-        const iastMatches = content.match(iastRegex) || [];
-
-        // Filter IAST words to get reasonable Sanskrit terms
-        const filteredIAST = iastMatches
-            .filter(word => word.length > 2) // At least 3 characters
-            .filter(word => word.length < 50) // Not too long
-            .filter(word => !/^[A-Z]/.test(word) || word.length > 5); // Skip short capitalized words (likely names)
-
-        romanizedMatches.push(...filteredIAST);
 
         // Get unique romanized words that aren't already in the existing IAST list
         const newIASTWords = [...new Set(romanizedMatches)]

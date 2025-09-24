@@ -983,3 +983,135 @@ Analysis snippet: # यश्चतु
 **Meanings**:
 - Literal: who and...
 ================================================================================
+
+[2025-09-24T11:54:24.443Z] UNMATCHED WORD
+Transliteration: śe-ṣam
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # शेषम्
+**Transliteration**: śe-ṣam
+**POS**: noun (neuter, nominative/accusative singular)
+
+**Root Analysis**:
+- √śiṣ (śiṣ) – "to leave, remain" + -a (a) – nominal suffix = "that which remains; the re...
+================================================================================
+
+[2025-09-24T11:54:24.446Z] UNMATCHED WORD
+Transliteration: sūkṣ-ma
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # सूक्ष्म
+**Transliteration**: sūkṣ-ma
+**POS**: adjective (masculine, nominative singular)
+
+**Root Analysis**:
+- √sūkṣ (sūkṣ) – "to be subtle, minute" + -ma (ma) – adjectival suffix = "subtle, fine, m...
+================================================================================
+
+[2025-09-24T11:54:24.448Z] UNMATCHED WORD
+Transliteration: ūr-dhva
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # ऊर्ध्व
+**Transliteration**: ūr-dhva
+**POS**: adjective/adverb (masculine, nominative singular)
+
+**Root Analysis**:
+- √ūrdh (ūrdh) – "to rise, go upward" + -va (va) – adjectival suffix = "upward-movi...
+================================================================================
+
+[2025-09-24T11:54:24.449Z] UNMATCHED WORD
+Transliteration: vi-ha
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # विह
+**Transliteration**: vi-ha
+**POS**: root/verbal element
+
+**Root Analysis**:
+- √hā (hā) – "to leave, abandon" + vi (vi) – prefix meaning "apart, away" = "to leave completely; to abandon; to forsa...
+================================================================================
+
+[2025-09-24T11:54:40.654Z] UNMATCHED WORD
+Transliteration: śe-ṣam
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # शेषम्
+**Transliteration**: śe-ṣam
+**POS**: noun (neuter, nominative/accusative singular)
+
+**Root Analysis**:
+- √śiṣ (śiṣ) – "to leave, remain" + -a (a) – nominal suffix = "that which remains; the re...
+================================================================================
+
+[2025-09-24T11:54:40.657Z] UNMATCHED WORD
+Transliteration: sūkṣ-ma
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # सूक्ष्म
+**Transliteration**: sūkṣ-ma
+**POS**: adjective (masculine, nominative singular)
+
+**Root Analysis**:
+- √sūkṣ (sūkṣ) – "to be subtle, minute" + -ma (ma) – adjectival suffix = "subtle, fine, m...
+================================================================================
+
+[2025-09-24T11:54:40.658Z] UNMATCHED WORD
+Transliteration: ūr-dhva
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # ऊर्ध्व
+**Transliteration**: ūr-dhva
+**POS**: adjective/adverb (masculine, nominative singular)
+
+**Root Analysis**:
+- √ūrdh (ūrdh) – "to rise, go upward" + -va (va) – adjectival suffix = "upward-movi...
+================================================================================
+
+[2025-09-24T11:54:40.659Z] UNMATCHED WORD
+Transliteration: vi-ha
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # विह
+**Transliteration**: vi-ha
+**POS**: root/verbal element
+
+**Root Analysis**:
+- √hā (hā) – "to leave, abandon" + vi (vi) – prefix meaning "apart, away" = "to leave completely; to abandon; to forsa...
+================================================================================
+
+[2025-09-24T11:55:15.634Z] UNMATCHED WORD
+Transliteration: śe-ṣam
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # शेषम्
+**Transliteration**: śe-ṣam
+**POS**: noun (neuter, nominative/accusative singular)
+
+**Root Analysis**:
+- √śiṣ (śiṣ) – "to leave, remain" + -a (a) – nominal suffix = "that which remains; the re...
+================================================================================
+
+[2025-09-24T11:55:15.637Z] UNMATCHED WORD
+Transliteration: sūkṣ-ma
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # सूक्ष्म
+**Transliteration**: sūkṣ-ma
+**POS**: adjective (masculine, nominative singular)
+
+**Root Analysis**:
+- √sūkṣ (sūkṣ) – "to be subtle, minute" + -ma (ma) – adjectival suffix = "subtle, fine, m...
+================================================================================
+
+[2025-09-24T11:55:15.638Z] UNMATCHED WORD
+Transliteration: ūr-dhva
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # ऊर्ध्व
+**Transliteration**: ūr-dhva
+**POS**: adjective/adverb (masculine, nominative singular)
+
+**Root Analysis**:
+- √ūrdh (ūrdh) – "to rise, go upward" + -va (va) – adjectival suffix = "upward-movi...
+================================================================================
+
+[2025-09-24T11:55:15.640Z] UNMATCHED WORD
+Transliteration: vi-ha
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # विह
+**Transliteration**: vi-ha
+**POS**: root/verbal element
+
+**Root Analysis**:
+- √hā (hā) – "to leave, abandon" + vi (vi) – prefix meaning "apart, away" = "to leave completely; to abandon; to forsa...
+================================================================================
