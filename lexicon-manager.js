@@ -298,8 +298,15 @@ function importBatchResults(inputFile, LEXICON_FILE, WORDS_FILE) {
 
             // Check if word already exists in lexicon
             if (lexicon[word]) {
-                console.log(`Skipped (already exists): ${word}`);
-                skippedCount++;
+                // In refine mode, overwrite existing entries; otherwise skip
+                if (args.includes('-r') || args.includes('--refine')) {
+                    lexicon[word] = trimmed;
+                    importCount++;
+                    console.log(`Refined (overwritten): ${word}`);
+                } else {
+                    console.log(`Skipped (already exists): ${word}`);
+                    skippedCount++;
+                }
             } else {
                 lexicon[word] = trimmed;
                 importCount++;
@@ -424,10 +431,9 @@ function refineNextEntry(mode) {
     console.log(`1. Analyze the word "${nextKey}" using the above format`);
     console.log(`2. Create a comprehensive, detailed analysis (like the hridaya example)`);
     console.log(`3. Save your analysis to '${tempFileName}'`);
-    console.log(`4. Include the word delimiter: ${DELIMITER.trim()}`);
-    console.log(`5. Run: node lexicon-manager.js ${import_switch} ${tempFileName} -r`);
-    console.log(`6. The entry will be updated and temp file auto-deleted`);
-    console.log(`7. Run: node lexicon-manager.js -m ${mode} -r  # to continue with next word`);
+    console.log(`4. Run: node lexicon-manager.js ${import_switch} ${tempFileName} -r`);
+    console.log(`5. The entry will be updated and temp file auto-deleted`);
+    console.log(`6. Run: node lexicon-manager.js -m ${mode} -r  # to continue with next word`);
 
     console.log(`\n💡 TIP: Focus on enriching the Metaphysics section with detailed information!`);
 }
@@ -470,21 +476,20 @@ if (importFileIndex !== -1) {
     importBatchResults(inputFile, LEXICON_FILE_DEVA, WORDS_FILE_DEVA);
 
     if (isRefineMode) {
-        // Find the actual word key by checking which entry was just updated in the lexicon
-        const lexicon = loadLexicon(LEXICON_FILE_DEVA);
+        // Extract the word key by looking at the transliteration line and using fuzzy matching
         const tempContent = fs.readFileSync(inputFile, 'utf8');
+        const transliterationMatch = tempContent.match(/\*\*Transliteration\*\*:\s*([^\n]+)/);
 
-        // Find the word key by matching the beginning of the analysis content
-        let matchedKey = null;
-        for (const [key, entry] of Object.entries(lexicon)) {
-            if (entry.trim().startsWith(tempContent.split('---')[0].trim().substring(0, 100))) {
-                matchedKey = key;
-                break;
+        if (transliterationMatch) {
+            const transliteration = transliterationMatch[1].trim();
+
+            // Use the same fuzzy matching logic as the import
+            const sourceWords = loadWords(WORDS_FILE_DEVA);
+            const matchResult = findBestSourceMatch(transliteration, sourceWords);
+
+            if (matchResult) {
+                updateRefineState('deva', matchResult.match);
             }
-        }
-
-        if (matchedKey) {
-            updateRefineState('deva', matchedKey);
         }
 
         // Auto-delete temp file
@@ -510,21 +515,20 @@ if (importFileIndex !== -1) {
     importBatchResults(inputFile, LEXICON_FILE_IAST, WORDS_FILE_IAST);
 
     if (isRefineMode) {
-        // Find the actual word key by checking which entry was just updated in the lexicon
-        const lexicon = loadLexicon(LEXICON_FILE_IAST);
+        // Extract the word key by looking at the transliteration line and using fuzzy matching
         const tempContent = fs.readFileSync(inputFile, 'utf8');
+        const transliterationMatch = tempContent.match(/\*\*Transliteration\*\*:\s*([^\n]+)/);
 
-        // Find the word key by matching the beginning of the analysis content
-        let matchedKey = null;
-        for (const [key, entry] of Object.entries(lexicon)) {
-            if (entry.trim().startsWith(tempContent.split('---')[0].trim().substring(0, 100))) {
-                matchedKey = key;
-                break;
+        if (transliterationMatch) {
+            const transliteration = transliterationMatch[1].trim();
+
+            // Use the same fuzzy matching logic as the import
+            const sourceWords = loadWords(WORDS_FILE_IAST);
+            const matchResult = findBestSourceMatch(transliteration, sourceWords);
+
+            if (matchResult) {
+                updateRefineState('iast', matchResult.match);
             }
-        }
-
-        if (matchedKey) {
-            updateRefineState('iast', matchedKey);
         }
 
         // Auto-delete temp file
