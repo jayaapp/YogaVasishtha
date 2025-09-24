@@ -3,27 +3,117 @@ const fs = require('fs');
 function extractSanskritWords() {
     try {
         const inputFile = 'Yoga-Vasishtha.txt';
-        const outputFile = 'Yoga-Vasishtha-Sanskrit-Words.txt';
+        const devanagariOutputFile = 'Yoga-Vasishtha-Devanagari-Words.txt';
+        const iastOutputFile = 'Yoga-Vasishtha-IAST-Words.txt';
 
         const content = fs.readFileSync(inputFile, 'utf8');
 
-        const devanagariRange = /[\u0900-\u097F]+/g;
-        const matches = content.match(devanagariRange);
-
-        if (!matches) {
-            console.log('No Sanskrit Devanagari words found in the file.');
-            return;
+        // Load existing Devanagari words from the file to preserve them
+        let existingDevanagariWords = [];
+        try {
+            const existingContent = fs.readFileSync(devanagariOutputFile, 'utf8');
+            existingDevanagariWords = existingContent.split('\n').filter(word => word.trim().length > 0);
+            console.log(`Found ${existingDevanagariWords.length} existing Devanagari words in the file.`);
+        } catch (error) {
+            console.log('No existing Sanskrit words file found, will create new one.');
         }
 
-        const uniqueWords = [...new Set(matches)];
-        uniqueWords.sort();
+        // Load existing IAST words from the file to preserve them
+        let existingIASTWords = [];
+        try {
+            const existingIASTContent = fs.readFileSync(iastOutputFile, 'utf8');
+            existingIASTWords = existingIASTContent.split('\n').filter(word => word.trim().length > 0);
+            console.log(`Found ${existingIASTWords.length} existing IAST words in the file.`);
+        } catch (error) {
+            console.log('No existing IAST words file found, will create new one.');
+        }
 
-        const output = uniqueWords.join('\n');
+        // Extract Devanagari script words (only if file doesn't exist)
+        let newDevanagariWords = [];
+        if (existingDevanagariWords.length === 0) {
+            const devanagariRange = /[\u0900-\u097F]+/g;
+            const devanagariMatches = content.match(devanagariRange) || [];
+            newDevanagariWords = [...new Set(devanagariMatches)];
+            newDevanagariWords.sort();
+            console.log(`Extracted ${newDevanagariWords.length} unique Devanagari words.`);
+        }
 
-        fs.writeFileSync(outputFile, output, 'utf8');
+        // Extract romanized Sanskrit words from [Sanskrit: ...] patterns
+        const sanskritPatternRegex = /\[Sanskrit:\s*([^\]]+)\]/g;
+        const romanizedMatches = [];
+        let match;
 
-        console.log(`Extracted ${uniqueWords.length} unique Sanskrit words to ${outputFile}`);
-        console.log(`Total matches found: ${matches.length}`);
+        while ((match = sanskritPatternRegex.exec(content)) !== null) {
+            const words = match[1]
+                .split(/[,;]/) // Split on comma or semicolon
+                .map(word => word.trim())
+                .filter(word => word.length > 0)
+                .map(word => word.replace(/\s+and\s+/g, ', ')) // Handle "and" between words
+                .flatMap(word => word.split(/,\s*/)) // Split on remaining commas
+                .map(word => word.trim())
+                .filter(word => word.length > 0)
+                .filter(word => !word.includes('|')) // Filter out long passages with |
+                .filter(word => word.length < 100) // Filter out very long entries
+                .flatMap(phrase => {
+                    // Split each phrase into individual words
+                    return phrase.split(/\s+/)
+                        .map(w => w.trim())
+                        .filter(w => w.length > 0)
+                        .filter(w => w.length > 1) // At least 2 characters for individual words
+                        .filter(w => !/^[.,:;!?()[\]{}]$/.test(w)); // Filter out pure punctuation
+                });
+
+            romanizedMatches.push(...words);
+        }
+
+        // Also extract standalone IAST words with diacritical marks
+        const iastRegex = /\b[a-zA-Z]*[āīūṛṝḷḹēōṃḥṅñṭḍṇśṣ][a-zA-Z]*\b/g;
+        const iastMatches = content.match(iastRegex) || [];
+
+        // Filter IAST words to get reasonable Sanskrit terms
+        const filteredIAST = iastMatches
+            .filter(word => word.length > 2) // At least 3 characters
+            .filter(word => word.length < 50) // Not too long
+            .filter(word => !/^[A-Z]/.test(word) || word.length > 5); // Skip short capitalized words (likely names)
+
+        romanizedMatches.push(...filteredIAST);
+
+        // Get unique romanized words that aren't already in the existing IAST list
+        const newIASTWords = [...new Set(romanizedMatches)]
+            .filter(word => !existingIASTWords.includes(word))
+            .sort();
+
+        // Prepare final word lists
+        const finalDevanagariWords = [...existingDevanagariWords, ...newDevanagariWords];
+        const finalIASTWords = [...existingIASTWords, ...newIASTWords];
+
+        // Write the Devanagari words to file
+        if (newDevanagariWords.length > 0 || existingDevanagariWords.length === 0) {
+            const devanagariOutput = finalDevanagariWords.join('\n');
+            fs.writeFileSync(devanagariOutputFile, devanagariOutput, 'utf8');
+        }
+
+        // Write the IAST words to separate file
+        const iastOutput = finalIASTWords.join('\n');
+        fs.writeFileSync(iastOutputFile, iastOutput, 'utf8');
+
+        console.log(`Results:`);
+        if (newDevanagariWords.length > 0) {
+            console.log(`- Added ${newDevanagariWords.length} Devanagari script words`);
+        }
+        console.log(`- Found ${romanizedMatches.length} total romanized matches`);
+        console.log(`- Added ${newIASTWords.length} new unique IAST words`);
+        console.log(`- Total Devanagari words: ${finalDevanagariWords.length}`);
+        console.log(`- Total IAST words: ${finalIASTWords.length}`);
+
+        // Show sample of newly found IAST words
+        if (newIASTWords.length > 0) {
+            console.log('\nSample new IAST Sanskrit words:');
+            console.log(newIASTWords.slice(0, 10).join(', '));
+            if (newIASTWords.length > 10) {
+                console.log(`... and ${newIASTWords.length - 10} more`);
+            }
+        }
 
     } catch (error) {
         console.error('Error processing file:', error.message);

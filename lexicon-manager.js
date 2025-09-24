@@ -2,9 +2,12 @@
 
 const fs = require('fs');
 const path = require('path');
+const { exit } = require('process');
 
-const WORDS_FILE = 'Yoga-Vasishtha-Sanskrit-Words.txt';
-const LEXICON_FILE = 'Yoga-Vasishtha-Lexicon.json';
+const WORDS_FILE_DEVA = 'Yoga-Vasishtha-Devanagari-Words.txt';
+const WORDS_FILE_IAST = 'Yoga-Vasishtha-IAST-Words.txt';
+const LEXICON_FILE_DEVA = 'Yoga-Vasishtha-Devanagari-Lexicon.json';
+const LEXICON_FILE_IAST = 'Yoga-Vasishtha-IAST-Lexicon.json';
 const PROMPT_FILE = 'lexicon-prompt.txt';
 const BATCH_OUTPUT_FILE = 'batch-output.txt';
 const DELIMITER = '\n--- WORD DELIMITER ---\n';
@@ -15,7 +18,9 @@ Usage: node lexicon-manager.js [options]
 
 Options:
   -b <number>    Batch size (default: 100)
-  -i <file>      Import batch analysis results from file
+  -i <file>      Import batch analysis results from file into Devanagari lexicon
+  -j <file>      Import batch analysis results from file into IAST lexicon
+  -m <mode>      Mode: 'deva' for Devanagari (default), 'iast' for IAST
   -h, --help     Show this help message
 
 Examples:
@@ -24,7 +29,7 @@ Examples:
 `);
 }
 
-function loadLexicon() {
+function loadLexicon(LEXICON_FILE) {
     if (fs.existsSync(LEXICON_FILE)) {
         try {
             const content = fs.readFileSync(LEXICON_FILE, 'utf8');
@@ -37,7 +42,7 @@ function loadLexicon() {
     return {};
 }
 
-function saveLexicon(lexicon) {
+function saveLexicon(lexicon, LEXICON_FILE) {
     try {
         fs.writeFileSync(LEXICON_FILE, JSON.stringify(lexicon, null, 2), 'utf8');
         console.log(`Lexicon saved to ${LEXICON_FILE}`);
@@ -46,7 +51,7 @@ function saveLexicon(lexicon) {
     }
 }
 
-function loadWords() {
+function loadWords(WORDS_FILE) {
     try {
         const content = fs.readFileSync(WORDS_FILE, 'utf8');
         return content.trim().split('\n').filter(word => word.trim());
@@ -56,9 +61,9 @@ function loadWords() {
     }
 }
 
-function getNextBatch(batchSize) {
-    const words = loadWords();
-    const lexicon = loadLexicon();
+function getNextBatch(batchSize, LEXICON_FILE, WORDS_FILE) {
+    const words = loadWords(WORDS_FILE);
+    const lexicon = loadLexicon(LEXICON_FILE);
 
     const processedWords = new Set(Object.keys(lexicon));
     const remainingWords = words.filter(word => !processedWords.has(word));
@@ -104,7 +109,7 @@ function getNextBatch(batchSize) {
     console.log(`5. Repeat until all words are processed`);
 }
 
-function importBatchResults(inputFile) {
+function importBatchResults(inputFile, LEXICON_FILE, WORDS_FILE) {
     if (!fs.existsSync(inputFile)) {
         console.error(`Error: File ${inputFile} not found!`);
         process.exit(1);
@@ -114,31 +119,58 @@ function importBatchResults(inputFile) {
         const content = fs.readFileSync(inputFile, 'utf8');
         const analyses = content.split(DELIMITER).filter(analysis => analysis.trim());
 
-        const lexicon = loadLexicon();
+        const lexicon = loadLexicon(LEXICON_FILE);
         let importCount = 0;
+
+        let skippedCount = 0;
 
         analyses.forEach(analysis => {
             const trimmed = analysis.trim();
             if (!trimmed) return;
 
-            // Extract word from the first line (# word format)
-            const lines = trimmed.split('\n');
-            const firstLine = lines[0];
-            if (firstLine.startsWith('# ')) {
-                const word = firstLine.substring(2).trim();
+            let word = null;
+
+            if (LEXICON_FILE === LEXICON_FILE_DEVA) {
+                // Extract word from the first line (# word format)
+                const lines = trimmed.split('\n');
+                const firstLine = lines[0];
+                if (firstLine.startsWith('# ')) {
+                    word = firstLine.substring(2).trim();
+                }
+            }
+            else { // IAST mode
+                // Extracy IAST Translitertion from the second line (IAST: word format)
+                const lines = trimmed.split('\n');
+                const secondLine = lines[1];
+                if (secondLine.startsWith('**Transliteration**: ')) {
+                    // Get the wrod and replace all syllable separating - with empty string
+                    word = secondLine.substring(21).trim().replace(/-/g, '');
+                }
+            }
+
+            // Check if word already exists in lexicon
+            if (lexicon[word]) {
+                console.log(`Skipped (already exists): ${word}`);
+                skippedCount++;
+            } else {
                 lexicon[word] = trimmed;
                 importCount++;
                 console.log(`Imported: ${word}`);
             }
         });
 
-        if (importCount > 0) {
-            saveLexicon(lexicon);
-            console.log(`\n✅ Successfully imported ${importCount} word analyses`);
+        if (importCount > 0 || skippedCount > 0) {
+            if (importCount > 0) {
+                saveLexicon(lexicon, LEXICON_FILE);
+            }
+            console.log(`\n✅ Import completed: ${importCount} new word analyses imported`);
+            if (skippedCount > 0) {
+                console.log(`⏭️  Skipped: ${skippedCount} words (already exist in lexicon)`);
+            }
             console.log(`Total words in lexicon: ${Object.keys(lexicon).length}`);
 
             // Show next batch info
-            const words = loadWords();
+            const words = loadWords(WORDS_FILE);
             const remaining = words.length - Object.keys(lexicon).length;
             if (remaining > 0) {
                 console.log(`\n📊 PROGRESS UPDATE`);
@@ -166,8 +198,8 @@ if (args.includes('-h') || args.includes('--help')) {
 }
 
 const batchSizeIndex = args.indexOf('-b');
-const importFileIndex = args.indexOf('-i');
 
+let importFileIndex = args.indexOf('-i');
 if (importFileIndex !== -1) {
     const inputFile = args[importFileIndex + 1];
     if (!inputFile) {
@@ -175,8 +207,38 @@ if (importFileIndex !== -1) {
         showUsage();
         process.exit(1);
     }
-    importBatchResults(inputFile);
+    importBatchResults(inputFile, LEXICON_FILE_DEVA, WORDS_FILE_DEVA);
+    process.exit(0);
+}
+
+importFileIndex = args.indexOf('-j');
+if (importFileIndex !== -1) {
+    const inputFile = args[importFileIndex + 1];
+    if (!inputFile) {
+        console.error('Error: Please specify a file after -j');
+        showUsage();
+        process.exit(1);
+    }
+    importBatchResults(inputFile, LEXICON_FILE_IAST, WORDS_FILE_IAST);
+    process.exit(0);
+}
+
+let batchMode = 'deva'; // default mode
+
+const batchModeIndex = args.indexOf('-m');
+if (batchModeIndex !== -1) {
+    batchMode = args[batchModeIndex + 1];
+    if (!batchMode || (batchMode !== 'deva' && batchMode !== 'iast')) {
+        console.error('Error: Please specify a valid batch mode after -m (deva or iast)');
+        showUsage();
+        process.exit(1);
+    }
+}
+
+const batchSize = batchSizeIndex !== -1 ? parseInt(args[batchSizeIndex + 1]) || 100 : 100;
+
+if (batchMode === 'deva') {
+    getNextBatch(batchSize, LEXICON_FILE_DEVA, WORDS_FILE_DEVA);
 } else {
-    const batchSize = batchSizeIndex !== -1 ? parseInt(args[batchSizeIndex + 1]) || 100 : 100;
-    getNextBatch(batchSize);
+    getNextBatch(batchSize, LEXICON_FILE_IAST, WORDS_FILE_IAST);
 }

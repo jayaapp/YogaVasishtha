@@ -15,7 +15,7 @@ const CONFIG = {
         "epub/Yoga-Vasishtha-V4-P1of2.epub",
         "epub/Yoga-Vasishtha-V4-P2of2.epub"
     ],
-    LEXICON_FILE: "Yoga-Vasishtha-Lexicon.json",
+    LEXICON_FILE: "Yoga-Vasishtha-Devanagari-Lexicon.json",
     STORAGE_KEYS: {
         THEME: 'epub-theme',
         FONT_FAMILY: 'epub-font-family',
