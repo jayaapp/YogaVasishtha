@@ -9,7 +9,6 @@ const WORDS_FILE_IAST = 'Yoga-Vasishtha-IAST-Words.txt';
 const LEXICON_FILE_DEVA = 'Yoga-Vasishtha-Devanagari-Lexicon.json';
 const LEXICON_FILE_IAST = 'Yoga-Vasishtha-IAST-Lexicon.json';
 const PROMPT_FILE = 'lexicon-prompt.txt';
-const BATCH_OUTPUT_FILE = 'batch-output.txt';
 const DELIMITER = '\n--- WORD DELIMITER ---\n';
 
 function showUsage() {
@@ -99,13 +98,17 @@ function getNextBatch(batchSize, LEXICON_FILE, WORDS_FILE) {
         return;
     }
 
+    const import_switch = LEXICON_FILE === LEXICON_FILE_DEVA ? '-i' : '-j';
+
+    const BATCH_OUTPUT_FILE = 'batch-output' + (LEXICON_FILE === LEXICON_FILE_DEVA ? '-deva.txt' : '-iast.txt');
+
     console.log(`\n🔄 WORKFLOW INSTRUCTIONS`);
     console.log(`========================`);
     console.log(`1. Apply the above analysis format to EACH word in the batch`);
     console.log(`2. Save all analyses to '${BATCH_OUTPUT_FILE}'`);
     console.log(`3. Use this delimiter between each word analysis:`);
     console.log(`   ${DELIMITER.trim()}`);
-    console.log(`4. Run: node lexicon-manager.js -i ${BATCH_OUTPUT_FILE}`);
+    console.log(`4. Run: node lexicon-manager.js ${import_switch} ${BATCH_OUTPUT_FILE}`);
     console.log(`5. Repeat until all words are processed`);
 }
 
