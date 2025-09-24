@@ -10,6 +10,7 @@ const LEXICON_FILE_DEVA = 'Yoga-Vasishtha-Devanagari-Lexicon.json';
 const LEXICON_FILE_IAST = 'Yoga-Vasishtha-IAST-Lexicon.json';
 const PROMPT_FILE = 'lexicon-prompt.txt';
 const ISSUES_FILE = 'IAST_Lexicon_Issues.txt';
+const REFINE_STATE_FILE = 'lexicon-manager-refine-state.json';
 const DELIMITER = '\n--- WORD DELIMITER ---\n';
 
 function showUsage() {
@@ -21,11 +22,14 @@ Options:
   -i <file>      Import batch analysis results from file into Devanagari lexicon
   -j <file>      Import batch analysis results from file into IAST lexicon
   -m <mode>      Mode: 'deva' for Devanagari (default), 'iast' for IAST
+  -r, --refine   Refine mode: pick next unrefined entry for detailed analysis
   -h, --help     Show this help message
 
 Examples:
   node lexicon-manager.js -b 50        # Get next 50 words to analyze
   node lexicon-manager.js -i batch-output.txt  # Import analysis results
+  node lexicon-manager.js -m iast -r   # Refine next IAST lexicon entry
+  node lexicon-manager.js -m deva -r   # Refine next Devanagari lexicon entry
 `);
 }
 
@@ -336,6 +340,113 @@ function importBatchResults(inputFile, LEXICON_FILE, WORDS_FILE) {
     }
 }
 
+// ===== REFINE MODE FUNCTIONS =====
+
+function loadRefineState() {
+    if (fs.existsSync(REFINE_STATE_FILE)) {
+        try {
+            const content = fs.readFileSync(REFINE_STATE_FILE, 'utf8');
+            return JSON.parse(content);
+        } catch (error) {
+            console.error('Error reading refine state file:', error.message);
+            return initializeRefineState();
+        }
+    }
+    return initializeRefineState();
+}
+
+function initializeRefineState() {
+    // Only initialize with keys that actually exist in each respective lexicon
+    const devaLexicon = loadLexicon(LEXICON_FILE_DEVA);
+    const iastLexicon = loadLexicon(LEXICON_FILE_IAST);
+
+    const state = {
+        devanagari: [], // Initialize empty - hridaya doesn't exist in Devanagari lexicon
+        iast: iastLexicon.hasOwnProperty('hridaya') ? ['hridaya'] : [] // Only add if it exists
+    };
+    saveRefineState(state);
+    return state;
+}
+
+function saveRefineState(state) {
+    try {
+        fs.writeFileSync(REFINE_STATE_FILE, JSON.stringify(state, null, 2), 'utf8');
+    } catch (error) {
+        console.error('Error saving refine state:', error.message);
+    }
+}
+
+function refineNextEntry(mode) {
+    const LEXICON_FILE = mode === 'deva' ? LEXICON_FILE_DEVA : LEXICON_FILE_IAST;
+    const lexicon = loadLexicon(LEXICON_FILE);
+    const refineState = loadRefineState();
+
+    const allKeys = Object.keys(lexicon);
+    const refinedKeys = new Set(refineState[mode === 'deva' ? 'devanagari' : 'iast'] || []);
+    const unrefinedKeys = allKeys.filter(key => !refinedKeys.has(key));
+
+    if (unrefinedKeys.length === 0) {
+        console.log(`🎉 All ${mode === 'deva' ? 'Devanagari' : 'IAST'} lexicon entries have been refined!`);
+        console.log(`Total refined entries: ${allKeys.length}`);
+        return;
+    }
+
+    const nextKey = unrefinedKeys[0];
+    const currentEntry = lexicon[nextKey];
+
+    console.log(`\n🔍 REFINING ${mode === 'deva' ? 'DEVANAGARI' : 'IAST'} LEXICON ENTRY`);
+    console.log(`===============================================`);
+    console.log(`Word: ${nextKey}`);
+    console.log(`Progress: ${refinedKeys.size}/${allKeys.length} refined (${((refinedKeys.size/allKeys.length)*100).toFixed(1)}%)`);
+    console.log(`Remaining: ${unrefinedKeys.length} entries`);
+
+    console.log(`\n📖 CURRENT ENTRY:`);
+    console.log(`================`);
+    console.log(currentEntry);
+
+    const tempFileName = `refine-temp-${mode}-${Date.now()}.txt`;
+
+    console.log(`\n📝 REFINEMENT INSTRUCTIONS`);
+    console.log(`==========================`);
+
+    if (fs.existsSync(PROMPT_FILE)) {
+        const prompt = fs.readFileSync(PROMPT_FILE, 'utf8');
+        console.log(prompt);
+    } else {
+        console.log('Error: lexicon-prompt.txt not found!');
+        return;
+    }
+
+    const import_switch = mode === 'deva' ? '-i' : '-j';
+
+    console.log(`\n🔄 REFINEMENT WORKFLOW`);
+    console.log(`======================`);
+    console.log(`1. Analyze the word "${nextKey}" using the above format`);
+    console.log(`2. Create a comprehensive, detailed analysis (like the hridaya example)`);
+    console.log(`3. Save your analysis to '${tempFileName}'`);
+    console.log(`4. Include the word delimiter: ${DELIMITER.trim()}`);
+    console.log(`5. Run: node lexicon-manager.js ${import_switch} ${tempFileName} -r`);
+    console.log(`6. The entry will be updated and temp file auto-deleted`);
+    console.log(`7. Run: node lexicon-manager.js -m ${mode} -r  # to continue with next word`);
+
+    console.log(`\n💡 TIP: Focus on enriching the Metaphysics section with detailed information!`);
+}
+
+function updateRefineState(mode, key) {
+    const refineState = loadRefineState();
+    const stateKey = mode === 'deva' ? 'devanagari' : 'iast';
+
+    if (!refineState[stateKey]) {
+        refineState[stateKey] = [];
+    }
+
+    if (!refineState[stateKey].includes(key)) {
+        refineState[stateKey].push(key);
+        saveRefineState(refineState);
+        console.log(`✅ Marked "${key}" as refined in ${mode} lexicon`);
+    }
+}
+
 // Parse command line arguments
 const args = process.argv.slice(2);
 
@@ -346,6 +457,8 @@ if (args.includes('-h') || args.includes('--help')) {
 
 const batchSizeIndex = args.indexOf('-b');
 
+const isRefineMode = args.includes('-r') || args.includes('--refine');
+
 let importFileIndex = args.indexOf('-i');
 if (importFileIndex !== -1) {
     const inputFile = args[importFileIndex + 1];
@@ -355,6 +468,34 @@ if (importFileIndex !== -1) {
         process.exit(1);
     }
     importBatchResults(inputFile, LEXICON_FILE_DEVA, WORDS_FILE_DEVA);
+
+    if (isRefineMode) {
+        // Find the actual word key by checking which entry was just updated in the lexicon
+        const lexicon = loadLexicon(LEXICON_FILE_DEVA);
+        const tempContent = fs.readFileSync(inputFile, 'utf8');
+
+        // Find the word key by matching the beginning of the analysis content
+        let matchedKey = null;
+        for (const [key, entry] of Object.entries(lexicon)) {
+            if (entry.trim().startsWith(tempContent.split('---')[0].trim().substring(0, 100))) {
+                matchedKey = key;
+                break;
+            }
+        }
+
+        if (matchedKey) {
+            updateRefineState('deva', matchedKey);
+        }
+
+        // Auto-delete temp file
+        try {
+            fs.unlinkSync(inputFile);
+            console.log(`🗑️  Auto-deleted temporary file: ${inputFile}`);
+        } catch (error) {
+            console.log(`⚠️  Could not delete temp file: ${inputFile}`);
+        }
+    }
+
     process.exit(0);
 }
 
@@ -367,6 +508,34 @@ if (importFileIndex !== -1) {
         process.exit(1);
     }
     importBatchResults(inputFile, LEXICON_FILE_IAST, WORDS_FILE_IAST);
+
+    if (isRefineMode) {
+        // Find the actual word key by checking which entry was just updated in the lexicon
+        const lexicon = loadLexicon(LEXICON_FILE_IAST);
+        const tempContent = fs.readFileSync(inputFile, 'utf8');
+
+        // Find the word key by matching the beginning of the analysis content
+        let matchedKey = null;
+        for (const [key, entry] of Object.entries(lexicon)) {
+            if (entry.trim().startsWith(tempContent.split('---')[0].trim().substring(0, 100))) {
+                matchedKey = key;
+                break;
+            }
+        }
+
+        if (matchedKey) {
+            updateRefineState('iast', matchedKey);
+        }
+
+        // Auto-delete temp file
+        try {
+            fs.unlinkSync(inputFile);
+            console.log(`🗑️  Auto-deleted temporary file: ${inputFile}`);
+        } catch (error) {
+            console.log(`⚠️  Could not delete temp file: ${inputFile}`);
+        }
+    }
+
     process.exit(0);
 }
 
@@ -380,6 +549,12 @@ if (batchModeIndex !== -1) {
         showUsage();
         process.exit(1);
     }
+}
+
+// Handle refine mode
+if (isRefineMode) {
+    refineNextEntry(batchMode);
+    process.exit(0);
 }
 
 const batchSize = batchSizeIndex !== -1 ? parseInt(args[batchSizeIndex + 1]) || 100 : 100;
