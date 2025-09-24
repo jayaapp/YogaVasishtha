@@ -15,7 +15,8 @@ const CONFIG = {
         "epub/Yoga-Vasishtha-V4-P1of2.epub",
         "epub/Yoga-Vasishtha-V4-P2of2.epub"
     ],
-    LEXICON_FILE: "Yoga-Vasishtha-Devanagari-Lexicon.json",
+    LEXICON_FILE_DEVA: "Yoga-Vasishtha-Devanagari-Lexicon.json",
+    LEXICON_FILE_IAST: "Yoga-Vasishtha-IAST-Lexicon.json",
     STORAGE_KEYS: {
         THEME: 'epub-theme',
         FONT_FAMILY: 'epub-font-family',
@@ -1930,7 +1931,7 @@ const LexiconManager = {
      */
     async load() {
         try {
-            const response = await fetch(CONFIG.LEXICON_FILE);
+            const response = await fetch(CONFIG.LEXICON_FILE_DEVA);
             if (response.ok) {
                 State.lexicon = await response.json();
             } else {

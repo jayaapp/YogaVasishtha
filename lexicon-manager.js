@@ -9,6 +9,7 @@ const WORDS_FILE_IAST = 'Yoga-Vasishtha-IAST-Words.txt';
 const LEXICON_FILE_DEVA = 'Yoga-Vasishtha-Devanagari-Lexicon.json';
 const LEXICON_FILE_IAST = 'Yoga-Vasishtha-IAST-Lexicon.json';
 const PROMPT_FILE = 'lexicon-prompt.txt';
+const ISSUES_FILE = 'IAST_Lexicon_Issues.txt';
 const DELIMITER = '\n--- WORD DELIMITER ---\n';
 
 function showUsage() {
@@ -58,6 +59,123 @@ function loadWords(WORDS_FILE) {
         console.error(`Error reading words file: ${error.message}`);
         process.exit(1);
     }
+}
+
+function logIssue(transliteration, reason, analysis) {
+    const timestamp = new Date().toISOString();
+    const issueEntry = `\n[${timestamp}] UNMATCHED WORD\n` +
+                      `Transliteration: ${transliteration}\n` +
+                      `Reason: ${reason}\n` +
+                      `Analysis snippet: ${analysis.substring(0, 200)}...\n` +
+                      `${'='.repeat(80)}\n`;
+
+    try {
+        fs.appendFileSync(ISSUES_FILE, issueEntry, 'utf8');
+    } catch (error) {
+        console.error(`Warning: Could not log issue to ${ISSUES_FILE}:`, error.message);
+    }
+}
+
+function createIastCharMap() {
+    return {
+        // Long vowels
+        'ā': 'á', 'ī': 'í', 'ū': 'ú',
+        // Nasals
+        'ṃ': 'm', 'ṅ': 'n', 'ñ': 'n', 'ṇ': 'n',
+        // Retroflexes
+        'ṭ': 't', 'ḍ': 'd', 'ṛ': 'r', 'ṝ': 'r', 'ḷ': 'l', 'ḹ': 'l',
+        // Sibilants
+        'ś': 'sh', 'ṣ': 'sh',
+        // Visarga
+        'ḥ': 'h',
+        // Other diacriticals that might appear
+        'ē': 'e', 'ō': 'o'
+    };
+}
+
+function normalizeForComparison(text, charMap) {
+    let normalized = text.toLowerCase();
+
+    // Apply character mapping
+    for (const [iast, source] of Object.entries(charMap)) {
+        normalized = normalized.replace(new RegExp(iast, 'g'), source);
+    }
+
+    // Remove common punctuation and separators
+    normalized = normalized.replace(/[-\s]/g, '');
+
+    return normalized;
+}
+
+function calculateEditDistance(str1, str2) {
+    const matrix = Array(str2.length + 1).fill().map(() => Array(str1.length + 1).fill(0));
+
+    // Initialize first row and column
+    for (let i = 0; i <= str1.length; i++) matrix[0][i] = i;
+    for (let j = 0; j <= str2.length; j++) matrix[j][0] = j;
+
+    // Fill the matrix
+    for (let j = 1; j <= str2.length; j++) {
+        for (let i = 1; i <= str1.length; i++) {
+            const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
+            matrix[j][i] = Math.min(
+                matrix[j - 1][i] + 1,      // deletion
+                matrix[j][i - 1] + 1,      // insertion
+                matrix[j - 1][i - 1] + cost // substitution
+            );
+        }
+    }
+
+    return matrix[str2.length][str1.length];
+}
+
+function calculateSimilarity(transliteration, sourceWord, charMap) {
+    const normalized1 = normalizeForComparison(transliteration, charMap);
+    const normalized2 = normalizeForComparison(sourceWord, charMap);
+
+    // Handle empty strings
+    if (!normalized1 || !normalized2) return 0;
+
+    // Calculate edit distance
+    const distance = calculateEditDistance(normalized1, normalized2);
+    const maxLength = Math.max(normalized1.length, normalized2.length);
+
+    // Convert to similarity score (0-1)
+    const similarity = 1 - (distance / maxLength);
+
+    // Apply length penalty for very different lengths
+    const lengthRatio = Math.min(normalized1.length, normalized2.length) /
+                       Math.max(normalized1.length, normalized2.length);
+    const lengthPenalty = lengthRatio < 0.5 ? 0.5 : 1;
+
+    return similarity * lengthPenalty;
+}
+
+function findBestSourceMatch(transliteration, sourceWords) {
+    const charMap = createIastCharMap();
+    const threshold = 0.8; // 80% similarity threshold
+
+    // Remove hyphens from transliteration for comparison
+    const cleanTransliteration = transliteration.replace(/-/g, '');
+
+    // Calculate similarity scores for all source words
+    const candidates = sourceWords.map(word => ({
+        word,
+        score: calculateSimilarity(cleanTransliteration, word, charMap)
+    }));
+
+    // Sort by score (highest first)
+    candidates.sort((a, b) => b.score - a.score);
+
+    // Return best match if above threshold
+    if (candidates.length > 0 && candidates[0].score >= threshold) {
+        return {
+            match: candidates[0].word,
+            score: candidates[0].score
+        };
+    }
+
+    return null;
 }
 
 function getNextBatch(batchSize, LEXICON_FILE, WORDS_FILE) {
@@ -123,15 +241,17 @@ function importBatchResults(inputFile, LEXICON_FILE, WORDS_FILE) {
         const analyses = content.split(DELIMITER).filter(analysis => analysis.trim());
 
         const lexicon = loadLexicon(LEXICON_FILE);
+        const sourceWords = LEXICON_FILE === LEXICON_FILE_IAST ? loadWords(WORDS_FILE) : null;
         let importCount = 0;
-
         let skippedCount = 0;
+        let omittedCount = 0;
 
         analyses.forEach(analysis => {
             const trimmed = analysis.trim();
             if (!trimmed) return;
 
             let word = null;
+            let transliteration = null;
 
             if (LEXICON_FILE === LEXICON_FILE_DEVA) {
                 // Extract word from the first line (# word format)
@@ -141,14 +261,35 @@ function importBatchResults(inputFile, LEXICON_FILE, WORDS_FILE) {
                     word = firstLine.substring(2).trim();
                 }
             }
-            else { // IAST mode
-                // Extracy IAST Translitertion from the second line (IAST: word format)
+            else { // IAST mode - use fuzzy matching
+                // Extract IAST transliteration from the second line
                 const lines = trimmed.split('\n');
                 const secondLine = lines[1];
                 if (secondLine.startsWith('**Transliteration**: ')) {
-                    // Get the wrod and replace all syllable separating - with empty string
-                    word = secondLine.substring(21).trim().replace(/-/g, '');
+                    transliteration = secondLine.substring(21).trim();
+
+                    // Use fuzzy matching to find best source word match
+                    const matchResult = findBestSourceMatch(transliteration, sourceWords);
+
+                    if (matchResult) {
+                        word = matchResult.match;
+                        if (matchResult.score < 0.95) {
+                            console.log(`Fuzzy matched: ${transliteration} → ${word} (${(matchResult.score * 100).toFixed(1)}%)`);
+                        }
+                    } else {
+                        // No good match found - omit and log
+                        const reason = `No source word found with >80% similarity to transliteration`;
+                        logIssue(transliteration, reason, trimmed);
+                        console.log(`Omitted (no match): ${transliteration}`);
+                        omittedCount++;
+                        return;
+                    }
                 }
+            }
+
+            if (!word) {
+                console.log(`Warning: Could not extract word from analysis`);
+                return;
             }
 
             // Check if word already exists in lexicon
@@ -162,13 +303,16 @@ function importBatchResults(inputFile, LEXICON_FILE, WORDS_FILE) {
             }
         });
 
-        if (importCount > 0 || skippedCount > 0) {
+        if (importCount > 0 || skippedCount > 0 || omittedCount > 0) {
             if (importCount > 0) {
                 saveLexicon(lexicon, LEXICON_FILE);
             }
             console.log(`\n✅ Import completed: ${importCount} new word analyses imported`);
             if (skippedCount > 0) {
                 console.log(`⏭️  Skipped: ${skippedCount} words (already exist in lexicon)`);
+            }
+            if (omittedCount > 0) {
+                console.log(`⚠️  Omitted: ${omittedCount} words (no source match found, logged to ${ISSUES_FILE})`);
             }
             console.log(`Total words in lexicon: ${Object.keys(lexicon).length}`);
 

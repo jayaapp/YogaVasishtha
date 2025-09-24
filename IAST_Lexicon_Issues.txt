@@ -1,0 +1,985 @@
+
+[2025-09-24T09:22:38.745Z] UNMATCHED WORD
+Transliteration: a-ṇī-yāṃs
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # अणीयांस्
+**Transliteration**: a-ṇī-yāṃs
+**POS**: adjective (comparative)
+
+**Root Analysis**:
+- aṇu "atom, minute" + -īyāṃs (comparative suffix) = "more minute, subtler"
+
+**Meanings**:
+- Literal: sub...
+================================================================================
+
+[2025-09-24T09:22:38.763Z] UNMATCHED WORD
+Transliteration: cit
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # चित्
+**Transliteration**: cit
+**POS**: noun (feminine)
+
+**Root Analysis**:
+- √cit (cit) "to perceive, be aware, think" = "consciousness, awareness"
+
+**Meanings**:
+- Literal: consciousness, awareness...
+================================================================================
+
+[2025-09-24T09:22:38.771Z] UNMATCHED WORD
+Transliteration: hṛ-da-ya-gran-thi
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # हृदयग्रन्थि
+**Transliteration**: hṛ-da-ya-gran-thi
+**POS**: compound noun (masculine)
+
+**Root Analysis**:
+- hṛdaya "heart" + granthi "knot" = "heart knot"
+
+**Meanings**:
+- Literal: heart knot, psych...
+================================================================================
+
+[2025-09-24T09:22:38.774Z] UNMATCHED WORD
+Transliteration: hṛ-da-yam
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # हृदयम्
+**Transliteration**: hṛ-da-yam
+**POS**: noun (neuter)
+
+**Root Analysis**:
+- √hṛd (hṛd) "heart" + -aya suffix = "heart, core, center"
+
+**Meanings**:
+- Literal: heart, core, center, essence
+- C...
+================================================================================
+
+[2025-09-24T09:22:38.775Z] UNMATCHED WORD
+Transliteration: a-pa-ṭha-nī-ya
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # अपठनीय
+**Transliteration**: a-pa-ṭha-nī-ya
+**POS**: adjective
+
+**Root Analysis**:
+- a- "not" + √paṭh (paṭh) "to read" + -anīya suffix = "unreadable, illegible"
+
+**Meanings**:
+- Literal: unreadable, ...
+================================================================================
+
+[2025-09-24T09:22:38.777Z] UNMATCHED WORD
+Transliteration: ja-la-dha-ra
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # जलधर
+**Transliteration**: ja-la-dha-ra
+**POS**: noun (masculine)
+
+**Root Analysis**:
+- jala "water" + √dhṛ (dhṛ) "to hold" + -a = "water-holder, cloud"
+
+**Meanings**:
+- Literal: cloud, water-bearer
+...
+================================================================================
+
+[2025-09-24T09:22:38.779Z] UNMATCHED WORD
+Transliteration: jyo-tiś-cak-ra
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # ज्योतिश्चक्र
+**Transliteration**: jyo-tiś-cak-ra
+**POS**: compound noun (neuter)
+
+**Root Analysis**:
+- jyotis "light" + cakra "wheel, circle" = "wheel of light"
+
+**Meanings**:
+- Literal: wheel of li...
+================================================================================
+
+[2025-09-24T09:22:38.782Z] UNMATCHED WORD
+Transliteration: kā-la-ka-lā-rū-pi-ṇī
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # कालकलारूपिणी
+**Transliteration**: kā-la-ka-lā-rū-pi-ṇī
+**POS**: compound adjective (feminine)
+
+**Root Analysis**:
+- kāla "time" + kalā "part, division" + rūpiṇī "having the form of" = "having the fo...
+================================================================================
+
+[2025-09-24T09:22:38.815Z] UNMATCHED WORD
+Transliteration: prā-yaḥ
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # प्रायः
+**Transliteration**: prā-yaḥ
+**POS**: adverb
+
+**Root Analysis**:
+- prāya "generally, mostly" + -ḥ = "mostly, generally, usually"
+
+**Meanings**:
+- Literal: mostly, generally, usually, for the ...
+================================================================================
+
+[2025-09-24T09:22:38.824Z] UNMATCHED WORD
+Transliteration: nā-mā-ni
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # नामानि
+**Transliteration**: nā-mā-ni
+**POS**: noun (neuter, nominative plural)
+
+**Root Analysis**:
+- nāman "name" + plural ending = "names"
+
+**Meanings**:
+- Literal: names, appellations, designation...
+================================================================================
+
+[2025-09-24T09:22:38.829Z] UNMATCHED WORD
+Transliteration: nir-mā-sa
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # निर्मास
+**Transliteration**: nir-mā-sa
+**POS**: adjective
+
+**Root Analysis**:
+- nir- "without" + māsa "month/flesh" = "without flesh, fleshless"
+
+**Meanings**:
+- Literal: without flesh, fleshless, i...
+================================================================================
+
+[2025-09-24T09:23:49.148Z] UNMATCHED WORD
+Transliteration: a-dhi-bhū-ta
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # अधिभूत
+**Transliteration**: a-dhi-bhū-ta
+**POS**: noun (neuter)
+
+**Root Analysis**:
+- adhi- (prefix) "above, over" + √bhū (bhū) "to be, become" + -ta (suffix) = "that which is above beings"
+
+**Meani...
+================================================================================
+
+[2025-09-24T09:23:49.160Z] UNMATCHED WORD
+Transliteration: a-ṇī-yān
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # अणीयान्
+**Transliteration**: a-ṇī-yān
+**POS**: adjective (comparative)
+
+**Root Analysis**:
+- aṇu "atom, minute" + -īyāṃs (comparative suffix) = "more minute, subtler"
+
+**Meanings**:
+- Literal: subtl...
+================================================================================
+
+[2025-09-24T09:23:49.186Z] UNMATCHED WORD
+Transliteration: cit
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # चित्
+**Transliteration**: cit
+**POS**: noun (feminine)
+
+**Root Analysis**:
+- √cit (cit) "to perceive, be aware, think" = "consciousness, awareness"
+
+**Meanings**:
+- Literal: consciousness, awareness...
+================================================================================
+
+[2025-09-24T09:23:49.196Z] UNMATCHED WORD
+Transliteration: hṛ-da-ya-gran-thi
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # हृदयग्रन्थि
+**Transliteration**: hṛ-da-ya-gran-thi
+**POS**: compound noun (masculine)
+
+**Root Analysis**:
+- hṛdaya "heart" + granthi "knot" = "heart knot"
+
+**Meanings**:
+- Literal: heart knot, knot ...
+================================================================================
+
+[2025-09-24T09:23:54.257Z] UNMATCHED WORD
+Transliteration: a-dhi-bhū-ta
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # अधिभूत
+**Transliteration**: a-dhi-bhū-ta
+**POS**: noun (neuter)
+
+**Root Analysis**:
+- adhi- (prefix) "above, over" + √bhū (bhū) "to be, become" + -ta (suffix) = "that which is above beings"
+
+**Meani...
+================================================================================
+
+[2025-09-24T09:23:54.274Z] UNMATCHED WORD
+Transliteration: a-ṇī-yān
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # अणीयान्
+**Transliteration**: a-ṇī-yān
+**POS**: adjective (comparative)
+
+**Root Analysis**:
+- aṇu "atom, minute" + -īyāṃs (comparative suffix) = "more minute, subtler"
+
+**Meanings**:
+- Literal: subtl...
+================================================================================
+
+[2025-09-24T09:23:54.297Z] UNMATCHED WORD
+Transliteration: cit
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # चित्
+**Transliteration**: cit
+**POS**: noun (feminine)
+
+**Root Analysis**:
+- √cit (cit) "to perceive, be aware, think" = "consciousness, awareness"
+
+**Meanings**:
+- Literal: consciousness, awareness...
+================================================================================
+
+[2025-09-24T09:23:54.304Z] UNMATCHED WORD
+Transliteration: gu-ṇam
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # गुणम्
+**Transliteration**: gu-ṇam
+**POS**: noun (masculine)
+
+**Root Analysis**:
+- √guṇ (guṇ) "to multiply, string together" + -a = "quality, strand, attribute"
+
+**Meanings**:
+- Literal: quality, att...
+================================================================================
+
+[2025-09-24T09:23:54.305Z] UNMATCHED WORD
+Transliteration: ic-chā
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # इच्छा
+**Transliteration**: ic-chā
+**POS**: noun (feminine)
+
+**Root Analysis**:
+- √iṣ (iṣ) "to desire, wish" + -chā suffix = "desire, wish, will"
+
+**Meanings**:
+- Literal: desire, wish, will, intenti...
+================================================================================
+
+[2025-09-24T09:23:54.307Z] UNMATCHED WORD
+Transliteration: i-dan-tvam
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # इदन्त्वम्
+**Transliteration**: i-dan-tvam
+**POS**: noun (neuter)
+
+**Root Analysis**:
+- idam "this" + -tva suffix "quality, state" = "this-ness, objectivity"
+
+**Meanings**:
+- Literal: this-ness, obje...
+================================================================================
+
+[2025-09-24T09:23:54.308Z] UNMATCHED WORD
+Transliteration: jī-vam
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # जीवम्
+**Transliteration**: jī-vam
+**POS**: noun (masculine)
+
+**Root Analysis**:
+- √jīv (jīv) "to live" + -a = "living being, individual soul"
+
+**Meanings**:
+- Literal: individual soul, living being,...
+================================================================================
+
+[2025-09-24T09:23:54.310Z] UNMATCHED WORD
+Transliteration: jan-ma-ma-ra-ṇam
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # जन्ममरणम्
+**Transliteration**: jan-ma-ma-ra-ṇam
+**POS**: compound noun (neuter)
+
+**Root Analysis**:
+- janma "birth" + maraṇa "death" = "birth and death"
+
+**Meanings**:
+- Literal: birth and death, cy...
+================================================================================
+
+[2025-09-24T09:23:54.311Z] UNMATCHED WORD
+Transliteration: jñā-nam
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # ज्ञानम्
+**Transliteration**: jñā-nam
+**POS**: noun (neuter)
+
+**Root Analysis**:
+- √jñā (jñā) "to know" + -ana suffix = "knowledge, wisdom"
+
+**Meanings**:
+- Literal: knowledge, wisdom, understanding,...
+================================================================================
+
+[2025-09-24T09:23:54.313Z] UNMATCHED WORD
+Transliteration: kar-ma-mār-ga
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # कर्ममार्ग
+**Transliteration**: kar-ma-mār-ga
+**POS**: compound noun (masculine)
+
+**Root Analysis**:
+- karma "action" + mārga "path" = "path of action"
+
+**Meanings**:
+- Literal: path of action, karma...
+================================================================================
+
+[2025-09-24T09:23:54.314Z] UNMATCHED WORD
+Transliteration: ke-va-lam
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # केवलम्
+**Transliteration**: ke-va-lam
+**POS**: adverb/adjective
+
+**Root Analysis**:
+- kevala "alone, only" + -am (adverbial ending) = "only, merely, alone"
+
+**Meanings**:
+- Literal: only, alone, mer...
+================================================================================
+
+[2025-09-24T09:23:54.316Z] UNMATCHED WORD
+Transliteration: lī-lā
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # लीला
+**Transliteration**: lī-lā
+**POS**: noun (feminine)
+
+**Root Analysis**:
+- √lī (lī) "to play, sport" + -lā suffix = "play, sport, divine play"
+
+**Meanings**:
+- Literal: play, sport, pastime, gam...
+================================================================================
+
+[2025-09-24T09:23:54.318Z] UNMATCHED WORD
+Transliteration: mā-yā-nir-mā-ṇa
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # मायानिर्माण
+**Transliteration**: mā-yā-nir-mā-ṇa
+**POS**: compound noun (neuter)
+
+**Root Analysis**:
+- māyā "illusion, creative power" + nirmāṇa "construction, creation" = "māyā construction"
+
+**Mea...
+================================================================================
+
+[2025-09-24T09:23:54.319Z] UNMATCHED WORD
+Transliteration: mok-ṣam
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # मोक्षम्
+**Transliteration**: mok-ṣam
+**POS**: noun (masculine)
+
+**Root Analysis**:
+- √muc (muc) "to release, liberate" + -ṣa suffix = "liberation, release"
+
+**Meanings**:
+- Literal: liberation, rele...
+================================================================================
+
+[2025-09-24T09:23:54.320Z] UNMATCHED WORD
+Transliteration: pañ-ca-tat-tva
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # पञ्चतत्त्व
+**Transliteration**: pañ-ca-tat-tva
+**POS**: compound noun (neuter)
+
+**Root Analysis**:
+- pañca "five" + tattva "principle, reality" = "five principles/elements"
+
+**Meanings**:
+- Literal:...
+================================================================================
+
+[2025-09-24T09:23:54.322Z] UNMATCHED WORD
+Transliteration: pa-rāṅ-mu-kha
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # पराङ्मुख
+**Transliteration**: pa-rāṅ-mu-kha
+**POS**: adjective
+
+**Root Analysis**:
+- para "other, beyond" + añc "bent, turned" + mukha "face" = "facing away, turned away"
+
+**Meanings**:
+- Literal: t...
+================================================================================
+
+[2025-09-24T09:23:54.324Z] UNMATCHED WORD
+Transliteration: pra-tya-var-ti
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # प्रत्यवर्ति
+**Transliteration**: pra-tya-var-ti
+**POS**: verb (third person singular, present)
+
+**Root Analysis**:
+- prati "back, toward" + ā "near" + √vṛt (vṛt) "to turn" + -ti = "returns, comes ba...
+================================================================================
+
+[2025-09-24T09:23:54.326Z] UNMATCHED WORD
+Transliteration: sa-ce-ta-na
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # सचेतन
+**Transliteration**: sa-ce-ta-na
+**POS**: adjective
+
+**Root Analysis**:
+- sa- "with" + cetana "consciousness" = "conscious, with consciousness"
+
+**Meanings**:
+- Literal: conscious, aware, sent...
+================================================================================
+
+[2025-09-24T09:23:54.328Z] UNMATCHED WORD
+Transliteration: saṃ-ve-da-na
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # संवेदन
+**Transliteration**: saṃ-ve-da-na
+**POS**: noun (neuter)
+
+**Root Analysis**:
+- saṃ- "together" + √vid (vid) "to know" + -ana = "knowing together, feeling, sensation"
+
+**Meanings**:
+- Literal:...
+================================================================================
+
+[2025-09-24T09:23:54.329Z] UNMATCHED WORD
+Transliteration: sar-ve-bhya
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # सर्वेभ्य
+**Transliteration**: sar-ve-bhya
+**POS**: adjective (dative plural)
+
+**Root Analysis**:
+- sarva "all" + -ebhya (dative plural ending) = "to all, for all"
+
+**Meanings**:
+- Literal: to all, f...
+================================================================================
+
+[2025-09-24T09:23:54.330Z] UNMATCHED WORD
+Transliteration: sat
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # सत्
+**Transliteration**: sat
+**POS**: noun (neuter)/adjective
+
+**Root Analysis**:
+- √as (as) "to be" + -at (present participle) = "being, existence, real"
+
+**Meanings**:
+- Literal: being, existence,...
+================================================================================
+
+[2025-09-24T09:23:54.331Z] UNMATCHED WORD
+Transliteration: span-da-na
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # स्पन्दन
+**Transliteration**: span-da-na
+**POS**: noun (neuter)
+
+**Root Analysis**:
+- √spand (spand) "to throb, vibrate" + -ana = "vibration, pulsation, movement"
+
+**Meanings**:
+- Literal: vibration,...
+================================================================================
+
+[2025-09-24T09:23:54.333Z] UNMATCHED WORD
+Transliteration: svap-na
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # स्वप्न
+**Transliteration**: svap-na
+**POS**: noun (masculine/neuter)
+
+**Root Analysis**:
+- √svap (svap) "to sleep" + -na = "dream, sleep"
+
+**Meanings**:
+- Literal: dream, sleep state, vision
+- Conte...
+================================================================================
+
+[2025-09-24T09:23:54.334Z] UNMATCHED WORD
+Transliteration: sva-rū-pa
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # स्वरूप
+**Transliteration**: sva-rū-pa
+**POS**: noun (neuter)
+
+**Root Analysis**:
+- sva "own" + rūpa "form" = "own form, true nature, essence"
+
+**Meanings**:
+- Literal: own form, true nature, essenti...
+================================================================================
+
+[2025-09-24T09:23:54.335Z] UNMATCHED WORD
+Transliteration: tat
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # तत्
+**Transliteration**: tat
+**POS**: pronoun (neuter nominative singular)
+
+**Root Analysis**:
+- Demonstrative pronoun "that" (pointing to ultimate reality)
+
+**Meanings**:
+- Literal: that, it (point...
+================================================================================
+
+[2025-09-24T09:23:54.336Z] UNMATCHED WORD
+Transliteration: tat-tva
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # तत्त्व
+**Transliteration**: tat-tva
+**POS**: noun (neuter)
+
+**Root Analysis**:
+- tat "that" + -tva "quality, essence" = "that-ness, principle, reality"
+
+**Meanings**:
+- Literal: principle, reality, ...
+================================================================================
+
+[2025-09-24T09:23:54.338Z] UNMATCHED WORD
+Transliteration: tat-tva-jñā-na
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # तत्त्वज्ञान
+**Transliteration**: tat-tva-jñā-na
+**POS**: compound noun (neuter)
+
+**Root Analysis**:
+- tattva "principle, reality" + jñāna "knowledge" = "knowledge of principles/reality"
+
+**Meanings*...
+================================================================================
+
+[2025-09-24T09:23:54.339Z] UNMATCHED WORD
+Transliteration: ut-pan-na
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # उत्पन्न
+**Transliteration**: ut-pan-na
+**POS**: adjective/past participle
+
+**Root Analysis**:
+- ut- "up, out" + √pad (pad) "to fall, arise" + -na = "arisen, born, manifested"
+
+**Meanings**:
+- Litera...
+================================================================================
+
+[2025-09-24T09:23:54.342Z] UNMATCHED WORD
+Transliteration: vi-jñā-na
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # विज्ञान
+**Transliteration**: vi-jñā-na
+**POS**: noun (neuter)
+
+**Root Analysis**:
+- vi- "special, distinct" + √jñā (jñā) "to know" + -ana = "special knowledge, consciousness"
+
+**Meanings**:
+- Litera...
+================================================================================
+
+[2025-09-24T09:23:58.672Z] UNMATCHED WORD
+Transliteration: a-ṇī-yāṃs
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # अणीयांस्
+**Transliteration**: a-ṇī-yāṃs
+**POS**: adjective (comparative)
+
+**Root Analysis**:
+- aṇu "atom, minute" + -īyāṃs (comparative suffix) = "more minute, subtler"
+
+**Meanings**:
+- Literal: sub...
+================================================================================
+
+[2025-09-24T09:23:58.697Z] UNMATCHED WORD
+Transliteration: cit
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # चित्
+**Transliteration**: cit
+**POS**: noun (feminine)
+
+**Root Analysis**:
+- √cit (cit) "to perceive, be aware, think" = "consciousness, awareness"
+
+**Meanings**:
+- Literal: consciousness, awareness...
+================================================================================
+
+[2025-09-24T09:24:01.265Z] UNMATCHED WORD
+Transliteration: hṛ-da-ya-gran-thi
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # हृदयग्रन्थि
+**Transliteration**: hṛ-da-ya-gran-thi
+**POS**: compound noun (masculine)
+
+**Root Analysis**:
+- hṛdaya "heart" + granthi "knot" = "heart knot"
+
+**Meanings**:
+- Literal: heart knot, psych...
+================================================================================
+
+[2025-09-24T09:24:01.272Z] UNMATCHED WORD
+Transliteration: hṛ-da-yam
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # हृदयम्
+**Transliteration**: hṛ-da-yam
+**POS**: noun (neuter)
+
+**Root Analysis**:
+- √hṛd (hṛd) "heart" + -aya suffix = "heart, core, center"
+
+**Meanings**:
+- Literal: heart, core, center, essence
+- C...
+================================================================================
+
+[2025-09-24T09:24:01.277Z] UNMATCHED WORD
+Transliteration: ja-la-dha-ra
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # जलधर
+**Transliteration**: ja-la-dha-ra
+**POS**: noun (masculine)
+
+**Root Analysis**:
+- jala "water" + √dhṛ (dhṛ) "to hold" + -a = "water-holder, cloud"
+
+**Meanings**:
+- Literal: cloud, water-bearer
+...
+================================================================================
+
+[2025-09-24T09:24:01.280Z] UNMATCHED WORD
+Transliteration: jyo-tiś-cak-ra
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # ज्योतिश्चक्र
+**Transliteration**: jyo-tiś-cak-ra
+**POS**: compound noun (neuter)
+
+**Root Analysis**:
+- jyotis "light" + cakra "wheel, circle" = "wheel of light"
+
+**Meanings**:
+- Literal: wheel of li...
+================================================================================
+
+[2025-09-24T09:24:01.284Z] UNMATCHED WORD
+Transliteration: kā-la-ka-lā-rū-pi-ṇī
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # कालकलारूपिणी
+**Transliteration**: kā-la-ka-lā-rū-pi-ṇī
+**POS**: compound adjective (feminine)
+
+**Root Analysis**:
+- kāla "time" + kalā "part, division" + rūpiṇī "having the form of" = "having the fo...
+================================================================================
+
+[2025-09-24T09:24:04.687Z] UNMATCHED WORD
+Transliteration: a-ṇī-yāṃs
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # अणीयांस्
+**Transliteration**: a-ṇī-yāṃs
+**POS**: adjective (comparative)
+
+**Root Analysis**:
+- aṇu "atom, minute" + -īyāṃs (comparative suffix) = "more minute, subtler"
+
+**Meanings**:
+- Literal: sub...
+================================================================================
+
+[2025-09-24T09:24:04.706Z] UNMATCHED WORD
+Transliteration: cit
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # चित्
+**Transliteration**: cit
+**POS**: noun (feminine)
+
+**Root Analysis**:
+- √cit (cit) "to perceive, be aware, think" = "consciousness, awareness"
+
+**Meanings**:
+- Literal: consciousness, awareness...
+================================================================================
+
+[2025-09-24T09:24:04.714Z] UNMATCHED WORD
+Transliteration: hṛ-da-ya-gran-thi
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # हृदयग्रन्थि
+**Transliteration**: hṛ-da-ya-gran-thi
+**POS**: compound noun (masculine)
+
+**Root Analysis**:
+- hṛdaya "heart" + granthi "knot" = "heart knot"
+
+**Meanings**:
+- Literal: heart knot, psych...
+================================================================================
+
+[2025-09-24T09:24:04.717Z] UNMATCHED WORD
+Transliteration: hṛ-da-yam
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # हृदयम्
+**Transliteration**: hṛ-da-yam
+**POS**: noun (neuter)
+
+**Root Analysis**:
+- √hṛd (hṛd) "heart" + -aya suffix = "heart, core, center"
+
+**Meanings**:
+- Literal: heart, core, center, essence
+- C...
+================================================================================
+
+[2025-09-24T09:24:04.718Z] UNMATCHED WORD
+Transliteration: a-pa-ṭha-nī-ya
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # अपठनीय
+**Transliteration**: a-pa-ṭha-nī-ya
+**POS**: adjective
+
+**Root Analysis**:
+- a- "not" + √paṭh (paṭh) "to read" + -anīya suffix = "unreadable, illegible"
+
+**Meanings**:
+- Literal: unreadable, ...
+================================================================================
+
+[2025-09-24T09:24:04.721Z] UNMATCHED WORD
+Transliteration: ja-la-dha-ra
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # जलधर
+**Transliteration**: ja-la-dha-ra
+**POS**: noun (masculine)
+
+**Root Analysis**:
+- jala "water" + √dhṛ (dhṛ) "to hold" + -a = "water-holder, cloud"
+
+**Meanings**:
+- Literal: cloud, water-bearer
+...
+================================================================================
+
+[2025-09-24T09:24:04.723Z] UNMATCHED WORD
+Transliteration: jyo-tiś-cak-ra
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # ज्योतिश्चक्र
+**Transliteration**: jyo-tiś-cak-ra
+**POS**: compound noun (neuter)
+
+**Root Analysis**:
+- jyotis "light" + cakra "wheel, circle" = "wheel of light"
+
+**Meanings**:
+- Literal: wheel of li...
+================================================================================
+
+[2025-09-24T09:24:04.727Z] UNMATCHED WORD
+Transliteration: kā-la-ka-lā-rū-pi-ṇī
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # कालकलारूपिणी
+**Transliteration**: kā-la-ka-lā-rū-pi-ṇī
+**POS**: compound adjective (feminine)
+
+**Root Analysis**:
+- kāla "time" + kalā "part, division" + rūpiṇī "having the form of" = "having the fo...
+================================================================================
+
+[2025-09-24T09:24:04.760Z] UNMATCHED WORD
+Transliteration: prā-yaḥ
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # प्रायः
+**Transliteration**: prā-yaḥ
+**POS**: adverb
+
+**Root Analysis**:
+- prāya "generally, mostly" + -ḥ = "mostly, generally, usually"
+
+**Meanings**:
+- Literal: mostly, generally, usually, for the ...
+================================================================================
+
+[2025-09-24T09:24:04.769Z] UNMATCHED WORD
+Transliteration: nā-mā-ni
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # नामानि
+**Transliteration**: nā-mā-ni
+**POS**: noun (neuter, nominative plural)
+
+**Root Analysis**:
+- nāman "name" + plural ending = "names"
+
+**Meanings**:
+- Literal: names, appellations, designation...
+================================================================================
+
+[2025-09-24T09:24:04.774Z] UNMATCHED WORD
+Transliteration: nir-mā-sa
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # निर्मास
+**Transliteration**: nir-mā-sa
+**POS**: adjective
+
+**Root Analysis**:
+- nir- "without" + māsa "month/flesh" = "without flesh, fleshless"
+
+**Meanings**:
+- Literal: without flesh, fleshless, i...
+================================================================================
+
+[2025-09-24T09:24:07.169Z] UNMATCHED WORD
+Transliteration: bā-la-ca-la-va-la
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # बालचलवल
+**Transliteration**: bā-la-ca-la-va-la
+**POS**: compound adjective
+**Root Analysis**:
+- bāla "young/child" + cala "moving" + vala (suffix) = "childishly restless"
+**Meanings**:
+- Literal: ch...
+================================================================================
+
+[2025-09-24T09:24:07.171Z] UNMATCHED WORD
+Transliteration: cit
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # चित्
+**Transliteration**: cit
+**POS**: noun (feminine, stem form)
+**Root Analysis**:
+- √cit (cit) "to perceive, be conscious" = "consciousness"
+**Meanings**:
+- Literal: consciousness, awareness
+- Co...
+================================================================================
+
+[2025-09-24T09:24:07.223Z] UNMATCHED WORD
+Transliteration: nā-mā-ni
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # नामानि
+**Transliteration**: nā-mā-ni
+**POS**: noun (neuter plural)
+**Root Analysis**:
+- nāman "name" + -i (plural ending) = "names"
+**Meanings**:
+- Literal: names, appellations
+- Contextual: various...
+================================================================================
+
+[2025-09-24T09:30:19.082Z] UNMATCHED WORD
+Transliteration: nā-mā-ni
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # नामानि
+**Transliteration**: nā-mā-ni
+**POS**: noun (neuter plural)
+
+**Root Analysis**:
+- nāman "name" + -i (plural ending) = "names"
+
+**Meanings**:
+- Literal: names, appellations
+- Contextual: vario...
+================================================================================
+
+[2025-09-24T09:30:19.116Z] UNMATCHED WORD
+Transliteration: śe-ṣam
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # शेषम्
+**Transliteration**: śe-ṣam
+**POS**: noun (neuter)
+
+**Root Analysis**:
+- √śiṣ (śiṣ) "to remain" + -a = "remainder, what remains"
+
+**Meanings**:
+- Literal: remainder, what is left, residue
+- Co...
+================================================================================
+
+[2025-09-24T09:30:19.126Z] UNMATCHED WORD
+Transliteration: sūk-ṣmā
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # सूक्ष्मा
+**Transliteration**: sūk-ṣmā
+**POS**: adjective (feminine)
+
+**Root Analysis**:
+- sūkṣma "subtle" + feminine ending = "subtle"
+
+**Meanings**:
+- Literal: subtle, fine, minute
+- Contextual: su...
+================================================================================
+
+[2025-09-24T09:30:19.149Z] UNMATCHED WORD
+Transliteration: ūr-dhva
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # ऊर्ध्व
+**Transliteration**: ūr-dhva
+**POS**: adjective/adverb
+
+**Root Analysis**:
+- √ṛdh (ṛdh) "to grow, rise" + -va = "upward, above, high"
+
+**Meanings**:
+- Literal: upward, above, higher, vertical...
+================================================================================
+
+[2025-09-24T09:30:19.165Z] UNMATCHED WORD
+Transliteration: vi-ha
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # विह
+**Transliteration**: vi-ha
+**POS**: unclear/particle
+
+**Root Analysis**:
+- Uncertain etymology, possibly prefix + ha
+
+**Meanings**:
+- Literal: unclear without better context
+- Contextual: may fu...
+================================================================================
+
+[2025-09-24T09:30:19.168Z] UNMATCHED WORD
+Transliteration: yaś-ca-tu
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # यश्चतु
+**Transliteration**: yaś-ca-tu
+**POS**: compound/unclear (possibly corrupted)
+
+**Root Analysis**:
+- yaḥ "who" + ca "and" + tu (particle) - possibly corrupted
+
+**Meanings**:
+- Literal: who and...
+================================================================================
