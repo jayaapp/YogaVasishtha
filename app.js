@@ -90,6 +90,7 @@ const State = {
     lexicon: {},
     iastLexicon: {},
     iastKeySet: new Set(), // For fast O(1) lookup
+    notes: {}, // Book notes storage: { bookIndex: [note1, note2, ...] }
     search: {
         isOpen: false,
         query: '',
@@ -1411,6 +1412,566 @@ const BookmarkManager = {
     }
 };
 
+// ===== NOTES MANAGER =====
+const NotesManager = {
+    MAX_NOTES_PER_BOOK: 50,
+    activeTab: 'current',
+    isTextSelectionMode: false,
+    currentSelection: null,
+
+    /**
+     * Initialize notes manager
+     */
+    init() {
+        this.loadFromStorage();
+        this.initEventListeners();
+    },
+
+    /**
+     * Initialize event listeners for text selection
+     */
+    initEventListeners() {
+        // Listen for text selection events
+        document.addEventListener('mouseup', (e) => {
+            if (this.isTextSelectionMode) {
+                this.handleTextSelection(e);
+            }
+        });
+
+        // Listen for escape key to exit selection mode
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && this.isTextSelectionMode && !ModalManager.activeModal) {
+                this.exitTextSelectionMode();
+            }
+        });
+    },
+
+    /**
+     * Switch between current book and other books tabs
+     */
+    switchTab(tab) {
+        this.activeTab = tab;
+        // Update tab UI
+        document.getElementById('current-book-notes-tab').classList.toggle('active', tab === 'current');
+        document.getElementById('other-books-notes-tab').classList.toggle('active', tab === 'other');
+        // Re-render notes for the selected tab
+        this.renderNotes();
+    },
+
+    /**
+     * Enter text selection mode
+     */
+    enterTextSelectionMode() {
+        this.isTextSelectionMode = true;
+        document.body.classList.add('text-selection-mode');
+        ModalManager.close('notes');
+        console.log('📝 Entered text selection mode');
+    },
+
+    /**
+     * Exit text selection mode
+     */
+    exitTextSelectionMode() {
+        this.isTextSelectionMode = false;
+        document.body.classList.remove('text-selection-mode');
+        this.currentSelection = null;
+        console.log('📝 Exited text selection mode');
+    },
+
+    /**
+     * Handle text selection
+     */
+    handleTextSelection(e) {
+        const selection = window.getSelection();
+        if (!selection.rangeCount || selection.isCollapsed) return;
+
+        const range = selection.getRangeAt(0);
+        const selectedText = range.toString().trim();
+
+        if (selectedText.length < 3) return; // Ignore very short selections
+
+        // Check if selection is within book content
+        const bookContent = document.getElementById('book-content');
+        if (!bookContent.contains(range.commonAncestorContainer)) return;
+
+        // Check for overlapping highlights
+        const existingHighlight = this.findOverlappingHighlight(range);
+        if (existingHighlight) {
+            // Merge with existing highlight
+            this.mergeWithExistingHighlight(existingHighlight, range);
+        } else {
+            // Create new highlight
+            this.createNewHighlight(range, selectedText);
+        }
+
+        // Clear selection
+        selection.removeAllRanges();
+        this.exitTextSelectionMode();
+    },
+
+    /**
+     * Find overlapping highlight
+     */
+    findOverlappingHighlight(range) {
+        const highlights = document.querySelectorAll('.note-highlight');
+        for (let highlight of highlights) {
+            if (this.rangesOverlap(range, highlight)) {
+                return highlight;
+            }
+        }
+        return null;
+    },
+
+    /**
+     * Check if ranges overlap
+     */
+    rangesOverlap(range, element) {
+        try {
+            const elementRange = document.createRange();
+            elementRange.selectNodeContents(element);
+
+            const startComparison = range.compareBoundaryPoints(Range.END_TO_START, elementRange);
+            const endComparison = range.compareBoundaryPoints(Range.START_TO_END, elementRange);
+
+            return startComparison <= 0 && endComparison >= 0;
+        } catch (e) {
+            return false;
+        }
+    },
+
+    /**
+     * Merge with existing highlight
+     */
+    mergeWithExistingHighlight(existingHighlight, newRange) {
+        const noteId = existingHighlight.getAttribute('data-note-id');
+        const note = this.findNoteById(noteId);
+        if (!note) return;
+
+        // Open note editor for existing note
+        this.openNoteEditor(note);
+    },
+
+    /**
+     * Create new highlight
+     */
+    createNewHighlight(range, selectedText) {
+        // Create highlight element
+        const highlight = document.createElement('span');
+        highlight.className = 'note-highlight';
+        const noteId = this.generateId();
+        highlight.setAttribute('data-note-id', noteId);
+
+        // Wrap the selected content
+        try {
+            range.surroundContents(highlight);
+        } catch (e) {
+            // If surroundContents fails (complex selection), use extractContents
+            const contents = range.extractContents();
+            highlight.appendChild(contents);
+            range.insertNode(highlight);
+        }
+
+        // Create note icon
+        const noteIcon = this.createNoteIcon(noteId);
+        highlight.appendChild(noteIcon);
+
+        // Create note object
+        const position = this.getCurrentPosition();
+        const currentChapter = BookmarkManager.getCurrentChapter();
+
+        const note = {
+            id: noteId,
+            bookIndex: State.currentBookIndex,
+            bookTitle: Utils.getBookTitle(CONFIG.EPUB_FILES[State.currentBookIndex]),
+            chapterTitle: currentChapter ? currentChapter.title : 'Unknown Chapter',
+            chapterAnchor: currentChapter ? currentChapter.anchor : '',
+            selectedText: selectedText,
+            noteText: '',
+            timestamp: new Date().toISOString(),
+            scrollPosition: window.pageYOffset || document.documentElement.scrollTop
+        };
+
+        // Save note
+        this.addNoteToStorage(note);
+
+        // Open note editor
+        this.openNoteEditor(note);
+
+        console.log('📝 Created new note:', noteId);
+    },
+
+    /**
+     * Create note icon
+     */
+    createNoteIcon(noteId) {
+        const icon = document.createElement('span');
+        icon.className = 'note-icon';
+        icon.setAttribute('data-note-id', noteId);
+        icon.innerHTML = '<span class="material-icons">sticky_note_2</span>';
+
+        icon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const note = this.findNoteById(noteId);
+            if (note) {
+                this.openNoteEditor(note);
+            }
+        });
+
+        return icon;
+    },
+
+    /**
+     * Open note editor
+     */
+    openNoteEditor(note) {
+        const textarea = document.getElementById('note-editor-textarea');
+        textarea.value = note.noteText || '';
+        textarea.setAttribute('data-note-id', note.id);
+
+        ModalManager.open('noteEditor');
+
+        // Focus the textarea
+        setTimeout(() => textarea.focus(), 100);
+
+        console.log('📝 Opened note editor for:', note.id);
+    },
+
+    /**
+     * Save note content
+     */
+    saveNoteContent(noteId, content) {
+        const note = this.findNoteById(noteId);
+        if (!note) return;
+
+        note.noteText = content;
+        note.timestamp = new Date().toISOString();
+
+        this.saveToStorage();
+        this.renderNotes();
+
+        console.log('📝 Saved note content:', noteId);
+    },
+
+    /**
+     * Delete note
+     */
+    deleteNote(noteId) {
+        // Remove from storage
+        for (let bookIndex in State.notes) {
+            const bookNotes = State.notes[bookIndex];
+            const noteIndex = bookNotes.findIndex(n => n.id === noteId);
+            if (noteIndex >= 0) {
+                bookNotes.splice(noteIndex, 1);
+                break;
+            }
+        }
+
+        // Remove highlight from DOM
+        const highlight = document.querySelector(`[data-note-id="${noteId}"]`);
+        if (highlight) {
+            const parent = highlight.parentNode;
+            while (highlight.firstChild) {
+                parent.insertBefore(highlight.firstChild, highlight);
+            }
+            parent.removeChild(highlight);
+        }
+
+        this.saveToStorage();
+        this.renderNotes();
+        ModalManager.close('noteEditor');
+
+        console.log('📝 Deleted note:', noteId);
+    },
+
+    /**
+     * Navigate to note
+     */
+    navigateToNote(noteId) {
+        const note = this.findNoteById(noteId);
+        if (!note) return;
+
+        // Switch to the correct book if needed
+        if (note.bookIndex !== State.currentBookIndex) {
+            State.currentBookIndex = note.bookIndex;
+            UIManager.displayCurrentBook();
+        }
+
+        // Scroll to the note position
+        setTimeout(() => {
+            const highlight = document.querySelector(`[data-note-id="${noteId}"]`);
+            if (highlight) {
+                highlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                // Briefly highlight the note
+                highlight.style.backgroundColor = 'rgba(255, 193, 7, 0.6)';
+                setTimeout(() => {
+                    highlight.style.backgroundColor = '';
+                }, 2000);
+            } else {
+                // Fallback to scroll position
+                window.scrollTo({
+                    top: note.scrollPosition,
+                    behavior: 'smooth'
+                });
+            }
+            ModalManager.close('notes');
+        }, 100);
+    },
+
+    /**
+     * Find note by ID
+     */
+    findNoteById(noteId) {
+        for (let bookIndex in State.notes) {
+            const bookNotes = State.notes[bookIndex];
+            const note = bookNotes.find(n => n.id === noteId);
+            if (note) return note;
+        }
+        return null;
+    },
+
+    /**
+     * Add note to storage
+     */
+    addNoteToStorage(note) {
+        if (!State.notes[note.bookIndex]) {
+            State.notes[note.bookIndex] = [];
+        }
+
+        State.notes[note.bookIndex].unshift(note);
+
+        // Keep only the most recent notes
+        if (State.notes[note.bookIndex].length > this.MAX_NOTES_PER_BOOK) {
+            State.notes[note.bookIndex].splice(this.MAX_NOTES_PER_BOOK);
+        }
+
+        this.saveToStorage();
+    },
+
+    /**
+     * Get current position
+     */
+    getCurrentPosition() {
+        return {
+            bookIndex: State.currentBookIndex,
+            scrollTop: window.pageYOffset || document.documentElement.scrollTop
+        };
+    },
+
+    /**
+     * Render notes in the modal
+     */
+    renderNotes() {
+        const content = document.getElementById('notes-content');
+        const currentTab = document.getElementById('current-book-notes-tab');
+        const otherTab = document.getElementById('other-books-notes-tab');
+
+        // Update tab titles
+        currentTab.textContent = Utils.getBookTitle(CONFIG.EPUB_FILES[State.currentBookIndex]);
+
+        if (this.activeTab === 'current') {
+            this.renderCurrentBookNotes(content);
+        } else {
+            this.renderOtherBooksNotes(content);
+        }
+    },
+
+    /**
+     * Render current book notes
+     */
+    renderCurrentBookNotes(container) {
+        const notes = State.notes[State.currentBookIndex] || [];
+
+        if (notes.length === 0) {
+            container.innerHTML = '<div class="no-notes">No notes in this book yet.</div>';
+            return;
+        }
+
+        const notesList = document.createElement('div');
+        notesList.className = 'notes-list';
+
+        notes.forEach(note => {
+            const noteItem = this.createNoteItem(note);
+            notesList.appendChild(noteItem);
+        });
+
+        container.innerHTML = '';
+        container.appendChild(notesList);
+    },
+
+    /**
+     * Render other books notes
+     */
+    renderOtherBooksNotes(container) {
+        container.innerHTML = '';
+        let hasNotes = false;
+
+        CONFIG.EPUB_FILES.forEach((fileName, bookIndex) => {
+            if (bookIndex === State.currentBookIndex) return;
+
+            const bookNotes = State.notes[bookIndex] || [];
+            if (bookNotes.length === 0) return;
+
+            hasNotes = true;
+            const bookSection = document.createElement('div');
+            bookSection.className = 'note-book-section';
+
+            const bookTitle = document.createElement('h3');
+            bookTitle.className = 'note-book-title';
+            bookTitle.textContent = Utils.getBookTitle(fileName);
+            bookSection.appendChild(bookTitle);
+
+            const notesList = document.createElement('div');
+            notesList.className = 'notes-list';
+
+            bookNotes.forEach(note => {
+                const noteItem = this.createNoteItem(note);
+                notesList.appendChild(noteItem);
+            });
+
+            bookSection.appendChild(notesList);
+            container.appendChild(bookSection);
+        });
+
+        if (!hasNotes) {
+            container.innerHTML = '<div class="no-notes">No notes in other books yet.</div>';
+        }
+    },
+
+    /**
+     * Create note item element
+     */
+    createNoteItem(note) {
+        const item = document.createElement('div');
+        item.className = 'note-item';
+
+        const noteInfo = document.createElement('div');
+        noteInfo.className = 'note-info';
+        noteInfo.addEventListener('click', () => this.navigateToNote(note.id));
+
+        const notePreview = document.createElement('div');
+        notePreview.className = 'note-preview';
+        const previewText = note.noteText.trim() || note.selectedText;
+        const firstLine = previewText.split('\n')[0];
+        notePreview.textContent = firstLine.substring(0, 60) + (firstLine.length > 60 ? '...' : '');
+
+        const noteMeta = document.createElement('div');
+        noteMeta.className = 'note-meta';
+        const timestamp = new Date(note.timestamp).toLocaleDateString();
+        noteMeta.textContent = `${note.chapterTitle} • ${timestamp}`;
+
+        noteInfo.appendChild(notePreview);
+        noteInfo.appendChild(noteMeta);
+
+        const noteActions = document.createElement('div');
+        noteActions.className = 'note-actions';
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'note-action-btn';
+        deleteBtn.setAttribute('data-action', 'remove');
+        deleteBtn.setAttribute('aria-label', 'Delete note');
+        deleteBtn.innerHTML = '<span class="material-icons">delete</span>';
+        deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.deleteNote(note.id);
+        });
+
+        noteActions.appendChild(deleteBtn);
+
+        item.appendChild(noteInfo);
+        item.appendChild(noteActions);
+
+        return item;
+    },
+
+    /**
+     * Load notes from localStorage
+     */
+    loadFromStorage() {
+        try {
+            const stored = localStorage.getItem('yoga-vasishtha-notes');
+            if (stored) {
+                State.notes = JSON.parse(stored);
+            }
+        } catch (error) {
+            console.error('Failed to load notes:', error);
+            State.notes = {};
+        }
+    },
+
+    /**
+     * Save notes to localStorage
+     */
+    saveToStorage() {
+        try {
+            localStorage.setItem('yoga-vasishtha-notes', JSON.stringify(State.notes));
+        } catch (error) {
+            console.error('Failed to save notes:', error);
+        }
+    },
+
+    /**
+     * Generate unique ID for note
+     */
+    generateId() {
+        return 'note_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    },
+
+    /**
+     * Restore notes highlights after content load
+     */
+    restoreHighlights() {
+        const currentBookNotes = State.notes[State.currentBookIndex] || [];
+
+        currentBookNotes.forEach(note => {
+            // Try to find and restore highlight based on text content
+            // This is a simplified restoration - in a production app you'd want more robust text anchoring
+            this.restoreHighlight(note);
+        });
+    },
+
+    /**
+     * Restore individual highlight (simplified implementation)
+     */
+    restoreHighlight(note) {
+        // This is a basic implementation - a production version would need more sophisticated text anchoring
+        const bookContent = document.getElementById('book-content');
+        if (!bookContent) return;
+
+        // Find text content that matches the selected text
+        const walker = document.createTreeWalker(
+            bookContent,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+
+        let node;
+        while (node = walker.nextNode()) {
+            const text = node.textContent;
+            const index = text.indexOf(note.selectedText);
+            if (index >= 0) {
+                // Found matching text, create highlight
+                const range = document.createRange();
+                range.setStart(node, index);
+                range.setEnd(node, index + note.selectedText.length);
+
+                const highlight = document.createElement('span');
+                highlight.className = 'note-highlight';
+                highlight.setAttribute('data-note-id', note.id);
+
+                try {
+                    range.surroundContents(highlight);
+                    const noteIcon = this.createNoteIcon(note.id);
+                    highlight.appendChild(noteIcon);
+                    break; // Only restore first match
+                } catch (e) {
+                    console.warn('Could not restore highlight for note:', note.id);
+                }
+            }
+        }
+    }
+};
+
 // ===== EPUB MANAGER =====
 const EPUBManager = {
     /**
@@ -2172,6 +2733,11 @@ const UIManager = {
         Elements.bookContent.innerHTML = Utils.createSafeHTML(content);
         LexiconManager.processContent(Elements.bookContent);
 
+        // Restore note highlights after content is processed
+        setTimeout(() => {
+            NotesManager.restoreHighlights();
+        }, 100);
+
         Utils.show(Elements.bookContent);
 
         // Restore position after DOM has had time to render
@@ -2403,6 +2969,14 @@ const ModalManager = {
             Elements.currentBookTab.classList.add('active');
             Elements.otherBooksTab.classList.remove('active');
             BookmarkManager.renderBookmarks();
+        } else if (modalName === 'notes') {
+            // Default to current book tab when opening notes
+            NotesManager.activeTab = 'current';
+            document.getElementById('current-book-notes-tab').classList.add('active');
+            document.getElementById('other-books-notes-tab').classList.remove('active');
+            NotesManager.renderNotes();
+        } else if (modalName === 'noteEditor') {
+            // Note editor modal handled by NotesManager directly
         }
     },
 
@@ -2425,7 +2999,7 @@ const ModalManager = {
      * Close all modals
      */
     closeAll() {
-        ['toc', 'settings', 'help', 'lexicon'].forEach(name => {
+        ['toc', 'settings', 'help', 'lexicon', 'bookmarks', 'notes', 'noteEditor'].forEach(name => {
             this.close(name);
         });
     }
@@ -2446,6 +3020,7 @@ const EventHandlers = {
         Elements.tocBtn.addEventListener('click', () => ModalManager.open('toc'));
         Elements.searchBtn.addEventListener('click', () => SearchManager.togglePanel());
         Elements.bookmarksBtn.addEventListener('click', () => ModalManager.open('bookmarks'));
+        Elements.notesBtn.addEventListener('click', () => ModalManager.open('notes'));
         Elements.helpBtn.addEventListener('click', () => ModalManager.open('help'));
 
         // Search panel controls
@@ -2464,6 +3039,28 @@ const EventHandlers = {
         Elements.currentBookTab.addEventListener('click', () => BookmarkManager.switchTab('current'));
         Elements.otherBooksTab.addEventListener('click', () => BookmarkManager.switchTab('other'));
 
+        // Notes controls
+        document.getElementById('add-note-btn').addEventListener('click', () => NotesManager.enterTextSelectionMode());
+        document.getElementById('current-book-notes-tab').addEventListener('click', () => NotesManager.switchTab('current'));
+        document.getElementById('other-books-notes-tab').addEventListener('click', () => NotesManager.switchTab('other'));
+
+        // Note Editor controls
+        document.getElementById('delete-note-btn').addEventListener('click', () => {
+            const textarea = document.getElementById('note-editor-textarea');
+            const noteId = textarea.getAttribute('data-note-id');
+            if (noteId) {
+                NotesManager.deleteNote(noteId);
+            }
+        });
+
+        // Auto-save note content on input
+        document.getElementById('note-editor-textarea').addEventListener('input', Utils.debounce((e) => {
+            const noteId = e.target.getAttribute('data-note-id');
+            if (noteId) {
+                NotesManager.saveNoteContent(noteId, e.target.value);
+            }
+        }, 500));
+
         // Settings controls
         Elements.fontFamilySelect.addEventListener('change', this.onFontFamilyChange.bind(this));
         Elements.fontSizeSelect.addEventListener('change', this.onFontSizeChange.bind(this));
@@ -2474,7 +3071,9 @@ const EventHandlers = {
             btn.addEventListener('click', (e) => {
                 const modal = e.target.closest('.modal-overlay');
                 if (modal) {
-                    const modalName = modal.id.replace('-modal', '');
+                    let modalName = modal.id.replace('-modal', '');
+                    // Convert kebab-case to camelCase for compound modal names
+                    modalName = modalName.replace(/-([a-z])/g, (match, letter) => letter.toUpperCase());
                     ModalManager.close(modalName);
                 }
             });
@@ -2614,10 +3213,13 @@ const EventHandlers = {
      */
     onGlobalKeydown(e) {
         if (e.key === 'Escape') {
-            if (State.search.isOpen) {
-                SearchManager.closePanel(true);
-            } else {
+            // First try to close any open modal
+            if (ModalManager.activeModal) {
                 ModalManager.closeAll();
+            }
+            // If no modal is open, close search panel if it's open
+            else if (State.search.isOpen) {
+                SearchManager.closePanel(true);
             }
         }
 
@@ -2648,6 +3250,7 @@ const App = {
         Elements.tocBtn = document.getElementById('toc-btn');
         Elements.searchBtn = document.getElementById('search-btn');
         Elements.bookmarksBtn = document.getElementById('bookmarks-btn');
+        Elements.notesBtn = document.getElementById('notes-btn');
         Elements.helpBtn = document.getElementById('help-btn');
 
         // Content areas
@@ -2672,6 +3275,8 @@ const App = {
         Elements.helpModal = document.getElementById('help-modal');
         Elements.lexiconModal = document.getElementById('lexicon-modal');
         Elements.bookmarksModal = document.getElementById('bookmarks-modal');
+        Elements.notesModal = document.getElementById('notes-modal');
+        Elements.noteEditorModal = document.getElementById('note-editor-modal');
 
         // Modal content
         Elements.tocContent = document.getElementById('toc-content');
@@ -2711,6 +3316,7 @@ const App = {
 
             // Initialize managers
             BookmarkManager.init();
+            NotesManager.init();
 
             // Load external data
             await Promise.all([
@@ -2787,6 +3393,8 @@ if (typeof window !== 'undefined') {
         LexiconManager,
         SettingsManager,
         UIManager,
-        ModalManager
+        ModalManager,
+        BookmarkManager,
+        NotesManager
     };
 }

@@ -1,0 +1,41 @@
+#!/bin/bash
+
+# Check if a single argument is passed
+if [ "$#" -eq 1 ]; then
+    # Check if the argument is a valid directory
+    if [ -d "$1" ]; then
+        BUILD_DIR="$1"
+        echo "Using specified build directory: $BUILD_DIR"
+    else
+        echo "Error: '$1' is not a valid directory."
+        echo "Usage: $0 [BUILD_DIR]"
+        exit 1
+    fi
+else
+    echo "Error: Invalid number of arguments."
+    echo "Usage: $0 [BUILD_DIR]"
+    exit 1
+fi
+
+# Set source directory
+YogaVasishtha_DIR=$(pwd)
+
+echo "Copying application files..."
+
+# Copy config files
+cp config/package.json "$BUILD_DIR/"
+cp config/capacitor.config.json "$BUILD_DIR/"
+
+# Create www directory and copy web application files
+mkdir -p "$BUILD_DIR/www"
+cp app.css "$BUILD_DIR/www/"
+cp app.js "$BUILD_DIR/www/"
+cp index.html "$BUILD_DIR/www/"
+cp manifest.json "$BUILD_DIR/www/"
+cp *-Lexicon.json "$BUILD_DIR/www/"
+cp -r assets "$BUILD_DIR/www"
+mkdir -p "$BUILD_DIR/www/epub"
+cp epub/* "$BUILD_DIR/www/epub/"
+
+echo "Build update completed successfully!"
+echo "Files copied to: $BUILD_DIR"

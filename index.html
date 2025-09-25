@@ -26,6 +26,9 @@
             <button id="bookmarks-btn" class="icon-btn" aria-label="Bookmarks" title="Bookmarks">
                 <span class="material-icons">bookmark</span>
             </button>
+            <button id="notes-btn" class="icon-btn" aria-label="Notes" title="Notes">
+                <span class="material-icons">edit</span>
+            </button>
             <button id="help-btn" class="icon-btn" aria-label="Help" title="Help">
                 <span class="material-icons">help</span>
             </button>
@@ -210,6 +213,58 @@
                 </div>
                 <div id="bookmarks-content" class="bookmarks-content">
                     <div class="no-bookmarks">No bookmarks saved yet.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notes Modal -->
+    <div id="notes-modal" class="modal-overlay" aria-hidden="true">
+        <div class="modal" role="dialog" aria-labelledby="notes-title" aria-modal="true">
+            <header class="modal-header">
+                <h2 id="notes-title" class="modal-title">Notes</h2>
+                <div class="modal-header-actions">
+                    <button id="add-note-btn" class="icon-btn" aria-label="Add Note" title="Select Text to Add Note">
+                        <span class="material-icons">add</span>
+                    </button>
+                    <button class="close-btn" aria-label="Close">
+                        <span class="material-icons">close</span>
+                    </button>
+                </div>
+            </header>
+            <div class="modal-content">
+                <div class="notes-tabs">
+                    <button id="current-book-notes-tab" class="note-tab active" data-tab="current">
+                        Volume 1
+                    </button>
+                    <button id="other-books-notes-tab" class="note-tab" data-tab="other">
+                        Other Volumes
+                    </button>
+                </div>
+                <div id="notes-content" class="notes-content">
+                    <div class="no-notes">No notes saved yet.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Note Editor Modal -->
+    <div id="note-editor-modal" class="modal-overlay" aria-hidden="true">
+        <div class="modal note-editor-modal" role="dialog" aria-labelledby="note-editor-title" aria-modal="true">
+            <header class="modal-header">
+                <h2 id="note-editor-title" class="modal-title">Edit Note</h2>
+                <div class="modal-header-actions">
+                    <button id="delete-note-btn" class="icon-btn" aria-label="Delete Note" title="Delete Note">
+                        <span class="material-icons">delete</span>
+                    </button>
+                    <button class="close-btn" aria-label="Close">
+                        <span class="material-icons">close</span>
+                    </button>
+                </div>
+            </header>
+            <div class="modal-content">
+                <div class="note-editor-container">
+                    <textarea id="note-editor-textarea" class="note-editor-textarea" placeholder="Enter your note here..." rows="8"></textarea>
                 </div>
             </div>
         </div>
