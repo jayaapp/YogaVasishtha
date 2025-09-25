@@ -1421,11 +1421,13 @@ body.dark-theme .note-highlight:hover {
     .header-mobile-portrait .mobile-row1 {
         display: flex !important;
         align-items: center;
+        justify-content: flex-start; /* Left-align within the container */
     }
 
     .header-mobile-portrait .mobile-row2 {
         display: flex !important;
         align-items: center;
+        justify-content: flex-start; /* Left-align within the container */
     }
 
     .header-mobile-portrait .mobile-title {
@@ -1433,6 +1435,9 @@ body.dark-theme .note-highlight:hover {
         margin: 0 !important;
         color: var(--text-color) !important;
         display: block !important;
+        text-align: center !important;
+        width: 140px; /* Match the min-width of the dropdown */
+        max-width: 200px; /* Match the max-width of the dropdown */
     }
 
     .header-mobile-portrait .mobile-selector {
