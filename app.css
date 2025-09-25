@@ -1107,6 +1107,11 @@ body.dark-theme .note-highlight:hover {
     gap: 0.5rem;
 }
 
+/* Add larger gap before add action button to separate import/export from add/close */
+.modal-header-actions .add-action-btn {
+    margin-left: 0.5rem; /* Double the normal gap for visual separation */
+}
+
 .bookmarks-tabs {
     display: flex;
     border-bottom: 1px solid var(--panel-border);
@@ -1596,4 +1601,57 @@ body.dark-theme .note-highlight:hover {
 
 .slide-in {
     animation: slideInFromTop 0.3s ease-out;
+}
+
+/* ===== NOTIFICATION SYSTEM ===== */
+.notification {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10000;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    opacity: 0;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    max-width: 400px;
+    text-align: center;
+}
+
+.notification-show {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.notification-hide {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.9);
+}
+
+.notification-error {
+    background: var(--error-bg);
+    color: var(--error-color);
+    border: 1px solid var(--error-border);
+}
+
+.notification-info {
+    background: var(--modal-bg);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+}
+
+/* Theme-aware notification variables */
+.light-theme {
+    --error-bg: #fee;
+    --error-color: #c53030;
+    --error-border: #feb2b2;
+}
+
+.dark-theme {
+    --error-bg: #2d1b1b;
+    --error-color: #fc8181;
+    --error-border: #4a2828;
 }

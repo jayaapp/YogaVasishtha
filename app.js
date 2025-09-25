@@ -881,6 +881,54 @@ const SearchManager = {
     }
 };
 
+// ===== NOTIFICATION MANAGER =====
+const NotificationManager = {
+    /**
+     * Show a themed notification
+     */
+    show(message, type = 'info') {
+        // Remove any existing notifications
+        this.clear();
+
+        const notification = document.createElement('div');
+        notification.className = 'notification notification-' + type;
+        notification.textContent = message;
+
+        // Add notification to the body
+        document.body.appendChild(notification);
+
+        // Animate in
+        setTimeout(() => {
+            notification.classList.add('notification-show');
+        }, 10);
+
+        // Auto-remove after 2 seconds
+        setTimeout(() => {
+            this.hide(notification);
+        }, 2000);
+    },
+
+    /**
+     * Hide a notification with animation
+     */
+    hide(notification) {
+        notification.classList.add('notification-hide');
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 300);
+    },
+
+    /**
+     * Clear all notifications
+     */
+    clear() {
+        const notifications = document.querySelectorAll('.notification');
+        notifications.forEach(n => n.parentNode.removeChild(n));
+    }
+};
+
 // ===== BOOKMARK MANAGER =====
 const BookmarkManager = {
     MAX_BOOKMARKS_PER_BOOK: 10,
@@ -1413,6 +1461,110 @@ const BookmarkManager = {
      */
     generateId() {
         return 'bookmark_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    },
+
+    /**
+     * Export bookmarks to JSON file
+     */
+    exportToJSON() {
+        try {
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+            const filename = `Yoga-Vasishtha-Bookmarks-${timestamp}.json`;
+
+            const data = {
+                type: 'bookmarks',
+                version: '1.0',
+                timestamp: new Date().toISOString(),
+                data: State.bookmarks
+            };
+
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            console.log('📤 Exported bookmarks to:', filename);
+        } catch (error) {
+            console.error('❌ Export failed:', error);
+            NotificationManager.show('Export failed: ' + error.message, 'error');
+        }
+    },
+
+    /**
+     * Import bookmarks from JSON file
+     */
+    importFromJSON() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+
+                    // Validate JSON structure
+                    if (!importedData.type || importedData.type !== 'bookmarks' || !importedData.data) {
+                        throw new Error('Invalid bookmark file format');
+                    }
+
+                    this.mergeBookmarks(importedData.data);
+                    console.log('📥 Imported bookmarks successfully');
+                } catch (error) {
+                    console.error('❌ Import failed:', error);
+                    NotificationManager.show('Import failed: Invalid bookmark file', 'error');
+                }
+            };
+            reader.readAsText(file);
+        };
+
+        input.click();
+    },
+
+    /**
+     * Merge imported bookmarks with existing ones
+     */
+    mergeBookmarks(importedBookmarks) {
+        let mergeCount = 0;
+
+        Object.keys(importedBookmarks).forEach(bookIndex => {
+            const importedBookmarkList = importedBookmarks[bookIndex] || [];
+            const existingBookmarks = State.bookmarks[bookIndex] || [];
+
+            importedBookmarkList.forEach(importedBookmark => {
+                // Check for exact duplicates
+                const isDuplicate = existingBookmarks.some(existing =>
+                    existing.bookIndex === importedBookmark.bookIndex &&
+                    existing.chapterAnchor === importedBookmark.chapterAnchor &&
+                    Math.abs(existing.scrollPosition - importedBookmark.scrollPosition) < 10
+                );
+
+                if (!isDuplicate) {
+                    if (!State.bookmarks[bookIndex]) {
+                        State.bookmarks[bookIndex] = [];
+                    }
+                    State.bookmarks[bookIndex].push(importedBookmark);
+                    mergeCount++;
+                }
+            });
+        });
+
+        this.saveToStorage();
+        this.renderBookmarks();
+
+        if (mergeCount > 0) {
+            console.log(`📥 Merged ${mergeCount} new bookmarks`);
+        }
     }
 };
 
@@ -2153,6 +2305,161 @@ const NotesManager = {
                     console.warn('Could not restore highlight for note:', note.id);
                 }
             }
+        }
+    },
+
+    /**
+     * Export notes to JSON file
+     */
+    exportToJSON() {
+        try {
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+            const filename = `Yoga-Vasishtha-Notes-${timestamp}.json`;
+
+            const data = {
+                type: 'notes',
+                version: '1.0',
+                timestamp: new Date().toISOString(),
+                data: State.notes
+            };
+
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            console.log('📝 Notes exported to:', filename);
+        } catch (error) {
+            console.error('Failed to export notes:', error);
+            NotificationManager.show('Export failed: ' + error.message, 'error');
+        }
+    },
+
+    /**
+     * Import notes from JSON file
+     */
+    importFromJSON() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.style.display = 'none';
+        document.body.appendChild(input);
+
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onerror = () => {
+                NotificationManager.show('Import failed: Cannot read file', 'error');
+            };
+            reader.onload = (e) => {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+
+                    // Validate JSON structure
+                    if (!importedData.data || importedData.type !== 'notes') {
+                        NotificationManager.show('Import failed: Invalid notes file', 'error');
+                        return;
+                    }
+
+                    const importedNotes = importedData.data;
+                    let mergedCount = 0;
+                    let newCount = 0;
+                    let ignoredCount = 0;
+
+                    // Merge notes for each book
+                    for (const [bookIndex, bookNotes] of Object.entries(importedNotes)) {
+                        if (!State.notes[bookIndex]) {
+                            State.notes[bookIndex] = [];
+                        }
+
+                        for (const importedNote of bookNotes) {
+                            const result = this.mergeNote(State.notes[bookIndex], importedNote);
+                            if (result === 'merged') mergedCount++;
+                            else if (result === 'new') newCount++;
+                            else if (result === 'ignored') ignoredCount++;
+                        }
+                    }
+
+                    this.saveToStorage();
+                    this.renderNotes();
+
+                    console.log(`📝 Notes import complete: ${newCount} new, ${mergedCount} merged, ${ignoredCount} ignored`);
+                } catch (error) {
+                    console.error('Import error:', error);
+                    NotificationManager.show('Import failed: Invalid notes file', 'error');
+                }
+            };
+            reader.readAsText(file);
+        };
+
+        input.click();
+        document.body.removeChild(input);
+    },
+
+    /**
+     * Merge a single note into the existing notes array
+     * Returns 'ignored' for exact duplicates, 'merged' for location conflicts, 'new' for new notes
+     */
+    mergeNote(existingNotes, importedNote) {
+        // Find notes at the same location
+        const sameLocationNotes = existingNotes.filter(note =>
+            note.bookIndex === importedNote.bookIndex &&
+            note.chapterAnchor === importedNote.chapterAnchor &&
+            note.scrollPosition === importedNote.scrollPosition &&
+            note.selectedText === importedNote.selectedText
+        );
+
+        // Check for exact duplicate
+        const exactDuplicate = sameLocationNotes.find(note =>
+            note.noteText === importedNote.noteText
+        );
+
+        if (exactDuplicate) {
+            return 'ignored'; // Ignore exact duplicates
+        }
+
+        // Check if there are conflicting notes at the same location
+        if (sameLocationNotes.length > 0) {
+            // Merge notes at the same location
+            const allNotes = [...sameLocationNotes, importedNote];
+
+            // Sort by timestamp (chronological order)
+            allNotes.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+            // Create merged note text
+            const mergedText = 'Merged Notes\n\n' + allNotes.map(note => {
+                const timestamp = new Date(note.timestamp).toLocaleString();
+                return `-- Note From ${timestamp} --\n\n${note.noteText}`;
+            }).join('\n\n');
+
+            // Remove existing notes at this location
+            for (let i = existingNotes.length - 1; i >= 0; i--) {
+                if (sameLocationNotes.includes(existingNotes[i])) {
+                    existingNotes.splice(i, 1);
+                }
+            }
+
+            // Add the merged note (use the earliest timestamp for the merged note)
+            const mergedNote = {
+                ...importedNote,
+                noteText: mergedText,
+                timestamp: allNotes[0].timestamp // Use earliest timestamp
+            };
+            existingNotes.push(mergedNote);
+
+            return 'merged';
+        } else {
+            // New note at a different location
+            existingNotes.push(importedNote);
+            return 'new';
         }
     }
 };
@@ -3242,11 +3549,15 @@ const EventHandlers = {
 
         // Bookmark controls
         Elements.addBookmarkBtn.addEventListener('click', () => BookmarkManager.addBookmark());
+        Elements.exportBookmarksBtn.addEventListener('click', () => BookmarkManager.exportToJSON());
+        Elements.importBookmarksBtn.addEventListener('click', () => BookmarkManager.importFromJSON());
         Elements.currentBookTab.addEventListener('click', () => BookmarkManager.switchTab('current'));
         Elements.otherBooksTab.addEventListener('click', () => BookmarkManager.switchTab('other'));
 
         // Notes controls
         document.getElementById('add-note-btn').addEventListener('click', () => NotesManager.enterTextSelectionMode());
+        Elements.exportNotesBtn.addEventListener('click', () => NotesManager.exportToJSON());
+        Elements.importNotesBtn.addEventListener('click', () => NotesManager.importFromJSON());
         document.getElementById('current-book-notes-tab').addEventListener('click', () => NotesManager.switchTab('current'));
         document.getElementById('other-books-notes-tab').addEventListener('click', () => NotesManager.switchTab('other'));
 
@@ -3501,6 +3812,10 @@ const App = {
         Elements.lexiconContent = document.getElementById('lexicon-content');
         Elements.bookmarksContent = document.getElementById('bookmarks-content');
         Elements.addBookmarkBtn = document.getElementById('add-bookmark-btn');
+        Elements.exportBookmarksBtn = document.getElementById('export-bookmarks-btn');
+        Elements.importBookmarksBtn = document.getElementById('import-bookmarks-btn');
+        Elements.exportNotesBtn = document.getElementById('export-notes-btn');
+        Elements.importNotesBtn = document.getElementById('import-notes-btn');
         Elements.currentBookTab = document.getElementById('current-book-tab');
         Elements.otherBooksTab = document.getElementById('other-books-tab');
 
