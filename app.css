@@ -1638,7 +1638,7 @@ body.dark-theme .note-highlight:hover {
 }
 
 .notification-info {
-    background: var(--modal-bg);
+    background: var(--notification-bg);
     color: var(--text-color);
     border: 1px solid var(--border-color);
 }
@@ -1648,10 +1648,12 @@ body.dark-theme .note-highlight:hover {
     --error-bg: #fee;
     --error-color: #c53030;
     --error-border: #feb2b2;
+    --notification-bg: rgba(255, 255, 255, 0.95);
 }
 
 .dark-theme {
     --error-bg: #2d1b1b;
     --error-color: #fc8181;
     --error-border: #4a2828;
+    --notification-bg: rgba(45, 55, 72, 0.95);
 }

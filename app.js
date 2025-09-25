@@ -902,10 +902,10 @@ const NotificationManager = {
             notification.classList.add('notification-show');
         }, 10);
 
-        // Auto-remove after 2 seconds
+        // Auto-remove after 2.5 seconds
         setTimeout(() => {
             this.hide(notification);
-        }, 2000);
+        }, 2500);
     },
 
     /**
@@ -1466,7 +1466,7 @@ const BookmarkManager = {
     /**
      * Export bookmarks to JSON file
      */
-    exportToJSON() {
+    async exportToJSON() {
         try {
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
             const filename = `Yoga-Vasishtha-Bookmarks-${timestamp}.json`;
@@ -1478,20 +1478,55 @@ const BookmarkManager = {
                 data: State.bookmarks
             };
 
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
+            const jsonContent = JSON.stringify(data, null, 2);
 
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            // Check if we're on mobile with Capacitor
+            if (window.Capacitor?.isNativePlatform && window.Capacitor.Plugins?.Filesystem) {
+                try {
+                    const { Filesystem } = window.Capacitor.Plugins;
 
-            console.log('📤 Exported bookmarks to:', filename);
+                    await Filesystem.writeFile({
+                        path: filename,
+                        data: jsonContent,
+                        directory: 'DOCUMENTS',
+                        encoding: 'utf8'
+                    });
+
+                    console.log('📚 Bookmarks exported to Documents folder:', filename);
+                    NotificationManager.show('Bookmarks exported to Documents folder', 'info');
+                } catch (capacitorError) {
+                    console.log('📚 Capacitor export failed, falling back to web download:', capacitorError);
+                    // Fall back to web download
+                    const blob = new Blob([jsonContent], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+
+                    console.log('📚 Bookmarks exported to Downloads (fallback):', filename);
+                }
+            } else {
+                // Web browser - use blob download
+                const blob = new Blob([jsonContent], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                console.log('📚 Bookmarks exported to Downloads:', filename);
+            }
         } catch (error) {
-            console.error('❌ Export failed:', error);
+            console.error('Failed to export bookmarks:', error);
             NotificationManager.show('Export failed: ' + error.message, 'error');
         }
     },
@@ -1563,6 +1598,7 @@ const BookmarkManager = {
         this.renderBookmarks();
 
         if (mergeCount > 0) {
+            NotificationManager.show(`Imported ${mergeCount} bookmarks`, 'info');
             console.log(`📥 Merged ${mergeCount} new bookmarks`);
         }
     }
@@ -2311,7 +2347,7 @@ const NotesManager = {
     /**
      * Export notes to JSON file
      */
-    exportToJSON() {
+    async exportToJSON() {
         try {
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
             const filename = `Yoga-Vasishtha-Notes-${timestamp}.json`;
@@ -2323,18 +2359,53 @@ const NotesManager = {
                 data: State.notes
             };
 
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
+            const jsonContent = JSON.stringify(data, null, 2);
 
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            // Check if we're on mobile with Capacitor
+            if (window.Capacitor?.isNativePlatform && window.Capacitor.Plugins?.Filesystem) {
+                try {
+                    const { Filesystem } = window.Capacitor.Plugins;
 
-            console.log('📝 Notes exported to:', filename);
+                    await Filesystem.writeFile({
+                        path: filename,
+                        data: jsonContent,
+                        directory: 'DOCUMENTS',
+                        encoding: 'utf8'
+                    });
+
+                    console.log('📝 Notes exported to Documents folder:', filename);
+                    NotificationManager.show('Notes exported to Documents folder', 'info');
+                } catch (capacitorError) {
+                    console.log('📝 Capacitor export failed, falling back to web download:', capacitorError);
+                    // Fall back to web download
+                    const blob = new Blob([jsonContent], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+
+                    console.log('📝 Notes exported to Downloads (fallback):', filename);
+                }
+            } else {
+                // Web browser - use blob download
+                const blob = new Blob([jsonContent], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                console.log('📝 Notes exported to Downloads:', filename);
+            }
         } catch (error) {
             console.error('Failed to export notes:', error);
             NotificationManager.show('Export failed: ' + error.message, 'error');
@@ -2391,6 +2462,8 @@ const NotesManager = {
                     this.saveToStorage();
                     this.renderNotes();
 
+                    const totalImported = newCount + mergedCount;
+                    NotificationManager.show(`Imported ${totalImported} notes`, 'info');
                     console.log(`📝 Notes import complete: ${newCount} new, ${mergedCount} merged, ${ignoredCount} ignored`);
                 } catch (error) {
                     console.error('Import error:', error);
