@@ -1249,6 +1249,71 @@ body.dark-theme .note-highlight:hover {
 }
 
 /* ===== RESPONSIVE DESIGN ===== */
+
+/* Portrait Orientation Table Overflow Fix - Hybrid approach targeting actual problem */
+@media (orientation: portrait) and (max-width: 1024px) {
+    /* Global viewport constraints to prevent horizontal expansion */
+    html, body {
+        overflow-x: hidden; /* Prevent horizontal scrolling */
+        max-width: 100vw; /* Constrain to viewport width */
+    }
+
+    /* Ensure main content never expands beyond viewport */
+    .main-content {
+        overflow-x: hidden;
+        max-width: 100vw;
+        box-sizing: border-box;
+    }
+
+    /* PORTRAIT TABLE OVERFLOW FIX - Prevent tables from expanding document width */
+
+    /* Ensure the main content container constrains all children */
+    .book-content {
+        overflow-x: hidden; /* Prevent horizontal overflow from affecting layout */
+    }
+
+    /* Make tables responsive in portrait orientation */
+    .book-content table {
+        width: 100%;
+        max-width: 100%;
+        margin: 1rem 0;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+        /* Create a scrollable container for wide tables */
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Reset table elements to work with block display */
+    .book-content table thead,
+    .book-content table tbody {
+        display: table;
+        width: 100%;
+    }
+
+    .book-content table tr {
+        display: table-row;
+    }
+
+    .book-content table th,
+    .book-content table td {
+        display: table-cell;
+        padding: 0.5rem 0.25rem;
+        border: 1px solid var(--panel-border);
+        text-align: left;
+        word-wrap: break-word;
+        min-width: 80px; /* Minimum readable width */
+    }
+
+    /* Prevent any element from causing horizontal overflow */
+    .book-content * {
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+}
+
+/* Standard mobile breakpoints for header layout and typography */
 @media (max-width: 768px) {
     .header-bar {
         padding: 0 1rem;
