@@ -3014,7 +3014,7 @@ const EventHandlers = {
         // Book selector
         Elements.bookSelector.addEventListener('change', this.onBookChange.bind(this));
 
-        // Header buttons
+        // Desktop header buttons
         Elements.themeBtn.addEventListener('click', this.onThemeToggle.bind(this));
         Elements.settingsBtn.addEventListener('click', () => ModalManager.open('settings'));
         Elements.tocBtn.addEventListener('click', () => ModalManager.open('toc'));
@@ -3022,6 +3022,15 @@ const EventHandlers = {
         Elements.bookmarksBtn.addEventListener('click', () => ModalManager.open('bookmarks'));
         Elements.notesBtn.addEventListener('click', () => ModalManager.open('notes'));
         Elements.helpBtn.addEventListener('click', () => ModalManager.open('help'));
+
+        // Mobile header buttons (same functionality)
+        Elements.themeBtnMobile.addEventListener('click', this.onThemeToggle.bind(this));
+        Elements.settingsBtnMobile.addEventListener('click', () => ModalManager.open('settings'));
+        Elements.tocBtnMobile.addEventListener('click', () => ModalManager.open('toc'));
+        Elements.searchBtnMobile.addEventListener('click', () => SearchManager.togglePanel());
+        Elements.bookmarksBtnMobile.addEventListener('click', () => ModalManager.open('bookmarks'));
+        Elements.notesBtnMobile.addEventListener('click', () => ModalManager.open('notes'));
+        Elements.helpBtnMobile.addEventListener('click', () => ModalManager.open('help'));
 
         // Search panel controls
         Elements.searchInput.addEventListener('input', Utils.debounce((e) => {
@@ -3245,6 +3254,7 @@ const App = {
     initElements() {
         // Main elements
         Elements.bookSelector = document.getElementById('book-selector');
+        // Desktop buttons
         Elements.themeBtn = document.getElementById('theme-btn');
         Elements.settingsBtn = document.getElementById('settings-btn');
         Elements.tocBtn = document.getElementById('toc-btn');
@@ -3252,6 +3262,15 @@ const App = {
         Elements.bookmarksBtn = document.getElementById('bookmarks-btn');
         Elements.notesBtn = document.getElementById('notes-btn');
         Elements.helpBtn = document.getElementById('help-btn');
+
+        // Mobile buttons
+        Elements.themeBtnMobile = document.getElementById('theme-btn-mobile');
+        Elements.settingsBtnMobile = document.getElementById('settings-btn-mobile');
+        Elements.tocBtnMobile = document.getElementById('toc-btn-mobile');
+        Elements.searchBtnMobile = document.getElementById('search-btn-mobile');
+        Elements.bookmarksBtnMobile = document.getElementById('bookmarks-btn-mobile');
+        Elements.notesBtnMobile = document.getElementById('notes-btn-mobile');
+        Elements.helpBtnMobile = document.getElementById('help-btn-mobile');
 
         // Content areas
         Elements.loadingIndicator = document.getElementById('loading-indicator');

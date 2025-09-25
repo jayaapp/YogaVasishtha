@@ -1277,12 +1277,51 @@ body.dark-theme .note-highlight:hover {
     }
 }
 
+/* Desktop and mobile button visibility */
+.mobile-btn,
+.header-controls-row1,
+.header-controls-row2 {
+    display: none; /* Hidden on desktop */
+}
+
+.desktop-btn {
+    display: flex; /* Show on desktop */
+}
+
 @media (max-width: 480px) {
     .header-bar {
-        padding: 0 0.75rem;
+        padding: 0.5rem 0.75rem 0.5rem 0.75rem; /* Top and bottom padding for better spacing */
+        height: 86px; /* Slightly increased height to accommodate padding */
+        align-items: flex-start;
+    }
+
+    .header-left {
+        /* Removed padding-top since header-bar now has top padding */
+    }
+
+    /* Hide desktop buttons and show mobile layout */
+    .desktop-btn {
+        display: none;
+    }
+
+    .mobile-btn {
+        display: flex;
+    }
+
+    .header-controls-row1,
+    .header-controls-row2 {
+        display: flex;
+        gap: 0.25rem;
+    }
+
+    .header-controls {
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.25rem;
     }
 
     .main-content {
+        margin-top: 86px; /* Account for taller header with padding */
         padding: 0.75rem;
     }
 
@@ -1297,6 +1336,38 @@ body.dark-theme .note-highlight:hover {
 
     .modal-content {
         padding: 1rem;
+    }
+}
+
+/* Extra narrow screens - even more compact */
+@media (max-width: 360px) {
+    .header-bar {
+        height: 86px; /* Keep same height as other mobile sizes */
+        padding: 0.5rem 0.5rem 0.5rem 0.5rem;
+    }
+
+    .header-controls-row1,
+    .header-controls-row2 {
+        gap: 0.15rem;
+    }
+
+    .main-content {
+        margin-top: 86px;
+    }
+
+    .book-selector {
+        min-width: 100px;
+        max-width: 140px;
+        font-size: 0.75rem;
+    }
+
+    .icon-btn {
+        width: 32px;
+        height: 32px;
+    }
+
+    .icon-btn .material-icons {
+        font-size: 18px;
     }
 }
 
