@@ -1431,11 +1431,60 @@ const NotesManager = {
      * Initialize event listeners for text selection
      */
     initEventListeners() {
-        // Listen for text selection events
+        // Listen for text selection events (both mouse and touch)
         document.addEventListener('mouseup', (e) => {
             if (this.isTextSelectionMode) {
                 this.handleTextSelection(e);
             }
+        });
+
+        // Mobile touch events - capture selection immediately on touch end
+        document.addEventListener('touchend', (e) => {
+            if (this.isTextSelectionMode) {
+                console.log('📱 Touch end detected in selection mode');
+
+                // Capture selection IMMEDIATELY (before it disappears)
+                const selection = window.getSelection();
+                if (selection.rangeCount && !selection.isCollapsed) {
+                    const range = selection.getRangeAt(0);
+                    const selectedText = range.toString().trim();
+                    console.log('📱 Captured selection immediately:', selectedText.substring(0, 50) + '...');
+
+                    // Store the selection data immediately
+                    this.capturedMobileSelection = {
+                        range: range.cloneRange(),
+                        text: selectedText
+                    };
+
+                    // Process it after a small delay to avoid conflicts with browser
+                    setTimeout(() => {
+                        this.processCapturedMobileSelection();
+                    }, 50);
+                } else {
+                    console.log('📱 No selection at touch end');
+                }
+            }
+        });
+
+        // Selection change event (fires when text selection changes)
+        // Only used to store the selection, not to immediately process it
+        document.addEventListener('selectionchange', (e) => {
+            if (this.isTextSelectionMode) {
+                // Just store the current selection without processing it yet
+                this.storeCurrentSelection();
+            }
+        });
+
+        // Prevent default context menu on mobile only during selection mode
+        document.addEventListener('contextmenu', (e) => {
+            if (this.isTextSelectionMode) {
+                console.log('📱 Preventing context menu in selection mode');
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }
+            // Allow normal context menu when not in selection mode
+            console.log('📱 Allowing normal context menu');
         });
 
         // Listen for escape key to exit selection mode
@@ -1464,8 +1513,14 @@ const NotesManager = {
     enterTextSelectionMode() {
         this.isTextSelectionMode = true;
         document.body.classList.add('text-selection-mode');
+
+        // Mobile-specific: Initialize properties to handle touch events
+        this.pendingMobileSelection = null;
+        this.capturedMobileSelection = null;
+        this.selectionTimeout = null;
+
         ModalManager.close('notes');
-        console.log('📝 Entered text selection mode');
+        console.log('📝 Entered text selection mode - mobile events should now be active');
     },
 
     /**
@@ -1475,7 +1530,144 @@ const NotesManager = {
         this.isTextSelectionMode = false;
         document.body.classList.remove('text-selection-mode');
         this.currentSelection = null;
+
+        // Clean up mobile-specific properties
+        this.pendingMobileSelection = null;
+        this.capturedMobileSelection = null;
+        if (this.selectionTimeout) {
+            clearTimeout(this.selectionTimeout);
+            this.selectionTimeout = null;
+        }
+
         console.log('📝 Exited text selection mode');
+    },
+
+    /**
+     * Store current selection without processing it
+     */
+    storeCurrentSelection() {
+        const selection = window.getSelection();
+        if (!selection.rangeCount || selection.isCollapsed) {
+            this.pendingMobileSelection = null;
+            return;
+        }
+
+        const range = selection.getRangeAt(0);
+        const selectedText = range.toString().trim();
+
+        // Only store if it's within book content
+        const bookContent = document.getElementById('book-content');
+        if (!bookContent || !bookContent.contains(range.commonAncestorContainer)) {
+            this.pendingMobileSelection = null;
+            return;
+        }
+
+        // Store the selection (but don't process it yet)
+        this.pendingMobileSelection = {
+            range: range.cloneRange(),
+            text: selectedText
+        };
+    },
+
+    /**
+     * Handle mobile selection end (when user stops touching)
+     */
+    handleMobileSelectionEnd(e) {
+        console.log('📱 Processing mobile selection end');
+
+        // Check if selection is still active
+        const currentSelection = window.getSelection();
+        console.log('📱 Current selection:', currentSelection.toString());
+
+        if (!currentSelection.rangeCount || currentSelection.isCollapsed) {
+            console.log('📱 No active selection, skipping');
+            this.pendingMobileSelection = null;
+            return;
+        }
+
+        const selectedText = currentSelection.toString().trim();
+        if (selectedText.length < 3) {
+            console.log('📱 Selection too short:', selectedText);
+            this.pendingMobileSelection = null;
+            return;
+        }
+
+        // Check if selection is within book content
+        const range = currentSelection.getRangeAt(0);
+        const bookContent = document.getElementById('book-content');
+        if (!bookContent || !bookContent.contains(range.commonAncestorContainer)) {
+            console.log('📱 Selection not in book content');
+            return;
+        }
+
+        console.log('📱 Creating note from selection:', selectedText.substring(0, 50) + '...');
+
+        // Create the note directly with current selection
+        this.createNoteFromSelection(range, selectedText);
+    },
+
+    /**
+     * Process captured mobile selection and create note
+     */
+    processCapturedMobileSelection() {
+        if (!this.capturedMobileSelection || !this.isTextSelectionMode) {
+            console.log('📱 No captured selection or not in selection mode');
+            return;
+        }
+
+        const { range, text } = this.capturedMobileSelection;
+        this.capturedMobileSelection = null;
+
+        console.log('📱 Processing captured selection:', text.substring(0, 50) + '...');
+
+        // Validate the captured selection
+        if (text.length < 3) {
+            console.log('📱 Captured selection too short:', text);
+            return;
+        }
+
+        // Check if selection is within book content
+        const bookContent = document.getElementById('book-content');
+        if (!bookContent || !bookContent.contains(range.commonAncestorContainer)) {
+            console.log('📱 Captured selection not in book content');
+            return;
+        }
+
+        // Create the note with the captured selection
+        console.log('📱 Creating note from captured selection');
+        this.createNoteFromSelection(range, text);
+    },
+
+    /**
+     * Process mobile selection and create note (legacy method)
+     */
+    processMobileSelection() {
+        if (!this.pendingMobileSelection || !this.isTextSelectionMode) return;
+
+        const { range, text } = this.pendingMobileSelection;
+        this.pendingMobileSelection = null;
+
+        // Create the note with the stored selection
+        this.createNoteFromSelection(range, text);
+    },
+
+    /**
+     * Create note from selection (used by both desktop and mobile)
+     */
+    createNoteFromSelection(range, selectedText) {
+        // Check for overlapping highlights
+        const existingHighlight = this.findOverlappingHighlight(range);
+        if (existingHighlight) {
+            // Merge with existing highlight
+            this.mergeWithExistingHighlight(existingHighlight, range);
+        } else {
+            // Create new highlight
+            this.createNewHighlight(range, selectedText);
+        }
+
+        // Clear selection and exit selection mode
+        window.getSelection().removeAllRanges();
+        this.exitTextSelectionMode();
     },
 
     /**
@@ -1494,19 +1686,8 @@ const NotesManager = {
         const bookContent = document.getElementById('book-content');
         if (!bookContent.contains(range.commonAncestorContainer)) return;
 
-        // Check for overlapping highlights
-        const existingHighlight = this.findOverlappingHighlight(range);
-        if (existingHighlight) {
-            // Merge with existing highlight
-            this.mergeWithExistingHighlight(existingHighlight, range);
-        } else {
-            // Create new highlight
-            this.createNewHighlight(range, selectedText);
-        }
-
-        // Clear selection
-        selection.removeAllRanges();
-        this.exitTextSelectionMode();
+        // Create the note
+        this.createNoteFromSelection(range, selectedText);
     },
 
     /**
