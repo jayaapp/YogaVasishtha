@@ -1329,7 +1329,7 @@ body.dark-theme .note-highlight:hover {
         gap: 0.5rem;
     }
 
-    .app-title {
+    .app-title:not(.mobile-title) {
         font-size: 1rem;
         display: none;
     }
@@ -1380,14 +1380,22 @@ body.dark-theme .note-highlight:hover {
     }
 }
 
-/* Desktop and mobile button visibility */
-.mobile-btn,
-.header-controls-row1,
-.header-controls-row2 {
-    display: none; /* Hidden on desktop */
+/* Desktop and mobile layout visibility */
+.mobile-btn {
+    display: none !important; /* Hidden on desktop */
 }
 
-.desktop-btn {
+.header-mobile-portrait {
+    display: none; /* Hidden on desktop - shown in mobile media query */
+}
+
+.header-controls-row1,
+.header-controls-row2 {
+    display: none; /* Hidden on desktop - can be overridden by media queries */
+}
+
+.desktop-btn,
+.desktop-layout {
     display: flex; /* Show on desktop */
 }
 
@@ -1398,22 +1406,54 @@ body.dark-theme .note-highlight:hover {
         align-items: flex-start;
     }
 
-    .header-left {
-        /* Removed padding-top since header-bar now has top padding */
+    /* IMPORTANT: Hide desktop layout and show mobile portrait layout */
+    .header-bar .desktop-layout {
+        display: none !important;
+    }
+
+    .header-bar .header-mobile-portrait {
+        display: flex !important;
+        flex-direction: column;
+        flex: 1;
+        gap: 0.25rem;
+    }
+
+    .header-mobile-portrait .mobile-row1 {
+        display: flex !important;
+        align-items: center;
+    }
+
+    .header-mobile-portrait .mobile-row2 {
+        display: flex !important;
+        align-items: center;
+    }
+
+    .header-mobile-portrait .mobile-title {
+        font-size: 1rem !important;
+        margin: 0 !important;
+        color: var(--text-color) !important;
+        display: block !important;
+    }
+
+    .header-mobile-portrait .mobile-selector {
+        min-width: 140px !important;
+        max-width: 200px !important;
+        font-size: 0.8rem !important;
+        display: block !important;
     }
 
     /* Hide desktop buttons and show mobile layout */
     .desktop-btn {
-        display: none;
+        display: none !important;
     }
 
-    .mobile-btn {
-        display: flex;
+    .header-controls .mobile-btn {
+        display: flex !important;
     }
 
     .header-controls-row1,
     .header-controls-row2 {
-        display: flex;
+        display: flex !important;
         gap: 0.25rem;
     }
 
@@ -1449,6 +1489,12 @@ body.dark-theme .note-highlight:hover {
         padding: 0.5rem 0.5rem 0.5rem 0.5rem;
     }
 
+    .mobile-selector {
+        min-width: 100px;
+        max-width: 140px;
+        font-size: 0.75rem;
+    }
+
     .header-controls-row1,
     .header-controls-row2 {
         gap: 0.15rem;
@@ -1456,12 +1502,6 @@ body.dark-theme .note-highlight:hover {
 
     .main-content {
         margin-top: 86px;
-    }
-
-    .book-selector {
-        min-width: 100px;
-        max-width: 140px;
-        font-size: 0.75rem;
     }
 
     .icon-btn {

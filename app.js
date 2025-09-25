@@ -357,6 +357,7 @@ const SearchManager = {
             if (originalPos.bookIndex !== State.currentBookIndex) {
                 State.currentBookIndex = originalPos.bookIndex;
                 Elements.bookSelector.value = originalPos.bookIndex;
+                Elements.bookSelectorMobile.value = originalPos.bookIndex;
                 UIManager.displayCurrentBook();
             }
 
@@ -387,6 +388,7 @@ const SearchManager = {
             if (originalPos.bookIndex !== State.currentBookIndex) {
                 State.currentBookIndex = originalPos.bookIndex;
                 Elements.bookSelector.value = originalPos.bookIndex;
+                Elements.bookSelectorMobile.value = originalPos.bookIndex;
                 UIManager.displayCurrentBook();
             }
 
@@ -619,6 +621,7 @@ const SearchManager = {
         if (result.bookIndex !== State.currentBookIndex) {
             State.currentBookIndex = result.bookIndex;
             Elements.bookSelector.value = result.bookIndex;
+            Elements.bookSelectorMobile.value = result.bookIndex;
             UIManager.displayCurrentBook();
         }
 
@@ -1239,6 +1242,7 @@ const BookmarkManager = {
         if (bookmark.bookIndex !== State.currentBookIndex) {
             State.currentBookIndex = bookmark.bookIndex;
             Elements.bookSelector.value = bookmark.bookIndex;
+            Elements.bookSelectorMobile.value = bookmark.bookIndex;
             UIManager.displayCurrentBook();
         }
 
@@ -2880,19 +2884,30 @@ const LexiconManager = {
 // ===== UI MANAGER =====
 const UIManager = {
     /**
-     * Initialize book selector
+     * Initialize book selector (both desktop and mobile)
      */
     initBookSelector() {
+        // Clear both selectors
         Elements.bookSelector.innerHTML = '';
+        Elements.bookSelectorMobile.innerHTML = '';
 
         CONFIG.EPUB_FILES.forEach((fileName, index) => {
+            // Create option for desktop selector
             const option = document.createElement('option');
             option.value = index;
             option.textContent = Utils.getBookTitle(fileName);
             Elements.bookSelector.appendChild(option);
+
+            // Create option for mobile selector
+            const mobileOption = document.createElement('option');
+            mobileOption.value = index;
+            mobileOption.textContent = Utils.getBookTitle(fileName);
+            Elements.bookSelectorMobile.appendChild(mobileOption);
         });
 
+        // Set current book for both selectors
         Elements.bookSelector.value = State.currentBookIndex;
+        Elements.bookSelectorMobile.value = State.currentBookIndex;
     },
 
     /**
@@ -3192,8 +3207,9 @@ const EventHandlers = {
      * Initialize all event listeners
      */
     init() {
-        // Book selector
+        // Book selectors (both desktop and mobile)
         Elements.bookSelector.addEventListener('change', this.onBookChange.bind(this));
+        Elements.bookSelectorMobile.addEventListener('change', this.onBookChange.bind(this));
 
         // Desktop header buttons
         Elements.themeBtn.addEventListener('click', this.onThemeToggle.bind(this));
@@ -3435,6 +3451,7 @@ const App = {
     initElements() {
         // Main elements
         Elements.bookSelector = document.getElementById('book-selector');
+        Elements.bookSelectorMobile = document.getElementById('book-selector-mobile');
         // Desktop buttons
         Elements.themeBtn = document.getElementById('theme-btn');
         Elements.settingsBtn = document.getElementById('settings-btn');

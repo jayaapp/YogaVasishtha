@@ -10,12 +10,26 @@
 <body class="light-theme">
     <!-- Fixed Header Bar -->
     <header class="header-bar">
-        <div class="header-left">
+        <!-- Desktop and landscape layout -->
+        <div class="header-left desktop-layout">
             <h1 class="app-title">Yoga Vasishtha</h1>
             <select id="book-selector" class="book-selector" aria-label="Select book">
                 <option value="">Loading books...</option>
             </select>
         </div>
+
+        <!-- Mobile portrait layout -->
+        <div class="header-mobile-portrait">
+            <div class="mobile-row1">
+                <h1 class="app-title mobile-title">Yoga Vasishtha</h1>
+            </div>
+            <div class="mobile-row2">
+                <select id="book-selector-mobile" class="book-selector mobile-selector" aria-label="Select book">
+                    <option value="">Loading books...</option>
+                </select>
+            </div>
+        </div>
+
         <nav class="header-controls">
             <!-- Desktop single-row layout -->
             <button id="toc-btn" class="icon-btn desktop-btn" aria-label="Table of Contents" title="Table of Contents">
