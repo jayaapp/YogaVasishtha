@@ -1,12 +1,12 @@
 {
   "name": "Yoga Vasishtha Reader",
   "short_name": "YogaVasishtha",
-  "description": "Project Gutenberg Yoga Vasishtha EPUB Reader.",
-  "start_url": "./index.html",
+  "description": "Project Gutenberg Yoga Vasishtha EPUB reader with bookmarks, notes, and cloud sync",
+  "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#2c3e50",
-  "orientation": "any",
+  "background_color": "#2c2c2c",
+  "theme_color": "#4a90e2",
+  "orientation": "portrait-primary",
   "scope": "/",
   "icons": [
     {

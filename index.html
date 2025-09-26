@@ -4,7 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Yoga Vasishtha EPUB Reader</title>
+
+    <!-- PWA Configuration -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#4a90e2">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="YogaVasishtha">
+    <link rel="apple-touch-icon" href="/assets/icon.png">
+
+    <!-- External Resources -->
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+    <!-- App Styles -->
     <link rel="stylesheet" href="app.css">
     <link rel="stylesheet" href="gsync-style.css">
 </head>
@@ -336,5 +348,97 @@
     <script src="gsync-loader.js"></script>
     <!-- Custom EPUB reader implementation -->
     <script src="app.js"></script>
+
+    <!-- PWA Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then((registration) => {
+                        console.log('🚀 PWA: Service Worker registered successfully');
+
+                        // Check for updates
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    console.log('🔄 PWA: New version available');
+                                    // Could show update notification here
+                                }
+                            });
+                        });
+                    })
+                    .catch((error) => {
+                        console.error('❌ PWA: Service Worker registration failed:', error);
+                    });
+            });
+
+            // Handle service worker messages
+            navigator.serviceWorker.addEventListener('message', (event) => {
+                if (event.data && event.data.type === 'BACKGROUND_SYNC') {
+                    console.log('🔄 PWA: Background sync triggered');
+                    // Could trigger Google Drive sync here
+                }
+            });
+        }
+
+        // PWA Install Prompt
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            console.log('📱 PWA: Install prompt available');
+            // Prevent Chrome 67 and earlier from automatically showing the prompt
+            e.preventDefault();
+            // Stash the event so it can be triggered later
+            deferredPrompt = e;
+
+            // Could show custom install button here
+            showInstallButton();
+        });
+
+        function showInstallButton() {
+            // Create install button dynamically
+            const installBtn = document.createElement('button');
+            installBtn.textContent = '📱 Install App';
+            installBtn.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background: #4a90e2;
+                color: white;
+                border: none;
+                padding: 12px 16px;
+                border-radius: 8px;
+                font-size: 14px;
+                cursor: pointer;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+                z-index: 1000;
+            `;
+
+            installBtn.addEventListener('click', async () => {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    console.log(`📱 PWA: User ${outcome} the install prompt`);
+                    deferredPrompt = null;
+                    installBtn.remove();
+                }
+            });
+
+            document.body.appendChild(installBtn);
+
+            // Auto-hide after 10 seconds
+            setTimeout(() => {
+                if (installBtn.parentNode) {
+                    installBtn.remove();
+                }
+            }, 10000);
+        }
+
+        // Track PWA usage
+        window.addEventListener('appinstalled', () => {
+            console.log('🎉 PWA: App installed successfully!');
+            // Could track this event for analytics
+        });
+    </script>
 </body>
 </html>

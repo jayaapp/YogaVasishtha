@@ -14,17 +14,69 @@ const syncManager = new GoogleDriveSync({
     }
 });
 
-// Configure with client ID - use web client for now (working version)
+// Configure with web client ID
 syncManager.configure('75331868163-0o2bkv6mas7a5ljsm2a81h066hshtno8.apps.googleusercontent.com');
+
+// Check for OAuth redirect on page load
+function handleOAuthRedirect() {
+    const hash = window.location.hash.substring(1);
+    if (hash) {
+        const params = new URLSearchParams(hash);
+        const accessToken = params.get('access_token');
+        const state = params.get('state');
+        const error = params.get('error');
+
+        if (state && (state.startsWith('webview_auth_') || state.startsWith('web_auth_') || state.startsWith('pwa_auth_'))) {
+            console.log('🔧 DEBUG: Detected OAuth redirect');
+
+            // Post message to parent window (for iframe case)
+            if (window.parent !== window) {
+                window.parent.postMessage({
+                    type: 'oauth_result',
+                    access_token: accessToken,
+                    error: error
+                }, window.location.origin);
+                return;
+            }
+
+            // Handle direct redirect case
+            if (accessToken) {
+                console.log('🔧 DEBUG: OAuth redirect successful, storing token');
+                // Store token temporarily
+                sessionStorage.setItem('oauth_access_token', accessToken);
+                // Clean up URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+            } else if (error) {
+                console.error('🔧 DEBUG: OAuth redirect failed:', error);
+                sessionStorage.setItem('oauth_error', error);
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        }
+    }
+}
 
 // Initialize when page loads
 window.addEventListener('load', async () => {
     console.log('🔧 DEBUG: gsync-integration.js - Page load event fired');
 
+    // Check for OAuth redirect first
+    handleOAuthRedirect();
+
     try {
         // Initialize sync manager
         const initialized = await syncManager.initialize();
         console.log('🔧 DEBUG: syncManager.initialize() returned:', initialized);
+
+        // Check for stored OAuth token
+        const storedToken = sessionStorage.getItem('oauth_access_token');
+        if (storedToken && initialized) {
+            console.log('🔧 DEBUG: Found stored OAuth token, authenticating...');
+            syncManager.accessToken = storedToken;
+            syncManager.isAuthenticated = true;
+            gapi.client.setToken({ access_token: storedToken });
+            syncManager.onStatusChange('connected');
+            sessionStorage.removeItem('oauth_access_token');
+        }
 
         // Find sync container and initialize UI
         const syncContainer = document.getElementById('sync-placeholder');
