@@ -9,17 +9,21 @@ class GoogleDriveSync {
         this.fileName = options.fileName || 'app-sync.json';
         this.isAuthenticated = false;
         this.onStatusChange = options.onStatusChange || (() => {});
+        this.isCapacitor = !!(window.Capacitor && window.Capacitor.Plugins);
     }
 
     // Configure credentials (app-specific)
-    configure(clientId, fileName = 'app-sync.json') {
+    configure(clientId, fileName = null) {
         this.clientId = clientId;
-        this.fileName = fileName;
+        if (fileName) {
+            this.fileName = fileName;
+        }
+        // Keep existing fileName if not provided
     }
 
     // Initialize Google API
     async initialize() {
-        console.log('🔧 DEBUG: initialize() called, clientId:', !!this.clientId);
+        console.log('🔧 DEBUG: initialize() called, clientId:', !!this.clientId, 'isCapacitor:', this.isCapacitor);
 
         if (!this.clientId) {
             console.warn('Google Drive sync: No client ID configured');
@@ -27,10 +31,24 @@ class GoogleDriveSync {
         }
 
         try {
-            console.log('🔧 DEBUG: Waiting for Google API...');
-            await this.waitForGoogleAPI();
-            console.log('🔧 DEBUG: Google API available, initializing client...');
-            await this.initializeGoogleClient();
+            if (this.isCapacitor) {
+                console.log('🔧 DEBUG: Capacitor detected - trying native auth...');
+                try {
+                    await this.initializeCapacitorGoogleAuth();
+                    console.log('🔧 DEBUG: Capacitor Google Auth initialized successfully');
+                } catch (capacitorError) {
+                    console.warn('🔧 DEBUG: Capacitor auth failed, falling back to web auth:', capacitorError.message);
+                    // Fallback to web auth in Capacitor
+                    await this.waitForGoogleAPI();
+                    await this.initializeGoogleClient();
+                    this.isCapacitor = false; // Use web auth methods
+                }
+            } else {
+                console.log('🔧 DEBUG: Waiting for Google API...');
+                await this.waitForGoogleAPI();
+                console.log('🔧 DEBUG: Google API available, initializing client...');
+                await this.initializeGoogleClient();
+            }
             console.log('🔧 DEBUG: Google client initialized successfully');
             return true;
         } catch (error) {
@@ -100,6 +118,10 @@ class GoogleDriveSync {
 
     // Authenticate user with Google Identity Services
     async authenticate() {
+        if (this.isCapacitor) {
+            return await this.authenticateCapacitor();
+        }
+
         return new Promise((resolve, reject) => {
             if (typeof google === 'undefined' || !google.accounts) {
                 reject(new Error('Google Identity Services not loaded'));
@@ -111,7 +133,7 @@ class GoogleDriveSync {
             // Initialize OAuth with Google Identity Services
             const client = google.accounts.oauth2.initTokenClient({
                 client_id: this.clientId,
-                scope: 'https://www.googleapis.com/auth/drive.file',
+                scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.appdata',
                 callback: (response) => {
                     if (response.error) {
                         console.error('🔧 DEBUG: OAuth failed:', response.error);
@@ -138,20 +160,85 @@ class GoogleDriveSync {
         });
     }
 
+    // Initialize Capacitor Google Auth
+    async initializeCapacitorGoogleAuth() {
+        if (!window.Capacitor?.Plugins?.GoogleAuth) {
+            throw new Error('GoogleAuth plugin not available');
+        }
+
+        const { GoogleAuth } = window.Capacitor.Plugins;
+
+        await GoogleAuth.initialize({
+            clientId: this.clientId,
+            scopes: ['https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/drive.appdata'],
+            grantOfflineAccess: true
+        });
+
+        console.log('🔧 DEBUG: Capacitor Google Auth initialized');
+    }
+
+    // Capacitor authentication
+    async authenticateCapacitor() {
+        try {
+            const { GoogleAuth } = window.Capacitor.Plugins;
+
+            const result = await GoogleAuth.signIn();
+            this.accessToken = result.authentication.accessToken;
+            this.isAuthenticated = true;
+            this.onStatusChange('connected');
+
+            // Initialize gapi client for Drive API
+            await this.initializeGapiClient();
+            return true;
+        } catch (error) {
+            console.error('🔧 DEBUG: Capacitor auth error:', error);
+            return false;
+        }
+    }
+
+    // Initialize gapi client with Capacitor token
+    async initializeGapiClient() {
+        if (!window.gapi) {
+            // Load gapi for Drive API calls
+            await new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'https://apis.google.com/js/api.js';
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        }
+
+        await new Promise(resolve => window.gapi.load('client', resolve));
+        await window.gapi.client.init({});
+        window.gapi.client.setToken({ access_token: this.accessToken });
+        await window.gapi.client.load('drive', 'v3');
+    }
+
     // Disconnect
-    disconnect() {
+    async disconnect() {
         console.log('🔧 DEBUG: Disconnecting...');
         this.accessToken = null;
         this.isAuthenticated = false;
 
-        // Clear the token from gapi.client
-        if (gapi && gapi.client) {
-            gapi.client.setToken(null);
-        }
+        if (this.isCapacitor) {
+            // Capacitor sign out
+            try {
+                const { GoogleAuth } = window.Capacitor.Plugins;
+                await GoogleAuth.signOut();
+            } catch (error) {
+                console.warn('Capacitor sign out error:', error);
+            }
+        } else {
+            // Clear the token from gapi.client
+            if (gapi && gapi.client) {
+                gapi.client.setToken(null);
+            }
 
-        // Revoke token with Google Identity Services
-        if (typeof google !== 'undefined' && google.accounts && this.accessToken) {
-            google.accounts.oauth2.revoke(this.accessToken);
+            // Revoke token with Google Identity Services
+            if (typeof google !== 'undefined' && google.accounts && this.accessToken) {
+                google.accounts.oauth2.revoke(this.accessToken);
+            }
         }
 
         this.onStatusChange('disconnected');

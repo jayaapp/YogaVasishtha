@@ -14,7 +14,7 @@ const syncManager = new GoogleDriveSync({
     }
 });
 
-// Configure with client ID
+// Configure with client ID - use web client for now (working version)
 syncManager.configure('75331868163-0o2bkv6mas7a5ljsm2a81h066hshtno8.apps.googleusercontent.com');
 
 // Initialize when page loads
@@ -32,11 +32,13 @@ window.addEventListener('load', async () => {
             // Create sync UI
             window.syncUI = new GoogleSyncUI(syncContainer, syncManager);
             window.syncUI.onSyncManagerReady();
+            makeThemeAware();
             console.log('✅ Google Drive sync UI ready');
         } else if (syncContainer && !initialized) {
             // Show error state
             window.syncUI = new GoogleSyncUI(syncContainer, syncManager);
             window.syncUI.onSyncManagerFailed();
+            makeThemeAware();
             console.log('❌ Google Drive sync initialization failed');
         } else {
             console.warn('⚠️  Sync container not found - sync UI disabled');
@@ -51,6 +53,52 @@ window.addEventListener('load', async () => {
         }
     }
 });
+
+// Make sync UI theme-aware
+function makeThemeAware() {
+    const syncTitle = document.querySelector('.sync-section-title');
+    if (syncTitle) {
+        // Apply theme class from body to sync title
+        const bodyTheme = document.body.className;
+        syncTitle.className = `sync-section-title ${bodyTheme}`;
+
+        // Watch for theme changes
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    const newTheme = document.body.className;
+                    syncTitle.className = `sync-section-title ${newTheme}`;
+                }
+            });
+        });
+
+        observer.observe(document.body, {
+            attributes: true,
+            attributeFilter: ['class']
+        });
+    }
+}
+
+// Debug function to view sync file content
+window.viewSyncFile = async function() {
+    if (!window.syncManager?.isAuthenticated) {
+        console.warn('Not authenticated - connect to Google Drive first');
+        return;
+    }
+
+    try {
+        const data = await window.syncManager.download();
+        if (data) {
+            console.log('📄 Current sync file content:');
+            console.log(JSON.stringify(data, null, 2));
+        } else {
+            console.log('📄 No sync file exists yet');
+        }
+        return data;
+    } catch (error) {
+        console.error('Failed to read sync file:', error);
+    }
+};
 
 // Export for debugging
 window.syncManager = syncManager;

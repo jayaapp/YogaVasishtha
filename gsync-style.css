@@ -17,6 +17,17 @@
     padding-bottom: 0.5rem;
 }
 
+/* Theme-specific overrides */
+body.light-theme .sync-section-title {
+    color: var(--text-primary, #2c3e50);
+    border-bottom-color: var(--panel-border, #dee2e6);
+}
+
+body.dark-theme .sync-section-title {
+    color: var(--text-primary, #e9ecef);
+    border-bottom-color: var(--panel-border, #495057);
+}
+
 /* ===== MAIN SYNC BUTTON ===== */
 .sync-main-btn {
     width: 100%;
