@@ -7,7 +7,6 @@
 const syncManager = new GoogleDriveSync({
     fileName: 'yoga-vasishtha-sync.json',
     onStatusChange: (status) => {
-        console.log('🔄 Sync status changed:', status);
         if (window.syncUI) {
             window.syncUI.onSyncManagerStateChange(status === 'connected');
         }
@@ -27,7 +26,6 @@ function handleOAuthRedirect() {
         const error = params.get('error');
 
         if (state && (state.startsWith('webview_auth_') || state.startsWith('web_auth_') || state.startsWith('pwa_auth_'))) {
-            console.log('🔧 DEBUG: Detected OAuth redirect');
 
             // Post message to parent window (for iframe case)
             if (window.parent !== window) {
@@ -41,7 +39,6 @@ function handleOAuthRedirect() {
 
             // Handle direct redirect case
             if (accessToken) {
-                console.log('🔧 DEBUG: OAuth redirect successful, storing token');
                 // Store token temporarily
                 sessionStorage.setItem('oauth_access_token', accessToken);
                 // Clean up URL
@@ -57,7 +54,6 @@ function handleOAuthRedirect() {
 
 // Initialize when page loads
 window.addEventListener('load', async () => {
-    console.log('🔧 DEBUG: gsync-integration.js - Page load event fired');
 
     // Check for OAuth redirect first
     handleOAuthRedirect();
@@ -65,12 +61,10 @@ window.addEventListener('load', async () => {
     try {
         // Initialize sync manager
         const initialized = await syncManager.initialize();
-        console.log('🔧 DEBUG: syncManager.initialize() returned:', initialized);
 
         // Check for stored OAuth token
         const storedToken = sessionStorage.getItem('oauth_access_token');
         if (storedToken && initialized) {
-            console.log('🔧 DEBUG: Found stored OAuth token, authenticating...');
             syncManager.accessToken = storedToken;
             syncManager.isAuthenticated = true;
             gapi.client.setToken({ access_token: storedToken });
@@ -85,13 +79,11 @@ window.addEventListener('load', async () => {
             window.syncUI = new GoogleSyncUI(syncContainer, syncManager);
             window.syncUI.onSyncManagerReady();
             makeThemeAware();
-            console.log('✅ Google Drive sync UI ready');
         } else if (syncContainer && !initialized) {
             // Show error state
             window.syncUI = new GoogleSyncUI(syncContainer, syncManager);
             window.syncUI.onSyncManagerFailed();
             makeThemeAware();
-            console.log('❌ Google Drive sync initialization failed');
         } else {
             console.warn('⚠️  Sync container not found - sync UI disabled');
         }
@@ -141,10 +133,7 @@ window.viewSyncFile = async function() {
     try {
         const data = await window.syncManager.download();
         if (data) {
-            console.log('📄 Current sync file content:');
-            console.log(JSON.stringify(data, null, 2));
         } else {
-            console.log('📄 No sync file exists yet');
         }
         return data;
     } catch (error) {

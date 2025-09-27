@@ -9,7 +9,6 @@
       ['gsync-minimal.js', 'gsync-ui.js', 'gsync-integration.js'].forEach((src, index) => {
         const script = document.createElement('script');
         script.src = src;
-        if (index === 0) script.onload = () => console.log('Google Drive sync modules loaded');
         document.head.appendChild(script);
       });
     }
@@ -21,7 +20,6 @@
   gsiScript.async = true;
   gsiScript.defer = true;
   gsiScript.onload = () => {
-    console.log('Google Identity Services loaded');
     gsiLoaded = true;
     loadSyncModules();
   };
@@ -38,7 +36,6 @@
   apiScript.async = true;
   apiScript.defer = true;
   apiScript.onload = () => {
-    console.log('Google API loaded');
     apiLoaded = true;
     loadSyncModules();
   };

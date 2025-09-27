@@ -101,7 +101,6 @@ class GoogleSyncUI {
                 timestamp: new Date().toISOString()
             };
 
-            console.log('🔄 Starting manual sync with data:', localData);
 
             // Simple merge: upload local data (overwrite remote)
             await this.syncManager.upload(localData);
@@ -112,7 +111,6 @@ class GoogleSyncUI {
             // Show success
             this.showLastSyncTime();
             this.showNotification('Sync completed successfully');
-            console.log('✅ Manual sync completed successfully');
 
             this.setState('connected');
 
@@ -242,7 +240,6 @@ class GoogleSyncUI {
             window.NotificationManager.show(message, type);
         } else {
             // Fallback to console
-            console.log(`📢 ${type.toUpperCase()}: ${message}`);
         }
     }
 

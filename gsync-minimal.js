@@ -22,7 +22,6 @@ class GoogleDriveSync {
 
     // Initialize Google API
     async initialize() {
-        console.log('🔧 DEBUG: initialize() called, clientId:', !!this.clientId);
 
         if (!this.clientId) {
             console.warn('Google Drive sync: No client ID configured');
@@ -30,11 +29,8 @@ class GoogleDriveSync {
         }
 
         try {
-            console.log('🔧 DEBUG: Waiting for Google API...');
             await this.waitForGoogleAPI();
-            console.log('🔧 DEBUG: Google API available, initializing client...');
             await this.initializeGoogleClient();
-            console.log('🔧 DEBUG: Google client initialized successfully');
             return true;
         } catch (error) {
             console.error('🔧 DEBUG: Initialization error:', error);
@@ -63,26 +59,21 @@ class GoogleDriveSync {
     async initializeGoogleClient() {
         return new Promise((resolve, reject) => {
             if (typeof google !== 'undefined' && google.accounts) {
-                console.log('🔧 PWA: Using Google Identity Services');
                 this.useGoogleIdentityServices = true;
             } else {
-                console.log('🔧 PWA: Google Identity Services not available, using standard OAuth');
                 this.useGoogleIdentityServices = false;
             }
 
             // Wait for Google API to be available
             const checkAPIs = () => {
                 if (window.gapi) {
-                    console.log('🔧 PWA: Google API available, loading client...');
 
                     gapi.load('client', {
                         callback: async () => {
-                            console.log('🔧 PWA: gapi client loaded, initializing...');
                             try {
                                 await gapi.client.init({
                                     discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']
                                 });
-                                console.log('🔧 PWA: Google client initialization completed');
                                 resolve();
                             } catch (error) {
                                 console.error('🔧 PWA: gapi.client.init failed:', error);
@@ -95,7 +86,6 @@ class GoogleDriveSync {
                         }
                     });
                 } else {
-                    console.log('🔧 PWA: Waiting for Google API to load...');
                     setTimeout(checkAPIs, 500);
                 }
             };
@@ -116,7 +106,6 @@ class GoogleDriveSync {
     // Google Identity Services authentication (modern)
     async authenticateWithGoogleIdentityServices() {
         return new Promise((resolve, reject) => {
-            console.log('🔧 DEBUG: Starting OAuth flow with Google Identity Services...');
 
             const client = google.accounts.oauth2.initTokenClient({
                 client_id: this.clientId,
@@ -128,7 +117,6 @@ class GoogleDriveSync {
                         return;
                     }
 
-                    console.log('🔧 DEBUG: OAuth successful, got access token');
                     this.accessToken = response.access_token;
                     this.isAuthenticated = true;
 
@@ -144,7 +132,6 @@ class GoogleDriveSync {
 
     // PWA web authentication using standard OAuth redirect
     async authenticateWithDirectOAuth() {
-        console.log('🔧 PWA: Starting OAuth flow...');
 
         const scope = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.appdata';
         const redirectUri = window.location.origin + window.location.pathname;
@@ -158,7 +145,6 @@ class GoogleDriveSync {
             `response_type=token&` +
             `state=${encodeURIComponent(state)}`;
 
-        console.log('🔧 PWA: Redirecting to Google OAuth...');
         window.location.href = oauthUrl;
     }
 
@@ -166,7 +152,6 @@ class GoogleDriveSync {
 
     // Disconnect
     async disconnect() {
-        console.log('🔧 DEBUG: Disconnecting...');
         this.accessToken = null;
         this.isAuthenticated = false;
 
