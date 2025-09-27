@@ -138,15 +138,14 @@ class GoogleSyncUI {
                 localStorage.setItem(key, mergedData.readingPositions[bookIndex]);
             });
 
-            // Refresh UI to show newly synced items
-            if (window.BookmarkManager) {
-                window.BookmarkManager.loadFromStorage();
-                window.BookmarkManager.renderBookmarks();
-            }
-            if (window.NotesManager) {
-                window.NotesManager.loadFromStorage();
-                window.NotesManager.renderNotes();
-            }
+            // Refresh UI by triggering custom events that the app can listen to
+            window.dispatchEvent(new CustomEvent('syncDataUpdated', {
+                detail: {
+                    bookmarks: mergedData.bookmarks,
+                    notes: mergedData.notes,
+                    readingPositions: mergedData.readingPositions
+                }
+            }));
 
             // Update local storage timestamp
             localStorage.setItem('last-sync-time', new Date().toISOString());

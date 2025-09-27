@@ -241,6 +241,101 @@ this.showNotification = options.notificationHandler || this.defaultNotificationH
 - `download()` - Download data from Drive (returns Promise<object>)
 - `sync(localData, mergeFunction)` - Bi-directional sync with merge
 
+### Debug Functions
+
+The system includes several debug functions available in the browser console:
+
+#### `debugSync()`
+Performs a complete sync operation with detailed logging for troubleshooting.
+
+```javascript
+// Usage
+debugSync()
+
+// Console output example:
+🔍 === DEBUG SYNC START ===
+📱 Local bookmarks: {"0":[...]}
+📱 Local notes: {"0":[...]}
+⬆️ Syncing to Google Drive...
+⬇️ Reading back from Google Drive...
+☁️ What made it to Google Drive: {...}
+🔍 === COMPARISON ===
+Local vs Synced notes match: true
+Local vs Synced bookmarks match: true
+✅ === DEBUG SYNC COMPLETE ===
+```
+
+**What it does:**
+1. Shows current local data before sync
+2. Performs full sync to Google Drive
+3. Downloads data back from Google Drive
+4. Compares local vs synced data
+5. Reports if sync was successful
+
+**When to use:**
+- Testing sync functionality
+- Diagnosing sync issues
+- Verifying data integrity after changes
+
+#### `viewSyncFile()`
+Downloads and displays the current sync file contents from Google Drive.
+
+```javascript
+// Usage
+viewSyncFile()
+
+// Console output example:
+Sync file contents: {
+  bookmarks: {...},
+  notes: {...},
+  readingPositions: {...},
+  deletionEvents: [...],
+  syncVersion: 42,
+  participatingDevices: [...]
+}
+```
+
+**What it shows:**
+- Complete sync file structure
+- All bookmarks across devices
+- All notes across devices
+- Reading positions for each book
+- Deletion events (tombstone records)
+- Sync version and device list
+
+**When to use:**
+- Checking what's stored in Google Drive
+- Debugging cross-device sync issues
+- Verifying data after deletions
+
+#### `resetSync()`
+Clears all sync data from Google Drive, creating a clean slate.
+
+```javascript
+// Usage
+resetSync()
+
+// Console output example:
+🔄 === RESET SYNC START ===
+🗑️ Clearing Google Drive sync state...
+✅ Google Drive sync state reset to empty
+🔄 === RESET SYNC COMPLETE ===
+```
+
+**What it does:**
+1. Uploads empty data structure to Google Drive
+2. Clears all bookmarks, notes, and reading positions
+3. Resets sync version to 0
+4. Removes all deletion events
+
+**When to use:**
+- Starting fresh with sync
+- Resolving corruption issues
+- Testing initial sync scenarios
+- Clearing old/stuck data
+
+**⚠️ Warning:** This permanently deletes all synced data from Google Drive. Local data on devices remains unchanged.
+
 ### GoogleSyncUI Class
 
 #### Constructor Parameters

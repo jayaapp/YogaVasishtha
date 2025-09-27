@@ -4801,6 +4801,24 @@ const App = {
 // ===== APPLICATION STARTUP =====
 document.addEventListener('DOMContentLoaded', () => {
     App.init();
+
+    // Listen for sync data updates from Google Drive sync
+    window.addEventListener('syncDataUpdated', (event) => {
+        console.log('🔄 Sync data updated, refreshing UI...');
+
+        // Update internal state
+        State.bookmarks = event.detail.bookmarks || {};
+        State.notes = event.detail.notes || {};
+
+        // Refresh UI components
+        BookmarkManager.loadFromStorage();
+        BookmarkManager.renderBookmarks();
+
+        NotesManager.loadFromStorage();
+        NotesManager.renderNotes();
+
+        console.log('✅ UI refreshed with synced data');
+    });
 });
 
 // ===== ERROR HANDLING FOR UNHANDLED PROMISES =====
