@@ -128,6 +128,26 @@ class GoogleSyncUI {
             // Upload merged state
             await this.syncManager.upload(mergedData);
 
+            // Apply merged data back to localStorage
+            localStorage.setItem('yoga-vasishtha-bookmarks', JSON.stringify(mergedData.bookmarks));
+            localStorage.setItem('yoga-vasishtha-notes', JSON.stringify(mergedData.notes));
+
+            // Update reading positions
+            Object.keys(mergedData.readingPositions).forEach(bookIndex => {
+                const key = `epub-position-${bookIndex}`;
+                localStorage.setItem(key, mergedData.readingPositions[bookIndex]);
+            });
+
+            // Refresh UI to show newly synced items
+            if (window.BookmarkManager) {
+                window.BookmarkManager.loadFromStorage();
+                window.BookmarkManager.renderBookmarks();
+            }
+            if (window.NotesManager) {
+                window.NotesManager.loadFromStorage();
+                window.NotesManager.renderNotes();
+            }
+
             // Update local storage timestamp
             localStorage.setItem('last-sync-time', new Date().toISOString());
 
