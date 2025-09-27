@@ -7,12 +7,8 @@
 const syncManager = new GoogleDriveSync({
     fileName: 'yoga-vasishtha-sync.json',
     onStatusChange: (status) => {
-        console.log('🔍 DEBUG: onStatusChange called with status:', status);
         if (window.syncUI) {
-            console.log('🔍 DEBUG: Calling syncUI.onSyncManagerStateChange with:', status === 'connected');
             window.syncUI.onSyncManagerStateChange(status === 'connected');
-        } else {
-            console.log('🔍 DEBUG: window.syncUI not available yet');
         }
     }
 });
@@ -58,15 +54,12 @@ function handleOAuthRedirect() {
 
 // Initialize when page loads
 window.addEventListener('load', async () => {
-    console.log('🔍 DEBUG: Page load event fired');
-
     // Check for OAuth redirect first
     handleOAuthRedirect();
 
     // Find sync container and show initializing state immediately
     const syncContainer = document.getElementById('sync-placeholder');
     if (syncContainer) {
-        console.log('🔍 DEBUG: Creating sync UI in initializing state');
         // Create sync UI in initializing state
         window.syncUI = new GoogleSyncUI(syncContainer, syncManager);
         window.syncUI.setState('initializing');
@@ -77,13 +70,10 @@ window.addEventListener('load', async () => {
     }
 
     try {
-        console.log('🔍 DEBUG: About to call syncManager.initialize()');
         // Initialize sync manager (includes token restoration)
         const initialized = await syncManager.initialize();
-        console.log('🔍 DEBUG: syncManager.initialize() returned:', initialized);
 
         if (!initialized) {
-            console.log('🔍 DEBUG: Initialization failed, setting error state');
             // Initialization failed - show error state with retry option
             window.syncUI.onSyncManagerFailed();
             return;
@@ -91,9 +81,7 @@ window.addEventListener('load', async () => {
 
         // Check for stored OAuth token from redirect
         const storedToken = sessionStorage.getItem('oauth_access_token');
-        console.log('🔍 DEBUG: Stored OAuth token from session:', storedToken ? 'found' : 'none');
         if (storedToken) {
-            console.log('🔍 DEBUG: Processing stored OAuth token');
             // Save token persistently and set up authentication
             await syncManager.saveTokenData(storedToken, 3600); // Default 1 hour expiry
             syncManager.accessToken = storedToken;
@@ -103,13 +91,10 @@ window.addEventListener('load', async () => {
             sessionStorage.removeItem('oauth_access_token');
         }
 
-        console.log('🔍 DEBUG: Current auth state before wait:', syncManager.isAuthenticated);
         // Wait for any pending token restoration to complete
         await new Promise(resolve => setTimeout(resolve, 200));
-        console.log('🔍 DEBUG: Current auth state after wait:', syncManager.isAuthenticated);
 
         // Now set UI state based on actual authentication status
-        console.log('🔍 DEBUG: Calling onSyncManagerReady()');
         window.syncUI.onSyncManagerReady();
 
     } catch (error) {

@@ -155,23 +155,17 @@ class GoogleDriveSync {
 
     // Initialize Google API
     async initialize() {
-        console.log('🔍 DEBUG: initialize() called');
-
         if (!this.clientId) {
             console.warn('Google Drive sync: No client ID configured');
             return false;
         }
 
         try {
-            console.log('🔍 DEBUG: Waiting for Google API...');
             await this.waitForGoogleAPI();
-            console.log('🔍 DEBUG: Initializing Google client...');
             await this.initializeGoogleClient();
 
-            console.log('🔍 DEBUG: About to try token restoration');
             // Try to restore authentication from stored token
             const restored = await this.tryRestoreToken();
-            console.log('🔍 DEBUG: Token restoration result:', restored);
 
             return true;
         } catch (error) {
@@ -254,10 +248,8 @@ class GoogleDriveSync {
 
     // Try to restore token from localStorage
     async tryRestoreToken() {
-        console.log('🔍 DEBUG: tryRestoreToken() called');
         try {
             const tokenData = await this.loadTokenData();
-            console.log('🔍 DEBUG: loadTokenData() result:', tokenData ? 'found' : 'not found');
             if (!tokenData) return false;
 
             // Check if token is still valid
@@ -265,10 +257,8 @@ class GoogleDriveSync {
             this.tokenExpiry = tokenData.expiry;
 
             const isValid = this.isTokenValid();
-            console.log('🔍 DEBUG: isTokenValid():', isValid);
 
             if (!isValid) {
-                console.log('🔍 DEBUG: Token expired, clearing data');
                 this.clearTokenData();
                 return false;
             }
@@ -276,7 +266,6 @@ class GoogleDriveSync {
             // Token is valid, restore authentication state
             this.isAuthenticated = true;
             gapi.client.setToken({ access_token: this.accessToken });
-            console.log('🔍 DEBUG: Token restored successfully, calling onStatusChange(connected)');
             this.onStatusChange('connected');
             return true;
         } catch (error) {

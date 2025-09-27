@@ -1,21 +1,16 @@
 // Load Google Drive sync modules with proper dependency order
-console.log('🔍 DEBUG: gsync-loader.js executing');
 (function() {
-  console.log('🔍 DEBUG: gsync-loader IIFE starting');
   let gsiLoaded = false;
   let apiLoaded = false;
 
   function loadSyncModules() {
     if (gsiLoaded && apiLoaded) {
-      console.log('🔍 DEBUG: Starting to load sync modules');
-
       // Load gsync modules in proper sequence
       const modules = ['gsync-minimal.js', 'gsync-ui.js', 'gsync-integration.js'];
       let loadedCount = 0;
 
       function loadNextModule(index) {
         if (index >= modules.length) {
-          console.log('🔍 DEBUG: All sync modules loaded successfully');
           return;
         }
 
@@ -23,13 +18,12 @@ console.log('🔍 DEBUG: gsync-loader.js executing');
         script.src = modules[index];
 
         script.onload = () => {
-          console.log('🔍 DEBUG: Loaded module:', modules[index]);
           loadedCount++;
           loadNextModule(index + 1);
         };
 
         script.onerror = () => {
-          console.error('🔍 DEBUG: Failed to load module:', modules[index]);
+          console.error('Failed to load module:', modules[index]);
         };
 
         document.head.appendChild(script);
@@ -40,13 +34,11 @@ console.log('🔍 DEBUG: gsync-loader.js executing');
   }
 
   // Google Identity Services
-  console.log('🔍 DEBUG: Loading Google Identity Services');
   const gsiScript = document.createElement('script');
   gsiScript.src = 'https://accounts.google.com/gsi/client';
   gsiScript.async = true;
   gsiScript.defer = true;
   gsiScript.onload = () => {
-    console.log('🔍 DEBUG: Google Identity Services loaded');
     gsiLoaded = true;
     loadSyncModules();
   };
@@ -58,13 +50,11 @@ console.log('🔍 DEBUG: gsync-loader.js executing');
   document.head.appendChild(gsiScript);
 
   // Google API
-  console.log('🔍 DEBUG: Loading Google API');
   const apiScript = document.createElement('script');
   apiScript.src = 'https://apis.google.com/js/api.js';
   apiScript.async = true;
   apiScript.defer = true;
   apiScript.onload = () => {
-    console.log('🔍 DEBUG: Google API loaded');
     apiLoaded = true;
     loadSyncModules();
   };
@@ -74,6 +64,4 @@ console.log('🔍 DEBUG: gsync-loader.js executing');
     loadSyncModules();
   };
   document.head.appendChild(apiScript);
-
-  console.log('🔍 DEBUG: gsync-loader setup complete');
 })();

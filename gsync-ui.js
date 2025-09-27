@@ -145,7 +145,6 @@ class GoogleSyncUI {
      * Set UI state
      */
     setState(state) {
-        console.log('🔍 DEBUG: UI setState called:', this.currentState, '->', state);
         this.currentState = state;
         this.updateButtonAppearance();
     }
@@ -257,7 +256,6 @@ class GoogleSyncUI {
      * Handle sync manager state changes
      */
     onSyncManagerStateChange(isAuthenticated) {
-        console.log('🔍 DEBUG: onSyncManagerStateChange called with:', isAuthenticated);
         if (isAuthenticated) {
             this.setState('connected');
             this.showLastSyncTime();
@@ -271,7 +269,6 @@ class GoogleSyncUI {
      * Handle successful initialization
      */
     onSyncManagerReady() {
-        console.log('🔍 DEBUG: onSyncManagerReady called, isAuthenticated:', this.syncManager.isAuthenticated);
         // Check if already authenticated
         if (this.syncManager.isAuthenticated) {
             this.setState('connected');
