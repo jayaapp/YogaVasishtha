@@ -3,6 +3,94 @@
  * Simplified integration for Yoga Vasishtha app
  */
 
+// Auto-sync trigger for background synchronization
+class AutoSyncTrigger {
+    constructor(syncManager, syncUI) {
+        this.syncManager = syncManager;
+        this.syncUI = syncUI;
+        this.syncTimeout = null;
+        this.SYNC_DELAY = 2000; // 2 second debounce
+        this.isPerformingSync = false;
+    }
+
+    /**
+     * Trigger automatic sync after data changes
+     */
+    triggerSync(changeType) {
+        // Only sync if authenticated
+        if (!this.syncManager?.isAuthenticated) {
+            return;
+        }
+
+        // Don't trigger if already syncing
+        if (this.isPerformingSync) {
+            return;
+        }
+
+        // Debounce multiple rapid changes
+        clearTimeout(this.syncTimeout);
+        this.syncTimeout = setTimeout(() => {
+            this.performBackgroundSync(changeType);
+        }, this.SYNC_DELAY);
+    }
+
+    /**
+     * Perform background sync without blocking UI
+     */
+    async performBackgroundSync(changeType) {
+        if (this.isPerformingSync || !this.syncManager?.isAuthenticated) {
+            return;
+        }
+
+        try {
+            this.isPerformingSync = true;
+
+            // Show subtle sync indicator
+            this.showSyncIndicator(true);
+
+            // Reuse existing sync logic from UI
+            await this.syncUI.performSync();
+
+            // Show success indicator briefly
+            this.showSyncNotification('Auto-sync completed', 'success');
+
+        } catch (error) {
+            console.warn('Auto-sync failed:', error);
+            // Don't show error notifications for auto-sync failures
+            // User can still manually sync if needed
+        } finally {
+            this.isPerformingSync = false;
+            this.showSyncIndicator(false);
+        }
+    }
+
+    /**
+     * Show/hide subtle sync indicator
+     */
+    showSyncIndicator(isVisible) {
+        // Add a small sync indicator to the sync button
+        const syncButton = document.querySelector('#sync-main-btn');
+        if (syncButton) {
+            const icon = syncButton.querySelector('.material-icons');
+            if (isVisible) {
+                icon.classList.add('spinning');
+            } else {
+                icon.classList.remove('spinning');
+            }
+        }
+    }
+
+    /**
+     * Show brief sync notification
+     */
+    showSyncNotification(message, type = 'info') {
+        // Use existing notification system if available
+        if (this.syncUI?.showNotification) {
+            this.syncUI.showNotification(message, type);
+        }
+    }
+}
+
 // Initialize sync manager and UI
 const syncManager = new GoogleDriveSync({
     fileName: 'yoga-vasishtha-sync.json',
@@ -97,6 +185,9 @@ window.addEventListener('load', async () => {
         // Now set UI state based on actual authentication status
         window.syncUI.onSyncManagerReady();
 
+        // Initialize auto-sync trigger after everything is ready
+        window.autoSyncTrigger = new AutoSyncTrigger(syncManager, window.syncUI);
+
     } catch (error) {
         console.error('❌ Sync initialization error:', error);
         // Always show UI with error state, never leave it blank
@@ -141,7 +232,9 @@ window.viewSyncFile = async function() {
     try {
         const data = await window.syncManager.download();
         if (data) {
+            // console.log('Sync file contents:', data);
         } else {
+            // console.log('No sync file found - either no data synced yet or file doesn't exist');
         }
         return data;
     } catch (error) {

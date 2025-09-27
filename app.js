@@ -307,6 +307,11 @@ const SettingsManager = {
             };
 
             localStorage.setItem(key, JSON.stringify(positionData));
+
+            // Trigger auto-sync if available
+            if (window.autoSyncTrigger) {
+                window.autoSyncTrigger.triggerSync('position_changed');
+            }
         } else {
             console.warn('Could not find visible word for reading position - position not saved');
         }
@@ -1735,6 +1740,11 @@ const BookmarkManager = {
     saveToStorage() {
         try {
             localStorage.setItem('epub-bookmarks', JSON.stringify(State.bookmarks));
+
+            // Trigger auto-sync if available
+            if (window.autoSyncTrigger) {
+                window.autoSyncTrigger.triggerSync('bookmark_changed');
+            }
         } catch (error) {
             console.error('Failed to save bookmarks:', error);
         }
@@ -3008,6 +3018,11 @@ const NotesManager = {
     saveToStorage() {
         try {
             localStorage.setItem('yoga-vasishtha-notes', JSON.stringify(State.notes));
+
+            // Trigger auto-sync if available
+            if (window.autoSyncTrigger) {
+                window.autoSyncTrigger.triggerSync('note_changed');
+            }
         } catch (error) {
             console.error('Failed to save notes:', error);
         }
