@@ -41,7 +41,7 @@ if selected_port is None:
 
 if __name__ == "__main__":
     with socketserver.TCPServer((HOST, selected_port), MyHandler) as httpd:
-        print(f"🚀 Serving at: http://{HOST}:{selected_port}/index.html or  http://localhost:{selected_port}/index.html")
+        print(f"🚀 Serving at: http://{HOST}:{selected_port}/index.html  or  http://localhost:{selected_port}/index.html")
         print("📂 Make sure your files are in the same directory as this script.")
         print("🔗 Open the link in your browser.")
         try:

@@ -11,14 +11,12 @@ const urlsToCache = [
   '/app.css',
   '/manifest.json',
   '/assets/icon.png',
+  // Include gsync files for offline support but use network-first strategy
   '/gsync-minimal.js',
   '/gsync-ui.js',
   '/gsync-style.css',
   '/gsync-integration.js',
   '/gsync-loader.js',
-  '/lexicon-manager.js',
-  '/lexicon-data-en.js',
-  '/lexicon-data-iast.js',
   // EPUB files
   '/epub/yoga-vasishtha-1.epub',
   '/epub/yoga-vasishtha-2.epub',
@@ -83,7 +81,43 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
-        // Return cached version if available
+        // Check if this is a sync-related file that should use network-first strategy
+        const url = event.request.url;
+        const isSyncFile = url.includes('gsync-') || url.includes('sync');
+
+        if (isSyncFile) {
+          // Network-first strategy for sync files to ensure fresh auth state
+          console.log('🌐 Network-first for sync file:', url);
+          return fetch(event.request)
+            .then((networkResponse) => {
+              // Cache the fresh response
+              if (networkResponse && networkResponse.status === 200) {
+                const responseToCache = networkResponse.clone();
+                caches.open(CACHE_NAME)
+                  .then((cache) => {
+                    cache.put(event.request, responseToCache);
+                    console.log('💾 Updated sync file cache:', url);
+                  });
+              }
+              return networkResponse;
+            })
+            .catch(() => {
+              // Offline fallback: serve from cache if available
+              if (response) {
+                console.log('📱 Offline: serving sync file from cache:', url);
+                return response;
+              } else {
+                console.log('❌ Offline: sync file not cached, sync features unavailable');
+                // Return a minimal response that disables sync gracefully
+                return new Response('// Sync unavailable offline', {
+                  status: 200,
+                  headers: { 'Content-Type': 'application/javascript' }
+                });
+              }
+            });
+        }
+
+        // Cache-first strategy for other resources
         if (response) {
           console.log('📱 Serving from cache:', event.request.url);
           return response;

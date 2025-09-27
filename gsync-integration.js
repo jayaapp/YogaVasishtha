@@ -7,8 +7,12 @@
 const syncManager = new GoogleDriveSync({
     fileName: 'yoga-vasishtha-sync.json',
     onStatusChange: (status) => {
+        console.log('🔍 DEBUG: onStatusChange called with status:', status);
         if (window.syncUI) {
+            console.log('🔍 DEBUG: Calling syncUI.onSyncManagerStateChange with:', status === 'connected');
             window.syncUI.onSyncManagerStateChange(status === 'connected');
+        } else {
+            console.log('🔍 DEBUG: window.syncUI not available yet');
         }
     }
 });
@@ -39,12 +43,12 @@ function handleOAuthRedirect() {
 
             // Handle direct redirect case
             if (accessToken) {
-                // Store token temporarily
+                // Store token persistently using the new token storage
                 sessionStorage.setItem('oauth_access_token', accessToken);
                 // Clean up URL
                 window.history.replaceState({}, document.title, window.location.pathname);
             } else if (error) {
-                console.error('🔧 DEBUG: OAuth redirect failed:', error);
+                console.error('OAuth redirect failed:', error);
                 sessionStorage.setItem('oauth_error', error);
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
@@ -54,17 +58,44 @@ function handleOAuthRedirect() {
 
 // Initialize when page loads
 window.addEventListener('load', async () => {
+    console.log('🔍 DEBUG: Page load event fired');
 
     // Check for OAuth redirect first
     handleOAuthRedirect();
 
-    try {
-        // Initialize sync manager
-        const initialized = await syncManager.initialize();
+    // Find sync container and show initializing state immediately
+    const syncContainer = document.getElementById('sync-placeholder');
+    if (syncContainer) {
+        console.log('🔍 DEBUG: Creating sync UI in initializing state');
+        // Create sync UI in initializing state
+        window.syncUI = new GoogleSyncUI(syncContainer, syncManager);
+        window.syncUI.setState('initializing');
+        makeThemeAware();
+    } else {
+        console.warn('⚠️  Sync container not found - sync UI disabled');
+        return;
+    }
 
-        // Check for stored OAuth token
+    try {
+        console.log('🔍 DEBUG: About to call syncManager.initialize()');
+        // Initialize sync manager (includes token restoration)
+        const initialized = await syncManager.initialize();
+        console.log('🔍 DEBUG: syncManager.initialize() returned:', initialized);
+
+        if (!initialized) {
+            console.log('🔍 DEBUG: Initialization failed, setting error state');
+            // Initialization failed - show error state with retry option
+            window.syncUI.onSyncManagerFailed();
+            return;
+        }
+
+        // Check for stored OAuth token from redirect
         const storedToken = sessionStorage.getItem('oauth_access_token');
-        if (storedToken && initialized) {
+        console.log('🔍 DEBUG: Stored OAuth token from session:', storedToken ? 'found' : 'none');
+        if (storedToken) {
+            console.log('🔍 DEBUG: Processing stored OAuth token');
+            // Save token persistently and set up authentication
+            await syncManager.saveTokenData(storedToken, 3600); // Default 1 hour expiry
             syncManager.accessToken = storedToken;
             syncManager.isAuthenticated = true;
             gapi.client.setToken({ access_token: storedToken });
@@ -72,27 +103,19 @@ window.addEventListener('load', async () => {
             sessionStorage.removeItem('oauth_access_token');
         }
 
-        // Find sync container and initialize UI
-        const syncContainer = document.getElementById('sync-placeholder');
-        if (syncContainer && initialized) {
-            // Create sync UI
-            window.syncUI = new GoogleSyncUI(syncContainer, syncManager);
-            window.syncUI.onSyncManagerReady();
-            makeThemeAware();
-        } else if (syncContainer && !initialized) {
-            // Show error state
-            window.syncUI = new GoogleSyncUI(syncContainer, syncManager);
-            window.syncUI.onSyncManagerFailed();
-            makeThemeAware();
-        } else {
-            console.warn('⚠️  Sync container not found - sync UI disabled');
-        }
+        console.log('🔍 DEBUG: Current auth state before wait:', syncManager.isAuthenticated);
+        // Wait for any pending token restoration to complete
+        await new Promise(resolve => setTimeout(resolve, 200));
+        console.log('🔍 DEBUG: Current auth state after wait:', syncManager.isAuthenticated);
+
+        // Now set UI state based on actual authentication status
+        console.log('🔍 DEBUG: Calling onSyncManagerReady()');
+        window.syncUI.onSyncManagerReady();
 
     } catch (error) {
         console.error('❌ Sync initialization error:', error);
-        const syncContainer = document.getElementById('sync-placeholder');
-        if (syncContainer) {
-            window.syncUI = new GoogleSyncUI(syncContainer, syncManager);
+        // Always show UI with error state, never leave it blank
+        if (window.syncUI) {
             window.syncUI.onSyncManagerFailed();
         }
     }

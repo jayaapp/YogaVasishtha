@@ -74,6 +74,12 @@ class GoogleSyncUI {
                     this.setState('connecting');
                     await this.syncManager.authenticate();
                     break;
+
+                case 'error':
+                    // Retry initialization/connection
+                    this.setState('connecting');
+                    await this.syncManager.authenticate();
+                    break;
             }
         } catch (error) {
             console.error('Sync action failed:', error);
@@ -139,6 +145,7 @@ class GoogleSyncUI {
      * Set UI state
      */
     setState(state) {
+        console.log('🔍 DEBUG: UI setState called:', this.currentState, '->', state);
         this.currentState = state;
         this.updateButtonAppearance();
     }
@@ -200,7 +207,7 @@ class GoogleSyncUI {
                 this.button.disabled = false;
                 this.button.classList.add('state-error');
                 iconEl.textContent = 'error';
-                textEl.textContent = 'Error - Click to Retry';
+                textEl.textContent = 'Sync Error - Click to Retry';
                 break;
         }
 
@@ -228,7 +235,10 @@ class GoogleSyncUI {
      */
     showError(message) {
         this.setState('error');
-        this.showNotification(`Sync failed: ${message}`, 'error');
+        // Only show notification for user-facing errors, not initialization errors
+        if (message && !message.includes('initialize')) {
+            this.showNotification(`Sync failed: ${message}`, 'error');
+        }
     }
 
     /**
@@ -247,6 +257,7 @@ class GoogleSyncUI {
      * Handle sync manager state changes
      */
     onSyncManagerStateChange(isAuthenticated) {
+        console.log('🔍 DEBUG: onSyncManagerStateChange called with:', isAuthenticated);
         if (isAuthenticated) {
             this.setState('connected');
             this.showLastSyncTime();
@@ -260,6 +271,7 @@ class GoogleSyncUI {
      * Handle successful initialization
      */
     onSyncManagerReady() {
+        console.log('🔍 DEBUG: onSyncManagerReady called, isAuthenticated:', this.syncManager.isAuthenticated);
         // Check if already authenticated
         if (this.syncManager.isAuthenticated) {
             this.setState('connected');
@@ -274,6 +286,7 @@ class GoogleSyncUI {
      */
     onSyncManagerFailed() {
         this.setState('error');
+        this.showError('Failed to initialize Google Drive sync');
     }
 }
 
