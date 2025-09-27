@@ -956,16 +956,177 @@ const BookmarkManager = {
     },
 
     /**
-     * Add bookmark for current position
+     * Add bookmark for current position using word highlighting
      */
     addBookmark() {
-        const position = this.getCurrentPosition();
-        if (!position) return;
+        const topVisibleWord = this.getTopVisibleWord();
+        if (!topVisibleWord) {
+            console.warn('Could not find top visible word for bookmark');
+            return;
+        }
 
-        this.addBookmarkAtPosition({
+        this.createWordBookmark(topVisibleWord);
+    },
+
+    /**
+     * Find the topmost visible word in the viewport
+     */
+    getTopVisibleWord() {
+        const bookContent = document.getElementById('book-content');
+        if (!bookContent) return null;
+
+        const walker = document.createTreeWalker(
+            bookContent,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+
+        let node;
+        while (node = walker.nextNode()) {
+            const text = node.textContent.trim();
+            if (!text) continue;
+
+            // Check if this text node is visible in viewport
+            const range = document.createRange();
+            range.selectNodeContents(node);
+            const rect = range.getBoundingClientRect();
+
+            // Check if top of text is in viewport (allowing for some margin)
+            if (rect.top >= -10 && rect.top <= window.innerHeight) {
+                // Find first word in this text node
+                const words = text.match(/\S+/g);
+                if (words && words.length > 0) {
+                    const firstWord = words[0];
+                    const wordStartIndex = text.indexOf(firstWord);
+
+                    // Create range for the first word
+                    const wordRange = document.createRange();
+                    wordRange.setStart(node, wordStartIndex);
+                    wordRange.setEnd(node, wordStartIndex + firstWord.length);
+
+                    return {
+                        word: firstWord,
+                        range: wordRange,
+                        textNode: node
+                    };
+                }
+            }
+        }
+
+        return null;
+    },
+
+    /**
+     * Create word bookmark using notes-like highlighting system
+     */
+    createWordBookmark(wordInfo) {
+        // Create bookmark highlight similar to notes
+        const highlight = document.createElement('span');
+        highlight.className = 'bookmark-highlight';
+        const bookmarkId = this.generateId();
+        highlight.setAttribute('data-bookmark-id', bookmarkId);
+
+        // Wrap the selected word
+        try {
+            wordInfo.range.surroundContents(highlight);
+        } catch (e) {
+            // If surroundContents fails, use extractContents
+            const contents = wordInfo.range.extractContents();
+            highlight.appendChild(contents);
+            wordInfo.range.insertNode(highlight);
+        }
+
+        // Create bookmark icon (similar to note icon)
+        const bookmarkIcon = this.createBookmarkIcon(bookmarkId);
+        highlight.appendChild(bookmarkIcon);
+
+        // Create bookmark object
+        const currentChapter = this.getCurrentChapter();
+        const bookmark = {
+            id: bookmarkId,
             bookIndex: State.currentBookIndex,
-            scrollTop: window.pageYOffset || document.documentElement.scrollTop
+            bookTitle: Utils.getBookTitle(CONFIG.EPUB_FILES[State.currentBookIndex]),
+            chapterTitle: currentChapter ? currentChapter.title : 'Unknown Chapter',
+            chapterAnchor: currentChapter ? currentChapter.anchor : '',
+            word: wordInfo.word,
+            timestamp: new Date().toISOString(),
+            // Store positioning data using the same system as notes
+            previousWordIndex: VolumePositioning.getWordIndexBeforeRange(wordInfo.range, State.currentBookIndex),
+            displayText: this.formatWordBookmarkDisplay(
+                Utils.getBookTitle(CONFIG.EPUB_FILES[State.currentBookIndex]),
+                currentChapter ? currentChapter.title : 'Unknown Chapter',
+                wordInfo.word
+            )
+        };
+
+        // Save bookmark
+        this.addBookmarkToStorage(bookmark);
+        console.log('📖 Created word bookmark:', bookmarkId, 'for word:', wordInfo.word);
+    },
+
+    /**
+     * Create bookmark icon (similar to note icon)
+     */
+    createBookmarkIcon(bookmarkId) {
+        const icon = document.createElement('span');
+        icon.className = 'bookmark-icon';
+        icon.setAttribute('data-bookmark-id', bookmarkId);
+        icon.innerHTML = '<span class="material-icons">bookmark</span>';
+
+        icon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // Open bookmarks modal when clicked
+            ModalManager.open('bookmarks');
         });
+
+        return icon;
+    },
+
+    /**
+     * Add bookmark to storage (similar to notes storage)
+     */
+    addBookmarkToStorage(bookmark) {
+        // Initialize bookmarks array for this book if needed
+        if (!State.bookmarks[bookmark.bookIndex]) {
+            State.bookmarks[bookmark.bookIndex] = [];
+        }
+
+        const bookBookmarks = State.bookmarks[bookmark.bookIndex];
+
+        // Check if we already have a bookmark close to this position
+        const existingIndex = bookBookmarks.findIndex(b =>
+            b.previousWordIndex !== undefined &&
+            Math.abs(b.previousWordIndex - bookmark.previousWordIndex) < 10
+        );
+
+        if (existingIndex >= 0) {
+            // Update existing bookmark
+            bookBookmarks[existingIndex] = bookmark;
+            console.log('📖 Updated existing bookmark:', bookmark.displayText);
+        } else {
+            // Add new bookmark to beginning of array (most recent first)
+            bookBookmarks.unshift(bookmark);
+
+            // Keep only the 10 most recent bookmarks
+            if (bookBookmarks.length > this.MAX_BOOKMARKS_PER_BOOK) {
+                bookBookmarks.splice(this.MAX_BOOKMARKS_PER_BOOK);
+            }
+
+            console.log('📖 Added new bookmark:', bookmark.displayText);
+        }
+
+        this.saveToStorage();
+        this.renderBookmarks();
+    },
+
+    /**
+     * Format display text for word-based bookmarks
+     */
+    formatWordBookmarkDisplay(bookTitle, chapterTitle, word) {
+        const shortTitle = bookTitle.replace(/^(Vol\.|Volume)\s*\d+\s*[-:]?\s*/i, '').substring(0, 30);
+        const shortChapter = chapterTitle.length > 40 ? chapterTitle.substring(0, 40) + '...' : chapterTitle;
+        return `"${word}" in ${shortChapter}`;
     },
 
     /**
@@ -1294,21 +1455,64 @@ const BookmarkManager = {
             UIManager.displayCurrentBook();
         }
 
-        // Navigate to saved position
+        // Navigate to bookmark position
         requestAnimationFrame(() => {
-            window.scrollTo({
-                top: bookmark.scrollPosition,
-                behavior: 'smooth'
-            });
+            if (bookmark.previousWordIndex !== undefined) {
+                // Use word-index positioning for new word bookmarks
+                this.navigateToWordBookmark(bookmark);
+            } else {
+                // Fallback to scroll position for legacy bookmarks
+                window.scrollTo({
+                    top: bookmark.scrollPosition,
+                    behavior: 'smooth'
+                });
+            }
         });
 
         ModalManager.close('bookmarks');
     },
 
     /**
+     * Navigate to word bookmark using notes-like restoration
+     */
+    navigateToWordBookmark(bookmark) {
+        // Check if bookmark highlight already exists
+        const existingHighlight = document.querySelector(`[data-bookmark-id="${bookmark.id}"]`);
+        if (existingHighlight) {
+            // Scroll to existing highlight
+            existingHighlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            console.log('✅ Navigated to existing bookmark highlight');
+            return;
+        }
+
+        // Restore bookmark using same system as notes
+        const success = VolumePositioning.restoreBookmarkHighlight(bookmark, State.currentBookIndex);
+        if (!success) {
+            console.warn('Word bookmark navigation failed, using fallback');
+            // Fallback: scroll to top if no scroll position available
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    },
+
+    /**
      * Remove bookmark
      */
     removeBookmark(bookmarkId) {
+        // Remove bookmark highlight from DOM if it exists
+        const bookmarkHighlight = document.querySelector(`[data-bookmark-id="${bookmarkId}"]`);
+        if (bookmarkHighlight) {
+            // If it's a highlight, unwrap it (similar to notes removal)
+            if (bookmarkHighlight.classList.contains('bookmark-highlight')) {
+                const parent = bookmarkHighlight.parentNode;
+                while (bookmarkHighlight.firstChild) {
+                    parent.insertBefore(bookmarkHighlight.firstChild, bookmarkHighlight);
+                }
+                parent.removeChild(bookmarkHighlight);
+                console.log('🗑️ Removed bookmark highlight from DOM:', bookmarkId);
+            }
+        }
+
+        // Remove bookmark from storage
         Object.keys(State.bookmarks).forEach(bookIndex => {
             State.bookmarks[bookIndex] = State.bookmarks[bookIndex].filter(
                 bookmark => bookmark.id !== bookmarkId
@@ -1461,6 +1665,43 @@ const BookmarkManager = {
      */
     generateId() {
         return 'bookmark_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    },
+
+    /**
+     * Restore bookmark highlights for current book (similar to notes restoration)
+     */
+    restoreBookmarkHighlights() {
+        const currentBookmarks = State.bookmarks[State.currentBookIndex];
+        if (!currentBookmarks) {
+            console.log('📖 No bookmarks to restore for current book');
+            return;
+        }
+
+        // Filter for word-based bookmarks (new system)
+        const wordBookmarks = currentBookmarks.filter(b =>
+            b.previousWordIndex !== undefined && b.word
+        );
+
+        console.log(`📖 Restoring ${wordBookmarks.length} word bookmarks for current book`);
+
+        wordBookmarks.forEach(bookmark => {
+            console.log('📖 Restoring bookmark:', bookmark.id, 'for word:', bookmark.word);
+
+            // Check if bookmark highlight already exists
+            const existingHighlight = document.querySelector(`[data-bookmark-id="${bookmark.id}"]`);
+            if (existingHighlight) {
+                console.log('📖 Bookmark highlight already exists:', bookmark.id);
+                return;
+            }
+
+            // Restore bookmark highlight
+            const success = VolumePositioning.restoreBookmarkHighlight(bookmark, State.currentBookIndex);
+            if (!success) {
+                console.warn('Failed to restore bookmark highlight:', bookmark.word);
+            }
+        });
+
+        console.log(`📖 Finished restoring bookmark highlights`);
     },
 
     /**
@@ -1763,6 +2004,134 @@ const VolumePositioning = {
 
         // Create highlight at this DOM position
         return this.createHighlightAtDOMPosition(note, absoluteCharPos);
+    },
+
+    /**
+     * Restore bookmark highlight using same system as notes
+     */
+    restoreBookmarkHighlight(bookmark, bookIndex) {
+        const bookContent = document.getElementById('book-content');
+        if (!bookContent) {
+            console.warn('No book content DOM for bookmark restoration');
+            return false;
+        }
+
+        // Use the same processed DOM content for restoration
+        const domText = bookContent.textContent;
+        const words = domText.match(/\S+/g) || [];
+
+        console.log('📖 DOM word count for bookmark restoration:', words.length);
+        console.log('📖 Target bookmark word index:', bookmark.previousWordIndex);
+
+        if (bookmark.previousWordIndex >= words.length) {
+            console.warn('Bookmark word index out of range in DOM');
+            return false;
+        }
+
+        // Calculate exact character position from word index
+        let approximateCharPos = 0;
+
+        // Walk through DOM text and count words until we reach target word index
+        const wordPattern = /\S+/g;
+        let match;
+        let wordCount = 0;
+
+        while ((match = wordPattern.exec(domText)) !== null && wordCount < bookmark.previousWordIndex) {
+            wordCount++;
+            if (wordCount === bookmark.previousWordIndex) {
+                approximateCharPos = match.index; // Position of the word after our target position
+                break;
+            }
+        }
+
+        console.log('📖 Calculated character position from word index:', approximateCharPos);
+
+        // Find the bookmark word after this approximate position
+        const textFromPosition = domText.substring(approximateCharPos);
+        const relativeIndex = textFromPosition.indexOf(bookmark.word);
+
+        if (relativeIndex === -1) {
+            console.warn('Could not find bookmark word after word position in DOM');
+            return false;
+        }
+
+        const absoluteCharPos = approximateCharPos + relativeIndex;
+        console.log('📖 Found bookmark word at DOM character position:', absoluteCharPos);
+
+        // Create bookmark highlight at this DOM position
+        return this.createBookmarkHighlightAtDOMPosition(bookmark, absoluteCharPos);
+    },
+
+    /**
+     * Create bookmark highlight at character position in DOM
+     */
+    createBookmarkHighlightAtDOMPosition(bookmark, characterPosition) {
+        const bookContent = document.getElementById('book-content');
+        if (!bookContent) return false;
+
+        const walker = document.createTreeWalker(
+            bookContent,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+
+        let currentOffset = 0;
+        let node;
+
+        while (node = walker.nextNode()) {
+            const nodeLength = node.textContent.length;
+
+            if (currentOffset + nodeLength > characterPosition) {
+                const nodeOffset = characterPosition - currentOffset;
+                const endOffset = nodeOffset + bookmark.word.length;
+
+                // Verify text matches
+                const foundText = node.textContent.substring(nodeOffset, endOffset);
+                if (foundText === bookmark.word) {
+                    // Create range for the bookmark word
+                    const range = document.createRange();
+                    range.setStart(node, nodeOffset);
+                    range.setEnd(node, endOffset);
+
+                    // Create bookmark highlight
+                    const highlight = document.createElement('span');
+                    highlight.className = 'bookmark-highlight';
+                    highlight.setAttribute('data-bookmark-id', bookmark.id);
+
+                    try {
+                        range.surroundContents(highlight);
+                    } catch (e) {
+                        const contents = range.extractContents();
+                        highlight.appendChild(contents);
+                        range.insertNode(highlight);
+                    }
+
+                    // Create bookmark icon
+                    const bookmarkIcon = document.createElement('span');
+                    bookmarkIcon.className = 'bookmark-icon';
+                    bookmarkIcon.setAttribute('data-bookmark-id', bookmark.id);
+                    bookmarkIcon.innerHTML = '<span class="material-icons">bookmark</span>';
+
+                    bookmarkIcon.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        ModalManager.open('bookmarks');
+                    });
+
+                    highlight.appendChild(bookmarkIcon);
+
+                    // Scroll to the restored bookmark
+                    highlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                    console.log('✅ Restored bookmark highlight for word:', bookmark.word);
+                    return true;
+                }
+            }
+
+            currentOffset += nodeLength;
+        }
+
+        return false;
     },
 
 
@@ -3603,9 +3972,10 @@ const UIManager = {
         Elements.bookContent.innerHTML = Utils.createSafeHTML(content);
         LexiconManager.processContent(Elements.bookContent);
 
-        // Restore note highlights after content is processed
+        // Restore note highlights and bookmark highlights after content is processed
         setTimeout(() => {
             NotesManager.restoreHighlights();
+            BookmarkManager.restoreBookmarkHighlights();
         }, 100);
 
         Utils.show(Elements.bookContent);

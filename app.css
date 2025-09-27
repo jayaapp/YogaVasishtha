@@ -1018,6 +1018,60 @@ body.dark-theme .note-highlight:hover {
     background-color: rgba(255, 193, 7, 0.35);
 }
 
+/* Bookmark highlight styles */
+.bookmark-highlight {
+    background-color: rgba(255, 0, 0, 0.3);
+    position: relative;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.bookmark-highlight:hover {
+    background-color: rgba(255, 0, 0, 0.4);
+}
+
+body.dark-theme .bookmark-highlight {
+    background-color: rgba(255, 0, 0, 0.25);
+}
+
+body.dark-theme .bookmark-highlight:hover {
+    background-color: rgba(255, 0, 0, 0.35);
+}
+
+.bookmark-icon {
+    position: absolute;
+    top: -7px;
+    left: -7px;
+    width: 14px;
+    height: 14px;
+    background-color: rgba(255, 0, 0, 0.5);
+    border: none;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 8px;
+    color: rgba(255, 0, 0, 1);
+    transition: all 0.2s ease;
+    z-index: 10;
+    box-shadow: none;
+}
+
+.bookmark-icon:hover {
+    transform: scale(1.1);
+    background-color: rgba(255, 0, 0, 0.7);
+}
+
+body.dark-theme .bookmark-icon {
+    color: rgba(255, 0, 0, 1);
+    background-color: rgba(255, 0, 0, 0.5);
+}
+
+body.dark-theme .bookmark-icon:hover {
+    background-color: rgba(255, 0, 0, 0.7);
+}
+
 .note-icon {
     position: absolute;
     top: -8px;
