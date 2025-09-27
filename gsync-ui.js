@@ -95,21 +95,38 @@ class GoogleSyncUI {
     }
 
     /**
-     * Perform manual sync
+     * Perform manual sync with multi-device merge logic
      */
     async performSync() {
         try {
+            // Generate device ID for this instance
+            const deviceId = this.getDeviceId();
+
             // Collect local data
             const localData = {
                 bookmarks: JSON.parse(localStorage.getItem('yoga-vasishtha-bookmarks') || '{}'),
                 notes: JSON.parse(localStorage.getItem('yoga-vasishtha-notes') || '{}'),
-                readingPositions: this.collectReadingPositions(),
-                timestamp: new Date().toISOString()
+                readingPositions: this.collectReadingPositions()
             };
 
+            // Get current remote state
+            const remoteData = await this.syncManager.download() || {
+                bookmarks: {},
+                notes: {},
+                readingPositions: {},
+                deletionEvents: [],
+                syncVersion: 0,
+                participatingDevices: []
+            };
 
-            // Simple merge: upload local data (overwrite remote)
-            await this.syncManager.upload(localData);
+            // Process deletion events
+            const cleanedLocalData = this.applyDeletionEvents(localData, remoteData.deletionEvents || []);
+
+            // Merge local and remote data
+            const mergedData = this.mergeData(cleanedLocalData, remoteData, deviceId);
+
+            // Upload merged state
+            await this.syncManager.upload(mergedData);
 
             // Update local storage timestamp
             localStorage.setItem('last-sync-time', new Date().toISOString());
@@ -139,6 +156,204 @@ class GoogleSyncUI {
             }
         }
         return positions;
+    }
+
+    /**
+     * Generate or retrieve device ID
+     */
+    getDeviceId() {
+        let deviceId = localStorage.getItem('yoga-vasishtha-device-id');
+        if (!deviceId) {
+            // Generate unique device ID
+            const timestamp = Date.now();
+            const random = Math.random().toString(36).substr(2, 9);
+            const platform = navigator.platform.replace(/\s+/g, '-').toLowerCase();
+            deviceId = `${platform}-${timestamp}-${random}`;
+            localStorage.setItem('yoga-vasishtha-device-id', deviceId);
+        }
+        return deviceId;
+    }
+
+    /**
+     * Apply deletion events to local data
+     */
+    applyDeletionEvents(localData, deletionEvents) {
+        const cleaned = JSON.parse(JSON.stringify(localData)); // Deep copy
+
+        deletionEvents.forEach(event => {
+            const { id, type } = event;
+
+            if (type === 'note') {
+                // Remove note from all books
+                Object.keys(cleaned.notes).forEach(bookIndex => {
+                    if (cleaned.notes[bookIndex]) {
+                        cleaned.notes[bookIndex] = cleaned.notes[bookIndex].filter(note => note.id !== id);
+                    }
+                });
+            } else if (type === 'bookmark') {
+                // Remove bookmark from all books
+                Object.keys(cleaned.bookmarks).forEach(bookIndex => {
+                    if (cleaned.bookmarks[bookIndex]) {
+                        cleaned.bookmarks[bookIndex] = cleaned.bookmarks[bookIndex].filter(bookmark => bookmark.id !== id);
+                    }
+                });
+            }
+        });
+
+        return cleaned;
+    }
+
+    /**
+     * Merge local and remote data with conflict resolution
+     */
+    mergeData(localData, remoteData, deviceId) {
+        const merged = {
+            bookmarks: this.mergeByType(localData.bookmarks || {}, remoteData.bookmarks || {}),
+            notes: this.mergeByType(localData.notes || {}, remoteData.notes || {}),
+            readingPositions: this.mergeReadingPositions(localData.readingPositions || {}, remoteData.readingPositions || {}),
+
+            // Sync metadata
+            deletionEvents: remoteData.deletionEvents || [],
+            syncVersion: (remoteData.syncVersion || 0) + 1,
+            lastModified: new Date().toISOString(),
+            participatingDevices: this.updateParticipatingDevices(remoteData.participatingDevices || [], deviceId),
+
+            // Legacy timestamp for backward compatibility
+            timestamp: new Date().toISOString()
+        };
+
+        // Clean up old deletion events (older than 30 days)
+        const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+        merged.deletionEvents = merged.deletionEvents.filter(event =>
+            new Date(event.deletedAt).getTime() > thirtyDaysAgo
+        );
+
+        return merged;
+    }
+
+    /**
+     * Merge items by type (notes or bookmarks)
+     */
+    mergeByType(localItems, remoteItems) {
+        const merged = {};
+
+        // Get all book indices from both local and remote
+        const allBookIndices = new Set([
+            ...Object.keys(localItems),
+            ...Object.keys(remoteItems)
+        ]);
+
+        allBookIndices.forEach(bookIndex => {
+            const localBookItems = localItems[bookIndex] || [];
+            const remoteBookItems = remoteItems[bookIndex] || [];
+
+            // Create map for deduplication by ID
+            const itemsById = new Map();
+
+            // Add remote items first
+            remoteBookItems.forEach(item => {
+                itemsById.set(item.id, item);
+            });
+
+            // Add local items (overwrites remote if same ID, for latest-wins)
+            localBookItems.forEach(item => {
+                const existing = itemsById.get(item.id);
+                if (!existing || new Date(item.timestamp) >= new Date(existing.timestamp)) {
+                    itemsById.set(item.id, item);
+                }
+            });
+
+            merged[bookIndex] = Array.from(itemsById.values())
+                .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Most recent first
+        });
+
+        return merged;
+    }
+
+    /**
+     * Merge reading positions (most recent wins per book)
+     */
+    mergeReadingPositions(localPositions, remotePositions) {
+        const merged = { ...remotePositions };
+
+        Object.keys(localPositions).forEach(bookIndex => {
+            const localPos = localPositions[bookIndex];
+            const remotePos = remotePositions[bookIndex];
+
+            if (!remotePos) {
+                merged[bookIndex] = localPos;
+            } else {
+                // Parse timestamps and keep most recent
+                try {
+                    const localData = JSON.parse(localPos);
+                    const remoteData = JSON.parse(remotePos);
+
+                    if (localData.timestamp > remoteData.timestamp) {
+                        merged[bookIndex] = localPos;
+                    }
+                } catch (error) {
+                    // If parsing fails, keep local
+                    merged[bookIndex] = localPos;
+                }
+            }
+        });
+
+        return merged;
+    }
+
+    /**
+     * Update participating devices list
+     */
+    updateParticipatingDevices(existingDevices, currentDevice) {
+        const devices = new Set(existingDevices);
+        devices.add(currentDevice);
+        return Array.from(devices);
+    }
+
+    /**
+     * Add deletion event for distributed sync
+     */
+    async addDeletionEvent(itemId, itemType) {
+        if (!this.syncManager?.isAuthenticated) {
+            return; // Skip if not connected
+        }
+
+        try {
+            // Get current remote state
+            const remoteData = await this.syncManager.download() || {
+                deletionEvents: [],
+                syncVersion: 0
+            };
+
+            // Add new deletion event
+            const deletionEvent = {
+                id: itemId,
+                type: itemType,
+                deletedAt: new Date().toISOString(),
+                deviceId: this.getDeviceId()
+            };
+
+            // Update deletion events
+            const updatedDeletionEvents = [
+                ...(remoteData.deletionEvents || []),
+                deletionEvent
+            ];
+
+            // Create minimal update to just add the deletion event
+            const updateData = {
+                ...remoteData,
+                deletionEvents: updatedDeletionEvents,
+                syncVersion: (remoteData.syncVersion || 0) + 1,
+                lastModified: new Date().toISOString()
+            };
+
+            // Upload updated state
+            await this.syncManager.upload(updateData);
+
+        } catch (error) {
+            console.warn('Failed to add deletion event:', error);
+            // Continue with local deletion even if sync fails
+        }
     }
 
     /**

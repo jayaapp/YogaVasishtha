@@ -188,6 +188,76 @@ window.addEventListener('load', async () => {
         // Initialize auto-sync trigger after everything is ready
         window.autoSyncTrigger = new AutoSyncTrigger(syncManager, window.syncUI);
 
+        // Add debug function after everything is ready
+        window.debugSync = async function() {
+            if (!window.syncManager?.isAuthenticated) {
+                console.warn('❌ Not authenticated');
+                return;
+            }
+
+            try {
+                console.log('🔍 === DEBUG SYNC START ===');
+
+                // 1. Check what's in localStorage before sync
+                const localBookmarks = localStorage.getItem('yoga-vasishtha-bookmarks');
+                const localNotes = localStorage.getItem('yoga-vasishtha-notes');
+                console.log('📱 Local bookmarks:', localBookmarks);
+                console.log('📱 Local notes:', localNotes);
+
+                // 2. Perform sync
+                console.log('⬆️ Syncing to Google Drive...');
+                await window.syncUI.performSync();
+
+                // 3. Wait a moment for Google Drive to process
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                // 4. Read back what's actually in Google Drive
+                console.log('⬇️ Reading back from Google Drive...');
+                const syncedData = await window.syncManager.download();
+                console.log('☁️ What made it to Google Drive:', syncedData);
+
+                // 5. Compare
+                console.log('🔍 === COMPARISON ===');
+                console.log('Local vs Synced notes match:', localNotes === JSON.stringify(syncedData.notes));
+                console.log('Local vs Synced bookmarks match:', localBookmarks === JSON.stringify(syncedData.bookmarks));
+
+                console.log('✅ === DEBUG SYNC COMPLETE ===');
+                return syncedData;
+            } catch (error) {
+                console.error('❌ Debug sync failed:', error);
+            }
+        };
+
+        // Add reset sync function
+        window.resetSync = async function() {
+            if (!window.syncManager?.isAuthenticated) {
+                console.warn('❌ Not authenticated - connect to Google Drive first');
+                return;
+            }
+
+            try {
+                console.log('🔄 === RESET SYNC START ===');
+
+                // Upload empty state to Google Drive
+                const emptyState = {
+                    bookmarks: {},
+                    notes: {},
+                    readingPositions: {},
+                    timestamp: new Date().toISOString()
+                };
+
+                console.log('🗑️ Clearing Google Drive sync state...');
+                await window.syncManager.upload(emptyState);
+
+                console.log('✅ Google Drive sync state reset to empty');
+                console.log('🔄 === RESET SYNC COMPLETE ===');
+
+                return emptyState;
+            } catch (error) {
+                console.error('❌ Reset sync failed:', error);
+            }
+        };
+
     } catch (error) {
         console.error('❌ Sync initialization error:', error);
         // Always show UI with error state, never leave it blank
@@ -242,6 +312,7 @@ window.viewSyncFile = async function() {
         console.error('Failed to read sync file:', error);
     }
 };
+
 
 // Export for debugging
 window.syncManager = syncManager;

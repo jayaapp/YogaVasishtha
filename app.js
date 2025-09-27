@@ -1723,6 +1723,11 @@ const BookmarkManager = {
             }
         }
 
+        // Add deletion event for multi-device sync
+        if (window.syncUI?.addDeletionEvent) {
+            window.syncUI.addDeletionEvent(bookmarkId, 'bookmark');
+        }
+
         // Remove bookmark from storage
         Object.keys(State.bookmarks).forEach(bookIndex => {
             State.bookmarks[bookIndex] = State.bookmarks[bookIndex].filter(
@@ -2771,6 +2776,11 @@ const NotesManager = {
      * Delete note
      */
     deleteNote(noteId) {
+        // Add deletion event for multi-device sync
+        if (window.syncUI?.addDeletionEvent) {
+            window.syncUI.addDeletionEvent(noteId, 'note');
+        }
+
         // Remove from storage
         for (let bookIndex in State.notes) {
             const bookNotes = State.notes[bookIndex];
