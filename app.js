@@ -302,7 +302,6 @@ const SettingsManager = {
             };
 
             localStorage.setItem(key, JSON.stringify(positionData));
-            console.log(`💾 Saved reading position at word "${topWord.word}" (index: ${wordIndex}) for book ${State.currentBookIndex}`);
         } else {
             console.warn('Could not find visible word for reading position - position not saved');
         }
@@ -372,15 +371,12 @@ const SettingsManager = {
             if (positionData.wordIndex !== undefined && positionData.word) {
                 // Restore using word-based positioning with scrollIntoView
                 const success = this.restoreWordPositionWithScrollIntoView(positionData);
-                if (success) {
-                    console.log(`📖 Restored reading position to word "${positionData.word}" (index: ${positionData.wordIndex}) for book ${State.currentBookIndex}`);
-                } else {
+                if (!success) {
                     console.warn('Word-based restoration failed - scrolling to top');
                     window.scrollTo({ top: 0, behavior: 'auto' });
                 }
             } else {
                 // Legacy format: migrate to new system
-                console.log('📖 Legacy position format detected - scrolling to top and will migrate on next save');
                 window.scrollTo({ top: 0, behavior: 'auto' });
             }
         } catch (e) {
@@ -558,7 +554,6 @@ const SearchManager = {
         Elements.searchPanel.classList.add('active');
         Elements.searchInput.focus();
 
-        console.log('🔍 Search panel opened, saved position:', State.search.originalPosition);
     },
 
     /**
@@ -592,7 +587,6 @@ const SearchManager = {
                 });
             });
 
-            console.log('🏠 Returned to original position:', originalPos);
         }
 
         // Clear search state
@@ -622,7 +616,6 @@ const SearchManager = {
                 });
             });
 
-            console.log('🏠 Returned to original reading position');
         }
     },
 
@@ -675,7 +668,6 @@ const SearchManager = {
             State.search.currentIndex = -1;
             this.renderResults();
 
-            console.log(`🔍 Found ${State.search.results.length} results for "${cleanQuery}"`);
 
         } catch (error) {
             console.error('Search error:', error);
@@ -838,7 +830,6 @@ const SearchManager = {
         const result = State.search.results[resultIndex];
         State.search.currentIndex = resultIndex;
 
-        console.log(`🎯 Navigating to result ${resultIndex + 1}/${State.search.results.length}:`, result.displayText);
 
         // Switch book if necessary
         if (result.bookIndex !== State.currentBookIndex) {
@@ -903,7 +894,6 @@ const SearchManager = {
 
         if (!searchTerm) return;
 
-        console.log('🎨 Highlighting search term:', searchTerm, 'at position:', targetPosition, 'in chapter:', chapterAnchor);
 
         // Determine scope for highlighting
         let searchScope = Elements.bookContent;
@@ -911,7 +901,6 @@ const SearchManager = {
             const chapterElement = document.getElementById(chapterAnchor);
             if (chapterElement) {
                 searchScope = chapterElement;
-                console.log('🎯 Limiting search to chapter:', chapterAnchor);
             }
         }
 
@@ -980,7 +969,6 @@ const SearchManager = {
             currentTextPosition += text.length;
         });
 
-        console.log(`🎨 Applied ${highlightCount} highlight instances in scope`);
 
         // Scroll to the targeted highlight or first one
         setTimeout(() => {
@@ -1000,7 +988,6 @@ const SearchManager = {
                 }
 
                 highlightToScrollTo = closestHighlight;
-                console.log(`📍 Found closest highlight at distance ${closestDistance} from target position ${targetPosition} within chapter`);
             } else {
                 // No specific target, use first highlight
                 highlightToScrollTo = allHighlights[0];
@@ -1012,7 +999,6 @@ const SearchManager = {
                     block: 'center',
                     inline: 'nearest'
                 });
-                console.log('📍 Scrolled to targeted highlighted instance');
             }
         }, 100);
     },
@@ -1285,7 +1271,6 @@ const BookmarkManager = {
 
         // Save bookmark
         this.addBookmarkToStorage(bookmark);
-        console.log('📖 Created word bookmark:', bookmarkId, 'for word:', wordInfo.word);
     },
 
     /**
@@ -1326,7 +1311,6 @@ const BookmarkManager = {
         if (existingIndex >= 0) {
             // Update existing bookmark
             bookBookmarks[existingIndex] = bookmark;
-            console.log('📖 Updated existing bookmark:', bookmark.displayText);
         } else {
             // Add new bookmark to beginning of array (most recent first)
             bookBookmarks.unshift(bookmark);
@@ -1336,7 +1320,6 @@ const BookmarkManager = {
                 bookBookmarks.splice(this.MAX_BOOKMARKS_PER_BOOK);
             }
 
-            console.log('📖 Added new bookmark:', bookmark.displayText);
         }
 
         this.saveToStorage();
@@ -1391,7 +1374,6 @@ const BookmarkManager = {
         if (existingIndex >= 0) {
             // Update existing bookmark
             bookBookmarks[existingIndex] = bookmark;
-            console.log('📖 Updated existing bookmark:', bookmark.displayText);
         } else {
             // Add new bookmark to beginning of array (most recent first)
             bookBookmarks.unshift(bookmark);
@@ -1401,7 +1383,6 @@ const BookmarkManager = {
                 bookBookmarks.splice(this.MAX_BOOKMARKS_PER_BOOK);
             }
 
-            console.log('📖 Added new bookmark:', bookmark.displayText);
         }
 
         this.saveToStorage();
@@ -1668,7 +1649,6 @@ const BookmarkManager = {
      * Navigate to bookmark
      */
     navigateToBookmark(bookmark) {
-        console.log('🎯 Navigating to bookmark:', bookmark.displayText);
 
         // Switch book if necessary
         if (bookmark.bookIndex !== State.currentBookIndex) {
@@ -1704,7 +1684,6 @@ const BookmarkManager = {
         if (existingHighlight) {
             // Scroll to existing highlight
             existingHighlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            console.log('✅ Navigated to existing bookmark highlight');
             return;
         }
 
@@ -1731,7 +1710,6 @@ const BookmarkManager = {
                     parent.insertBefore(bookmarkHighlight.firstChild, bookmarkHighlight);
                 }
                 parent.removeChild(bookmarkHighlight);
-                console.log('🗑️ Removed bookmark highlight from DOM:', bookmarkId);
             }
         }
 
@@ -1744,7 +1722,6 @@ const BookmarkManager = {
 
         this.saveToStorage();
         this.renderBookmarks();
-        console.log('🗑️ Removed bookmark:', bookmarkId);
     },
 
     /**
@@ -1896,7 +1873,6 @@ const BookmarkManager = {
     restoreBookmarkHighlights() {
         const currentBookmarks = State.bookmarks[State.currentBookIndex];
         if (!currentBookmarks) {
-            console.log('📖 No bookmarks to restore for current book');
             return;
         }
 
@@ -1905,15 +1881,12 @@ const BookmarkManager = {
             b.previousWordIndex !== undefined && b.word
         );
 
-        console.log(`📖 Restoring ${wordBookmarks.length} word bookmarks for current book`);
 
         wordBookmarks.forEach(bookmark => {
-            console.log('📖 Restoring bookmark:', bookmark.id, 'for word:', bookmark.word);
 
             // Check if bookmark highlight already exists
             const existingHighlight = document.querySelector(`[data-bookmark-id="${bookmark.id}"]`);
             if (existingHighlight) {
-                console.log('📖 Bookmark highlight already exists:', bookmark.id);
                 return;
             }
 
@@ -1924,7 +1897,6 @@ const BookmarkManager = {
             }
         });
 
-        console.log(`📖 Finished restoring bookmark highlights`);
     },
 
     /**
@@ -1956,10 +1928,8 @@ const BookmarkManager = {
                         encoding: 'utf8'
                     });
 
-                    console.log('📚 Bookmarks exported to Documents folder:', filename);
                     NotificationManager.show('Bookmarks exported to Documents folder', 'info');
                 } catch (capacitorError) {
-                    console.log('📚 Capacitor export failed, falling back to web download:', capacitorError);
                     // Fall back to web download
                     const blob = new Blob([jsonContent], { type: 'application/json' });
                     const url = URL.createObjectURL(blob);
@@ -1972,7 +1942,6 @@ const BookmarkManager = {
                     document.body.removeChild(a);
                     URL.revokeObjectURL(url);
 
-                    console.log('📚 Bookmarks exported to Downloads (fallback):', filename);
                 }
             } else {
                 // Web browser - use blob download
@@ -1987,7 +1956,6 @@ const BookmarkManager = {
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
 
-                console.log('📚 Bookmarks exported to Downloads:', filename);
             }
         } catch (error) {
             console.error('Failed to export bookmarks:', error);
@@ -2018,7 +1986,6 @@ const BookmarkManager = {
                     }
 
                     this.mergeBookmarks(importedData.data);
-                    console.log('📥 Imported bookmarks successfully');
                 } catch (error) {
                     console.error('❌ Import failed:', error);
                     NotificationManager.show('Import failed: Invalid bookmark file', 'error');
@@ -2063,7 +2030,6 @@ const BookmarkManager = {
 
         if (mergeCount > 0) {
             NotificationManager.show(`Imported ${mergeCount} bookmarks`, 'info');
-            console.log(`📥 Merged ${mergeCount} new bookmarks`);
         }
     }
 };
@@ -2080,12 +2046,6 @@ const VolumePositioning = {
             return 0;
         }
 
-        console.log('🔍 DEBUG: Range details:', {
-            startContainer: range.startContainer,
-            startOffset: range.startOffset,
-            startContainerNodeType: range.startContainer.nodeType,
-            startContainerTextContent: range.startContainer.textContent?.substring(0, 100)
-        });
 
         // Get the character position of the selection start in the processed DOM
         const selectionStart = this.getRangeOffsetInDOM(range.startContainer, range.startOffset);
@@ -2100,10 +2060,6 @@ const VolumePositioning = {
         const words = textBeforeSelection.match(/\S+/g) || [];
         const wordIndex = words.length;
 
-        console.log('📊 DOM-level word index calculated:', wordIndex);
-        console.log('📊 Total DOM words:', domText.match(/\S+/g)?.length || 0);
-        console.log('📊 Selection character position in DOM:', selectionStart);
-        console.log('📊 Text before selection (first 100 chars):', textBeforeSelection.substring(0, 100));
 
         return wordIndex;
     },
@@ -2115,7 +2071,6 @@ const VolumePositioning = {
     getRangeOffsetInDOM(container, offset) {
         const bookContent = document.getElementById('book-content');
         if (!bookContent) {
-            console.log('🔍 DEBUG: No book content found');
             return 0;
         }
 
@@ -2124,7 +2079,6 @@ const VolumePositioning = {
         let targetOffset = offset;
 
         if (container.nodeType === Node.ELEMENT_NODE) {
-            console.log('🔍 DEBUG: Container is element node, finding text node at offset', offset);
 
             // For element nodes, offset refers to child nodes
             const childNodes = Array.from(container.childNodes);
@@ -2136,7 +2090,6 @@ const VolumePositioning = {
                     if (currentOffset === offset) {
                         targetNode = child;
                         targetOffset = 0;
-                        console.log('🔍 DEBUG: Found target text node:', targetNode.textContent?.substring(0, 50));
                         break;
                     }
                     currentOffset++;
@@ -2144,12 +2097,6 @@ const VolumePositioning = {
             }
         }
 
-        console.log('🔍 DEBUG: Looking for container in DOM:', {
-            originalContainer: container,
-            targetNode: targetNode,
-            targetNodeType: targetNode.nodeType,
-            targetOffset: targetOffset
-        });
 
         const walker = document.createTreeWalker(
             bookContent,
@@ -2163,13 +2110,11 @@ const VolumePositioning = {
 
         while (node = walker.nextNode()) {
             if (node === targetNode) {
-                console.log('🔍 DEBUG: Found target node with totalOffset:', totalOffset, 'final offset:', totalOffset + targetOffset);
                 return totalOffset + targetOffset;
             }
             totalOffset += node.textContent.length;
         }
 
-        console.log('🔍 DEBUG: Target node not found in TreeWalker!');
         return 0; // Return 0 instead of totalOffset when not found
     },
 
@@ -2187,8 +2132,6 @@ const VolumePositioning = {
         const domText = bookContent.textContent;
         const words = domText.match(/\S+/g) || [];
 
-        console.log('📊 DOM word count during restoration:', words.length);
-        console.log('📊 Target word index:', note.previousWordIndex);
 
         if (note.previousWordIndex >= words.length) {
             console.warn('Word index out of range in DOM');
@@ -2211,7 +2154,6 @@ const VolumePositioning = {
             }
         }
 
-        console.log('📊 Calculated character position from word index:', approximateCharPos);
 
         // Find selected text after this approximate position
         const textFromPosition = domText.substring(approximateCharPos);
@@ -2223,7 +2165,6 @@ const VolumePositioning = {
         }
 
         const absoluteCharPos = approximateCharPos + relativeIndex;
-        console.log('📊 Found text at DOM character position:', absoluteCharPos);
 
         // Create highlight at this DOM position
         return this.createHighlightAtDOMPosition(note, absoluteCharPos);
@@ -2243,8 +2184,6 @@ const VolumePositioning = {
         const domText = bookContent.textContent;
         const words = domText.match(/\S+/g) || [];
 
-        console.log('📖 DOM word count for bookmark restoration:', words.length);
-        console.log('📖 Target bookmark word index:', bookmark.previousWordIndex);
 
         if (bookmark.previousWordIndex >= words.length) {
             console.warn('Bookmark word index out of range in DOM');
@@ -2267,7 +2206,6 @@ const VolumePositioning = {
             }
         }
 
-        console.log('📖 Calculated character position from word index:', approximateCharPos);
 
         // Find the bookmark word after this approximate position
         const textFromPosition = domText.substring(approximateCharPos);
@@ -2279,7 +2217,6 @@ const VolumePositioning = {
         }
 
         const absoluteCharPos = approximateCharPos + relativeIndex;
-        console.log('📖 Found bookmark word at DOM character position:', absoluteCharPos);
 
         // Create bookmark highlight at this DOM position
         return this.createBookmarkHighlightAtDOMPosition(bookmark, absoluteCharPos);
@@ -2346,7 +2283,6 @@ const VolumePositioning = {
                     // Scroll to the restored bookmark
                     highlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-                    console.log('✅ Restored bookmark highlight for word:', bookmark.word);
                     return true;
                 }
             }
@@ -2397,7 +2333,6 @@ const VolumePositioning = {
                         range.surroundContents(highlight);
                         const noteIcon = NotesManager.createNoteIcon(note.id);
                         highlight.appendChild(noteIcon);
-                        console.log('✅ Restored note with volume-level positioning');
                         return true;
                     } catch (e) {
                         console.warn('Could not surround contents:', e);
@@ -2442,14 +2377,12 @@ const NotesManager = {
         // Mobile touch events - capture selection immediately on touch end
         document.addEventListener('touchend', (e) => {
             if (this.isTextSelectionMode) {
-                console.log('📱 Touch end detected in selection mode');
 
                 // Capture selection IMMEDIATELY (before it disappears)
                 const selection = window.getSelection();
                 if (selection.rangeCount && !selection.isCollapsed) {
                     const range = selection.getRangeAt(0);
                     const selectedText = range.toString().trim();
-                    console.log('📱 Captured selection immediately:', selectedText.substring(0, 50) + '...');
 
                     // Store the selection data immediately
                     this.capturedMobileSelection = {
@@ -2462,7 +2395,6 @@ const NotesManager = {
                         this.processCapturedMobileSelection();
                     }, 50);
                 } else {
-                    console.log('📱 No selection at touch end');
                 }
             }
         });
@@ -2479,13 +2411,11 @@ const NotesManager = {
         // Prevent default context menu on mobile only during selection mode
         document.addEventListener('contextmenu', (e) => {
             if (this.isTextSelectionMode) {
-                console.log('📱 Preventing context menu in selection mode');
                 e.preventDefault();
                 e.stopPropagation();
                 return false;
             }
             // Allow normal context menu when not in selection mode
-            console.log('📱 Allowing normal context menu');
         });
 
         // Listen for escape key to exit selection mode
@@ -2521,7 +2451,6 @@ const NotesManager = {
         this.selectionTimeout = null;
 
         ModalManager.close('notes');
-        console.log('📝 Entered text selection mode - mobile events should now be active');
     },
 
     /**
@@ -2540,7 +2469,6 @@ const NotesManager = {
             this.selectionTimeout = null;
         }
 
-        console.log('📝 Exited text selection mode');
     },
 
     /**
@@ -2574,21 +2502,17 @@ const NotesManager = {
      * Handle mobile selection end (when user stops touching)
      */
     handleMobileSelectionEnd(e) {
-        console.log('📱 Processing mobile selection end');
 
         // Check if selection is still active
         const currentSelection = window.getSelection();
-        console.log('📱 Current selection:', currentSelection.toString());
 
         if (!currentSelection.rangeCount || currentSelection.isCollapsed) {
-            console.log('📱 No active selection, skipping');
             this.pendingMobileSelection = null;
             return;
         }
 
         const selectedText = currentSelection.toString().trim();
         if (selectedText.length < 3) {
-            console.log('📱 Selection too short:', selectedText);
             this.pendingMobileSelection = null;
             return;
         }
@@ -2597,11 +2521,9 @@ const NotesManager = {
         const range = currentSelection.getRangeAt(0);
         const bookContent = document.getElementById('book-content');
         if (!bookContent || !bookContent.contains(range.commonAncestorContainer)) {
-            console.log('📱 Selection not in book content');
             return;
         }
 
-        console.log('📱 Creating note from selection:', selectedText.substring(0, 50) + '...');
 
         // Create the note directly with current selection
         this.createNoteFromSelection(range, selectedText);
@@ -2612,30 +2534,25 @@ const NotesManager = {
      */
     processCapturedMobileSelection() {
         if (!this.capturedMobileSelection || !this.isTextSelectionMode) {
-            console.log('📱 No captured selection or not in selection mode');
             return;
         }
 
         const { range, text } = this.capturedMobileSelection;
         this.capturedMobileSelection = null;
 
-        console.log('📱 Processing captured selection:', text.substring(0, 50) + '...');
 
         // Validate the captured selection
         if (text.length < 3) {
-            console.log('📱 Captured selection too short:', text);
             return;
         }
 
         // Check if selection is within book content
         const bookContent = document.getElementById('book-content');
         if (!bookContent || !bookContent.contains(range.commonAncestorContainer)) {
-            console.log('📱 Captured selection not in book content');
             return;
         }
 
         // Create the note with the captured selection
-        console.log('📱 Creating note from captured selection');
         this.createNoteFromSelection(range, text);
     },
 
@@ -2783,7 +2700,6 @@ const NotesManager = {
         // Open note editor
         this.openNoteEditor(note);
 
-        console.log('📝 Created new note:', noteId);
     },
 
     /**
@@ -2819,7 +2735,6 @@ const NotesManager = {
         // Focus the textarea
         setTimeout(() => textarea.focus(), 100);
 
-        console.log('📝 Opened note editor for:', note.id);
     },
 
     /**
@@ -2835,7 +2750,6 @@ const NotesManager = {
         this.saveToStorage();
         this.renderNotes();
 
-        console.log('📝 Saved note content:', noteId);
     },
 
     /**
@@ -2866,7 +2780,6 @@ const NotesManager = {
         this.renderNotes();
         ModalManager.close('noteEditor');
 
-        console.log('📝 Deleted note:', noteId);
     },
 
     /**
@@ -3157,8 +3070,6 @@ const NotesManager = {
         const bookContent = document.getElementById('book-content');
         if (!bookContent) return;
 
-        console.log('📝 Restoring note:', note.id);
-        console.log('Previous word index:', note.previousWordIndex);
 
         // Check if note has word index data (new format)
         if (note.previousWordIndex !== undefined) {
@@ -3175,7 +3086,6 @@ const NotesManager = {
      * Restore highlight using volume-level word index positioning
      */
     restoreHighlightWithWordIndex(note) {
-        console.log('🔄 Using volume-level positioning for restoration');
 
         // Use the new volume-level positioning system
         const success = VolumePositioning.restoreHighlightAtWordIndex(note, State.currentBookIndex);
@@ -3194,7 +3104,6 @@ const NotesManager = {
         const bookContent = document.getElementById('book-content');
         if (!bookContent) return;
 
-        console.log('📄 Using fallback restoration method');
 
         // Original method: find first occurrence
         const walker = document.createTreeWalker(
@@ -3259,10 +3168,8 @@ const NotesManager = {
                         encoding: 'utf8'
                     });
 
-                    console.log('📝 Notes exported to Documents folder:', filename);
                     NotificationManager.show('Notes exported to Documents folder', 'info');
                 } catch (capacitorError) {
-                    console.log('📝 Capacitor export failed, falling back to web download:', capacitorError);
                     // Fall back to web download
                     const blob = new Blob([jsonContent], { type: 'application/json' });
                     const url = URL.createObjectURL(blob);
@@ -3275,7 +3182,6 @@ const NotesManager = {
                     document.body.removeChild(a);
                     URL.revokeObjectURL(url);
 
-                    console.log('📝 Notes exported to Downloads (fallback):', filename);
                 }
             } else {
                 // Web browser - use blob download
@@ -3290,7 +3196,6 @@ const NotesManager = {
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
 
-                console.log('📝 Notes exported to Downloads:', filename);
             }
         } catch (error) {
             console.error('Failed to export notes:', error);
@@ -3350,7 +3255,6 @@ const NotesManager = {
 
                     const totalImported = newCount + mergedCount;
                     NotificationManager.show(`Imported ${totalImported} notes`, 'info');
-                    console.log(`📝 Notes import complete: ${newCount} new, ${mergedCount} merged, ${ignoredCount} ignored`);
                 } catch (error) {
                     console.error('Import error:', error);
                     NotificationManager.show('Import failed: Invalid notes file', 'error');
@@ -3964,7 +3868,6 @@ const LexiconManager = {
                 State.iastLexicon = await iastResponse.json();
                 // Create fast lookup set for IAST keys
                 State.iastKeySet = new Set(Object.keys(State.iastLexicon));
-                console.log(`📚 Loaded ${State.iastKeySet.size} IAST lexicon entries`);
             } else {
                 console.warn('IAST lexicon file not found');
             }
@@ -4142,7 +4045,6 @@ const LexiconManager = {
         ModalManager.open('lexicon');
 
         if (entry) {
-            console.log(`📖 Displayed ${lexiconType} lexicon entry for: ${word}`);
         }
     }
 };
@@ -4206,7 +4108,6 @@ const UIManager = {
         // Restore position after DOM has had time to render
         requestAnimationFrame(() => {
             SettingsManager.restorePosition();
-            console.log(`📖 Restored position for book ${State.currentBookIndex}`);
         });
 
         // Update TOC with extracted chapter titles
@@ -4266,7 +4167,6 @@ const UIManager = {
                             behavior: 'smooth'
                         });
 
-                        console.log(`📖 TOC navigation to: ${targetId} (${item.label})`);
                     } else {
                         console.warn(`❌ TOC target not found: ${targetId}`);
                     }
@@ -4594,7 +4494,6 @@ const EventHandlers = {
         // Save current reading position before switching books
         SettingsManager.savePosition();
 
-        console.log(`💾 Saved position for book ${State.currentBookIndex} before switching`);
 
         State.currentBookIndex = newIndex;
         SettingsManager.save(CONFIG.STORAGE_KEYS.CURRENT_BOOK, newIndex);
