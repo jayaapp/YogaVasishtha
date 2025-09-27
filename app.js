@@ -35,13 +35,6 @@ const CONFIG = {
     },
     HELP_TEXT: `# Yoga Vasishtha EPUB Reader
 
-## Features
-- **Multiple EPUB files**: Navigate between different volumes
-- **Sanskrit lexicon**: Click on Devanagari words for definitions
-- **Table of contents**: Native EPUB navigation
-- **Customizable reading**: Adjust fonts, sizes, and themes
-- **Reading progress**: Automatically saved position per book
-
 ## Keyboard Shortcuts
 - **Escape**: Close any open modal
 - **Tab**: Navigate through interface elements
@@ -78,7 +71,19 @@ The search functionality supports regex patterns with automatic fallback to lite
   **[Ss]elf.*[Rr]eali**   - "Self" to "realization" variations <br>
   **\\bChapter\\s+\\w+**  - Chapter followed by any word <br>
 
-Each pattern searches across all books simultaneously, showing results with context and allowing navigation to exact locations in the text.`
+Each pattern searches across all books simultaneously, showing results with context and allowing navigation to exact locations in the text.
+
+## Features
+- **Multi-volume EPUB library**: Navigate between 7 volumes of Yoga Vasishtha
+- **Sanskrit lexicon**: Click on Sanskrit words for instant definitions
+- **Advanced search**: Regex-powered search across all volumes with context highlighting
+- **Personal annotations**: Add, edit, and manage notes with text selection
+- **Bookmark system**: Save reading positions with automatic previews
+- **Table of contents**: Native EPUB navigation
+- **Customizable reading**: Adjust fonts, sizes, and themes
+- **Reading progress**: Automatically saved position per book
+- **Google Drive sync**: Cloud backup of bookmarks, notes, and reading positions
+- **Export functionality**: Download bookmarks and notes as JSON files`
 };
 
 // ===== APPLICATION STATE =====
