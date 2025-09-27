@@ -1604,6 +1604,223 @@ const BookmarkManager = {
     }
 };
 
+// ===== VOLUME POSITIONING MANAGER =====
+const VolumePositioning = {
+    /**
+     * Get word index before a DOM range using consistent DOM-level positioning
+     */
+    getWordIndexBeforeRange(range, bookIndex) {
+        const bookContent = document.getElementById('book-content');
+        if (!bookContent) {
+            console.warn('No book content DOM available');
+            return 0;
+        }
+
+        console.log('🔍 DEBUG: Range details:', {
+            startContainer: range.startContainer,
+            startOffset: range.startOffset,
+            startContainerNodeType: range.startContainer.nodeType,
+            startContainerTextContent: range.startContainer.textContent?.substring(0, 100)
+        });
+
+        // Get the character position of the selection start in the processed DOM
+        const selectionStart = this.getRangeOffsetInDOM(range.startContainer, range.startOffset);
+
+        // Get the full processed DOM text content
+        const domText = bookContent.textContent;
+
+        // Get text before the selection
+        const textBeforeSelection = domText.substring(0, selectionStart);
+
+        // Split into words and count them
+        const words = textBeforeSelection.match(/\S+/g) || [];
+        const wordIndex = words.length;
+
+        console.log('📊 DOM-level word index calculated:', wordIndex);
+        console.log('📊 Total DOM words:', domText.match(/\S+/g)?.length || 0);
+        console.log('📊 Selection character position in DOM:', selectionStart);
+        console.log('📊 Text before selection (first 100 chars):', textBeforeSelection.substring(0, 100));
+
+        return wordIndex;
+    },
+
+
+    /**
+     * Get character offset of range in DOM content
+     */
+    getRangeOffsetInDOM(container, offset) {
+        const bookContent = document.getElementById('book-content');
+        if (!bookContent) {
+            console.log('🔍 DEBUG: No book content found');
+            return 0;
+        }
+
+        // Handle element nodes by finding the correct text node
+        let targetNode = container;
+        let targetOffset = offset;
+
+        if (container.nodeType === Node.ELEMENT_NODE) {
+            console.log('🔍 DEBUG: Container is element node, finding text node at offset', offset);
+
+            // For element nodes, offset refers to child nodes
+            const childNodes = Array.from(container.childNodes);
+            let currentOffset = 0;
+
+            for (let i = 0; i < childNodes.length; i++) {
+                const child = childNodes[i];
+                if (child.nodeType === Node.TEXT_NODE) {
+                    if (currentOffset === offset) {
+                        targetNode = child;
+                        targetOffset = 0;
+                        console.log('🔍 DEBUG: Found target text node:', targetNode.textContent?.substring(0, 50));
+                        break;
+                    }
+                    currentOffset++;
+                }
+            }
+        }
+
+        console.log('🔍 DEBUG: Looking for container in DOM:', {
+            originalContainer: container,
+            targetNode: targetNode,
+            targetNodeType: targetNode.nodeType,
+            targetOffset: targetOffset
+        });
+
+        const walker = document.createTreeWalker(
+            bookContent,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+
+        let totalOffset = 0;
+        let node;
+
+        while (node = walker.nextNode()) {
+            if (node === targetNode) {
+                console.log('🔍 DEBUG: Found target node with totalOffset:', totalOffset, 'final offset:', totalOffset + targetOffset);
+                return totalOffset + targetOffset;
+            }
+            totalOffset += node.textContent.length;
+        }
+
+        console.log('🔍 DEBUG: Target node not found in TreeWalker!');
+        return 0; // Return 0 instead of totalOffset when not found
+    },
+
+    /**
+     * Restore highlight at specific word index using consistent DOM-level positioning
+     */
+    restoreHighlightAtWordIndex(note, bookIndex) {
+        const bookContent = document.getElementById('book-content');
+        if (!bookContent) {
+            console.warn('No book content DOM for restoration');
+            return false;
+        }
+
+        // Use the same processed DOM content for restoration
+        const domText = bookContent.textContent;
+        const words = domText.match(/\S+/g) || [];
+
+        console.log('📊 DOM word count during restoration:', words.length);
+        console.log('📊 Target word index:', note.previousWordIndex);
+
+        if (note.previousWordIndex >= words.length) {
+            console.warn('Word index out of range in DOM');
+            return false;
+        }
+
+        // Calculate exact character position from word index
+        let approximateCharPos = 0;
+
+        // Walk through DOM text and count words until we reach target word index
+        const wordPattern = /\S+/g;
+        let match;
+        let wordCount = 0;
+
+        while ((match = wordPattern.exec(domText)) !== null && wordCount < note.previousWordIndex) {
+            wordCount++;
+            if (wordCount === note.previousWordIndex) {
+                approximateCharPos = match.index; // Position of the word after our target position
+                break;
+            }
+        }
+
+        console.log('📊 Calculated character position from word index:', approximateCharPos);
+
+        // Find selected text after this approximate position
+        const textFromPosition = domText.substring(approximateCharPos);
+        const relativeIndex = textFromPosition.indexOf(note.selectedText);
+
+        if (relativeIndex === -1) {
+            console.warn('Could not find selected text after word position in DOM');
+            return false;
+        }
+
+        const absoluteCharPos = approximateCharPos + relativeIndex;
+        console.log('📊 Found text at DOM character position:', absoluteCharPos);
+
+        // Create highlight at this DOM position
+        return this.createHighlightAtDOMPosition(note, absoluteCharPos);
+    },
+
+
+    /**
+     * Create highlight at character position in DOM
+     */
+    createHighlightAtDOMPosition(note, characterPosition) {
+        const bookContent = document.getElementById('book-content');
+        if (!bookContent) return false;
+
+        const walker = document.createTreeWalker(
+            bookContent,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+
+        let currentOffset = 0;
+        let node;
+
+        while (node = walker.nextNode()) {
+            const nodeLength = node.textContent.length;
+
+            if (currentOffset + nodeLength > characterPosition) {
+                const nodeOffset = characterPosition - currentOffset;
+                const endOffset = nodeOffset + note.selectedText.length;
+
+                // Verify text matches
+                const foundText = node.textContent.substring(nodeOffset, endOffset);
+                if (foundText === note.selectedText) {
+                    const range = document.createRange();
+                    range.setStart(node, nodeOffset);
+                    range.setEnd(node, endOffset);
+
+                    const highlight = document.createElement('span');
+                    highlight.className = 'note-highlight';
+                    highlight.setAttribute('data-note-id', note.id);
+
+                    try {
+                        range.surroundContents(highlight);
+                        const noteIcon = NotesManager.createNoteIcon(note.id);
+                        highlight.appendChild(noteIcon);
+                        console.log('✅ Restored note with volume-level positioning');
+                        return true;
+                    } catch (e) {
+                        console.warn('Could not surround contents:', e);
+                    }
+                }
+                break;
+            }
+
+            currentOffset += nodeLength;
+        }
+
+        return false;
+    }
+};
+
 // ===== NOTES MANAGER =====
 const NotesManager = {
     MAX_NOTES_PER_BOOK: 50,
@@ -1952,6 +2169,9 @@ const NotesManager = {
         const position = this.getCurrentPosition();
         const currentChapter = BookmarkManager.getCurrentChapter();
 
+        // Get word index before selection for robust positioning
+        const previousWordIndex = this.getPreviousWordIndex(range);
+
         const note = {
             id: noteId,
             bookIndex: State.currentBookIndex,
@@ -1961,7 +2181,8 @@ const NotesManager = {
             selectedText: selectedText,
             noteText: '',
             timestamp: new Date().toISOString(),
-            scrollPosition: window.pageYOffset || document.documentElement.scrollTop
+            scrollPosition: window.pageYOffset || document.documentElement.scrollTop,
+            previousWordIndex: previousWordIndex
         };
 
         // Save note
@@ -2283,6 +2504,41 @@ const NotesManager = {
     },
 
     /**
+     * Get the word index before the selection for robust volume-level positioning
+     */
+    getPreviousWordIndex(range) {
+        // Use volume-level positioning based on raw content
+        return VolumePositioning.getWordIndexBeforeRange(range, State.currentBookIndex);
+    },
+
+    /**
+     * Get the character offset of a range position within the document
+     */
+    getRangeOffsetInDocument(container, offset) {
+        const bookContent = document.getElementById('book-content');
+        if (!bookContent) return 0;
+
+        const walker = document.createTreeWalker(
+            bookContent,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+
+        let totalOffset = 0;
+        let node;
+
+        while (node = walker.nextNode()) {
+            if (node === container) {
+                return totalOffset + offset;
+            }
+            totalOffset += node.textContent.length;
+        }
+
+        return totalOffset;
+    },
+
+    /**
      * Generate unique ID for note
      */
     generateId() {
@@ -2303,14 +2559,52 @@ const NotesManager = {
     },
 
     /**
-     * Restore individual highlight (simplified implementation)
+     * Restore individual highlight using word-index-based positioning
      */
     restoreHighlight(note) {
-        // This is a basic implementation - a production version would need more sophisticated text anchoring
         const bookContent = document.getElementById('book-content');
         if (!bookContent) return;
 
-        // Find text content that matches the selected text
+        console.log('📝 Restoring note:', note.id);
+        console.log('Previous word index:', note.previousWordIndex);
+
+        // Check if note has word index data (new format)
+        if (note.previousWordIndex !== undefined) {
+            // Use word-index-based restoration
+            this.restoreHighlightWithWordIndex(note);
+        } else {
+            // Fallback to old method for backward compatibility
+            console.warn('Note missing word index, using fallback method:', note.id);
+            this.restoreHighlightFallback(note);
+        }
+    },
+
+    /**
+     * Restore highlight using volume-level word index positioning
+     */
+    restoreHighlightWithWordIndex(note) {
+        console.log('🔄 Using volume-level positioning for restoration');
+
+        // Use the new volume-level positioning system
+        const success = VolumePositioning.restoreHighlightAtWordIndex(note, State.currentBookIndex);
+
+        if (!success) {
+            console.warn('Volume-level positioning failed, using fallback');
+            this.restoreHighlightFallback(note);
+        }
+    },
+
+
+    /**
+     * Fallback restoration method for old notes or when word index fails
+     */
+    restoreHighlightFallback(note) {
+        const bookContent = document.getElementById('book-content');
+        if (!bookContent) return;
+
+        console.log('📄 Using fallback restoration method');
+
+        // Original method: find first occurrence
         const walker = document.createTreeWalker(
             bookContent,
             NodeFilter.SHOW_TEXT,
