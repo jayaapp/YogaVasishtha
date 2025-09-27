@@ -1739,7 +1739,7 @@ const BookmarkManager = {
      */
     saveToStorage() {
         try {
-            localStorage.setItem('epub-bookmarks', JSON.stringify(State.bookmarks));
+            localStorage.setItem('yoga-vasishtha-bookmarks', JSON.stringify(State.bookmarks));
 
             // Trigger auto-sync if available
             if (window.autoSyncTrigger) {
@@ -1755,7 +1755,7 @@ const BookmarkManager = {
      */
     loadFromStorage() {
         try {
-            const saved = localStorage.getItem('epub-bookmarks');
+            const saved = localStorage.getItem('yoga-vasishtha-bookmarks');
             State.bookmarks = saved ? JSON.parse(saved) : {};
         } catch (error) {
             console.error('Failed to load bookmarks:', error);

@@ -101,8 +101,8 @@ class GoogleSyncUI {
         try {
             // Collect local data
             const localData = {
-                bookmarks: JSON.parse(localStorage.getItem('epub-bookmarks') || '{}'),
-                notes: JSON.parse(localStorage.getItem('epub-notes') || '{}'),
+                bookmarks: JSON.parse(localStorage.getItem('yoga-vasishtha-bookmarks') || '{}'),
+                notes: JSON.parse(localStorage.getItem('yoga-vasishtha-notes') || '{}'),
                 readingPositions: this.collectReadingPositions(),
                 timestamp: new Date().toISOString()
             };

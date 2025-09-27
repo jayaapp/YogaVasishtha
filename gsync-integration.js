@@ -232,9 +232,10 @@ window.viewSyncFile = async function() {
     try {
         const data = await window.syncManager.download();
         if (data) {
-            // console.log('Sync file contents:', data);
+            console.log('Sync file contents:', data);
         } else {
             // console.log('No sync file found - either no data synced yet or file doesn't exist');
+            // Strangely uncommenting this seems to "cause" the Connect To Google Drive button to disappear
         }
         return data;
     } catch (error) {
