@@ -284,26 +284,249 @@ const SettingsManager = {
     },
 
     /**
-     * Save reading position
+     * Save reading position using simplified word-based positioning
      */
     savePosition() {
-        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
         const key = CONFIG.STORAGE_KEYS.READING_POSITION + State.currentBookIndex;
-        localStorage.setItem(key, scrollTop.toString());
-        console.log(`💾 Saved scroll position ${scrollTop} for book ${State.currentBookIndex}`);
+
+        // Find the topmost visible word for robust positioning
+        const topWord = this.findTopVisibleWord();
+
+        if (topWord) {
+            const wordIndex = VolumePositioning.getWordIndexBeforeRange(topWord.range, State.currentBookIndex);
+
+            const positionData = {
+                wordIndex: wordIndex,
+                word: topWord.word,
+                timestamp: Date.now()
+            };
+
+            localStorage.setItem(key, JSON.stringify(positionData));
+            console.log(`💾 Saved reading position at word "${topWord.word}" (index: ${wordIndex}) for book ${State.currentBookIndex}`);
+        } else {
+            console.warn('Could not find visible word for reading position - position not saved');
+        }
     },
 
     /**
-     * Restore reading position
+     * Find the topmost visible word in the viewport (for reading position)
+     */
+    findTopVisibleWord() {
+        const bookContent = document.getElementById('book-content');
+        if (!bookContent) return null;
+
+        const walker = document.createTreeWalker(
+            bookContent,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+
+        let node;
+        while (node = walker.nextNode()) {
+            const text = node.textContent.trim();
+            if (!text) continue;
+
+            // Check if this text node is visible in viewport
+            const range = document.createRange();
+            range.selectNodeContents(node);
+            const rect = range.getBoundingClientRect();
+
+            // Check if top of text is in viewport (allowing for some margin)
+            if (rect.top >= -10 && rect.top <= window.innerHeight) {
+                // Find first word in this text node
+                const words = text.match(/\S+/g);
+                if (words && words.length > 0) {
+                    const firstWord = words[0];
+                    const wordStartIndex = text.indexOf(firstWord);
+
+                    // Create range for the first word
+                    const wordRange = document.createRange();
+                    wordRange.setStart(node, wordStartIndex);
+                    wordRange.setEnd(node, wordStartIndex + firstWord.length);
+
+                    return {
+                        word: firstWord,
+                        range: wordRange,
+                        textNode: node
+                    };
+                }
+            }
+        }
+
+        return null;
+    },
+
+    /**
+     * Restore reading position using simplified word-based positioning
      */
     restorePosition() {
         const key = CONFIG.STORAGE_KEYS.READING_POSITION + State.currentBookIndex;
-        const savedPosition = localStorage.getItem(key);
-        if (savedPosition) {
-            const position = parseInt(savedPosition, 10);
-            window.scrollTo({ top: position, behavior: 'auto' });
-            console.log(`📖 Restored scroll position ${position} for book ${State.currentBookIndex}`);
+        const savedData = localStorage.getItem(key);
+
+        if (!savedData) return;
+
+        try {
+            const positionData = JSON.parse(savedData);
+
+            if (positionData.wordIndex !== undefined && positionData.word) {
+                // Restore using word-based positioning with scrollIntoView
+                const success = this.restoreWordPositionWithScrollIntoView(positionData);
+                if (success) {
+                    console.log(`📖 Restored reading position to word "${positionData.word}" (index: ${positionData.wordIndex}) for book ${State.currentBookIndex}`);
+                } else {
+                    console.warn('Word-based restoration failed - scrolling to top');
+                    window.scrollTo({ top: 0, behavior: 'auto' });
+                }
+            } else {
+                // Legacy format: migrate to new system
+                console.log('📖 Legacy position format detected - scrolling to top and will migrate on next save');
+                window.scrollTo({ top: 0, behavior: 'auto' });
+            }
+        } catch (e) {
+            // Invalid format: scroll to top
+            console.warn('Invalid position data - scrolling to top');
+            window.scrollTo({ top: 0, behavior: 'auto' });
         }
+    },
+
+    /**
+     * Restore reading position using word index with scrollIntoView
+     */
+    restoreWordPositionWithScrollIntoView(positionData) {
+        // Create a temporary invisible element at the word position
+        const marker = this.createPositionMarker(positionData);
+        if (marker) {
+            // Use scrollIntoView for robust positioning
+            marker.scrollIntoView({
+                behavior: 'auto',
+                block: 'start',
+                inline: 'nearest'
+            });
+
+            // Remove the temporary marker
+            marker.remove();
+            return true;
+        }
+        return false;
+    },
+
+    /**
+     * Create invisible position marker at word location
+     */
+    createPositionMarker(positionData) {
+        const bookContent = document.getElementById('book-content');
+        if (!bookContent) return null;
+
+        // Use the same word positioning system as notes/bookmarks
+        const domText = bookContent.textContent;
+        const words = domText.match(/\S+/g) || [];
+
+        if (positionData.wordIndex >= words.length) {
+            console.warn('Reading position word index out of range');
+            return null;
+        }
+
+        // Calculate character position from word index
+        let approximateCharPos = 0;
+        const wordPattern = /\S+/g;
+        let match;
+        let wordCount = 0;
+
+        while ((match = wordPattern.exec(domText)) !== null && wordCount < positionData.wordIndex) {
+            wordCount++;
+            if (wordCount === positionData.wordIndex) {
+                approximateCharPos = match.index;
+                break;
+            }
+        }
+
+        // Find the target word after this position
+        const textFromPosition = domText.substring(approximateCharPos);
+        const relativeIndex = textFromPosition.indexOf(positionData.word);
+
+        if (relativeIndex === -1) {
+            console.warn('Could not find reading position word in DOM');
+            return null;
+        }
+
+        const absoluteCharPos = approximateCharPos + relativeIndex;
+
+        // Find the DOM node containing this character position
+        const walker = document.createTreeWalker(
+            bookContent,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+
+        let currentOffset = 0;
+        let node;
+
+        while (node = walker.nextNode()) {
+            const nodeLength = node.textContent.length;
+
+            if (currentOffset + nodeLength > absoluteCharPos) {
+                // Found the text node - create invisible marker
+                const nodeOffset = absoluteCharPos - currentOffset;
+                const marker = document.createElement('span');
+                marker.style.cssText = 'position: absolute; visibility: hidden; pointer-events: none;';
+
+                // Split the text node and insert marker
+                const range = document.createRange();
+                range.setStart(node, nodeOffset);
+                range.collapse(true);
+                range.insertNode(marker);
+
+                return marker;
+            }
+
+            currentOffset += nodeLength;
+        }
+
+        return null;
+    },
+
+    /**
+     * Handle window resize events to maintain reading position
+     */
+    handleWindowResize() {
+        // Save current position before resize effects take place
+        const currentPosition = this.getCurrentReadingPosition();
+        if (currentPosition) {
+            // Use a short delay to allow layout to settle, then restore position
+            setTimeout(() => {
+                const marker = this.createPositionMarker(currentPosition);
+                if (marker) {
+                    marker.scrollIntoView({
+                        behavior: 'auto',
+                        block: 'start',
+                        inline: 'nearest'
+                    });
+                    marker.remove();
+                }
+            }, 50);
+        }
+    },
+
+    /**
+     * Get current reading position data (for resize handling)
+     */
+    getCurrentReadingPosition() {
+        const key = CONFIG.STORAGE_KEYS.READING_POSITION + State.currentBookIndex;
+        const savedData = localStorage.getItem(key);
+
+        if (savedData) {
+            try {
+                const positionData = JSON.parse(savedData);
+                if (positionData.wordIndex !== undefined && positionData.word) {
+                    return positionData;
+                }
+            } catch (e) {
+                // Invalid data
+            }
+        }
+        return null;
     }
 };
 
@@ -4350,6 +4573,11 @@ const EventHandlers = {
         // Reading position saving - listen to window scroll events
         window.addEventListener('scroll',
             Utils.debounce(SettingsManager.savePosition.bind(SettingsManager), 500)
+        );
+
+        // Handle window resize to maintain reading position
+        window.addEventListener('resize',
+            Utils.debounce(SettingsManager.handleWindowResize.bind(SettingsManager), 250)
         );
 
         // Global keyboard shortcuts
