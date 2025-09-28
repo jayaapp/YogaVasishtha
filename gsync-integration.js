@@ -166,7 +166,6 @@ window.addEventListener('load', async () => {
         // Create sync UI in initializing state
         window.syncUI = new GoogleSyncUI(syncContainer, syncManager);
         window.syncUI.setState('initializing');
-        makeThemeAware();
     } else {
         console.warn('⚠️  Sync container not found - sync UI disabled');
         return;
@@ -259,30 +258,6 @@ window.addEventListener('load', async () => {
     }
 });
 
-// Make sync UI theme-aware
-function makeThemeAware() {
-    const syncTitle = document.querySelector('.sync-section-title');
-    if (syncTitle) {
-        // Apply theme class from body to sync title
-        const bodyTheme = document.body.className;
-        syncTitle.className = `sync-section-title ${bodyTheme}`;
-
-        // Watch for theme changes
-        const observer = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                    const newTheme = document.body.className;
-                    syncTitle.className = `sync-section-title ${newTheme}`;
-                }
-            });
-        });
-
-        observer.observe(document.body, {
-            attributes: true,
-            attributeFilter: ['class']
-        });
-    }
-}
 
 // Debug function to view sync file content
 window.viewSyncFile = async function() {

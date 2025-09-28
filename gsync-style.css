@@ -24,7 +24,7 @@ body.light-theme .sync-section-title {
 }
 
 body.dark-theme .sync-section-title {
-    color: var(--text-primary, #e9ecef);
+    color: #e9ecef !important;
     border-bottom-color: var(--panel-border, #495057);
 }
 
