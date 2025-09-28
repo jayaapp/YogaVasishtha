@@ -1723,12 +1723,7 @@ const BookmarkManager = {
             }
         }
 
-        // Add deletion event for multi-device sync
-        if (window.syncUI?.addDeletionEvent) {
-            window.syncUI.addDeletionEvent(bookmarkId, 'bookmark');
-        }
-
-        // Remove bookmark from storage
+        // Remove bookmark from storage first
         Object.keys(State.bookmarks).forEach(bookIndex => {
             State.bookmarks[bookIndex] = State.bookmarks[bookIndex].filter(
                 bookmark => bookmark.id !== bookmarkId
@@ -1737,6 +1732,12 @@ const BookmarkManager = {
 
         this.saveToStorage();
         this.renderBookmarks();
+
+        // Add deletion event AFTER local storage is updated
+        // This ensures auto-sync won't fire before deletion event is handled
+        if (window.syncUI?.addDeletionEvent) {
+            window.syncUI.addDeletionEvent(bookmarkId, 'bookmark');
+        }
     },
 
     /**
@@ -2776,12 +2777,7 @@ const NotesManager = {
      * Delete note
      */
     deleteNote(noteId) {
-        // Add deletion event for multi-device sync
-        if (window.syncUI?.addDeletionEvent) {
-            window.syncUI.addDeletionEvent(noteId, 'note');
-        }
-
-        // Remove from storage
+        // Remove from storage first
         for (let bookIndex in State.notes) {
             const bookNotes = State.notes[bookIndex];
             const noteIndex = bookNotes.findIndex(n => n.id === noteId);
@@ -2805,6 +2801,11 @@ const NotesManager = {
         this.renderNotes();
         ModalManager.close('noteEditor');
 
+        // Add deletion event AFTER local storage is updated
+        // This ensures auto-sync won't fire before deletion event is handled
+        if (window.syncUI?.addDeletionEvent) {
+            window.syncUI.addDeletionEvent(noteId, 'note');
+        }
     },
 
     /**
@@ -4806,11 +4807,11 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('syncDataUpdated', (event) => {
         console.log('🔄 Sync data updated, refreshing UI...');
 
-        // Update internal state
+        // Update internal state to match what was just written to localStorage
         State.bookmarks = event.detail.bookmarks || {};
         State.notes = event.detail.notes || {};
 
-        // Refresh UI components
+        // Refresh UI components (they will read from localStorage which was already updated)
         BookmarkManager.loadFromStorage();
         BookmarkManager.renderBookmarks();
 

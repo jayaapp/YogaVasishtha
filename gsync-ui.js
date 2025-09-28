@@ -119,11 +119,12 @@ class GoogleSyncUI {
                 participatingDevices: []
             };
 
-            // Process deletion events
+            // Process deletion events on BOTH local and remote data
             const cleanedLocalData = this.applyDeletionEvents(localData, remoteData.deletionEvents || []);
+            const cleanedRemoteData = this.applyDeletionEvents(remoteData, remoteData.deletionEvents || []);
 
-            // Merge local and remote data
-            const mergedData = this.mergeData(cleanedLocalData, remoteData, deviceId);
+            // Merge cleaned local and remote data
+            const mergedData = this.mergeData(cleanedLocalData, cleanedRemoteData, deviceId);
 
             // Upload merged state
             await this.syncManager.upload(mergedData);
@@ -337,12 +338,28 @@ class GoogleSyncUI {
             return; // Skip if not connected
         }
 
+        // Block auto-sync during deletion event handling
+        const autoSyncTrigger = window.autoSyncTrigger;
+        if (autoSyncTrigger) {
+            autoSyncTrigger.isPerformingSync = true;
+        }
+
         try {
             // Get current remote state
             const remoteData = await this.syncManager.download() || {
                 deletionEvents: [],
                 syncVersion: 0
             };
+
+            // Check for duplicate deletion event
+            const existingEvent = remoteData.deletionEvents?.find(
+                event => event.id === itemId && event.type === itemType
+            );
+
+            if (existingEvent) {
+                // Deletion event already exists, no need to add duplicate
+                return;
+            }
 
             // Add new deletion event
             const deletionEvent = {
@@ -372,6 +389,11 @@ class GoogleSyncUI {
         } catch (error) {
             console.warn('Failed to add deletion event:', error);
             // Continue with local deletion even if sync fails
+        } finally {
+            // Re-enable auto-sync
+            if (autoSyncTrigger) {
+                autoSyncTrigger.isPerformingSync = false;
+            }
         }
     }
 
