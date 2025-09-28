@@ -4845,18 +4845,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         console.log('🔍 DEBUG: UI refresh completed');
 
-        // Check if highlights need restoration
+        // Always restore highlights after sync to ensure all notes are visible
         if (noteCount > 0) {
             console.log('🔍 DEBUG: Checking if highlights are visible in DOM...');
             const highlights = document.querySelectorAll('.note-highlight');
             console.log('🔍 DEBUG: Found', highlights.length, 'note highlights in DOM');
 
-            // Trigger highlight restoration if needed
-            if (highlights.length === 0 && State.currentBookIndex !== undefined) {
-                console.log('🔍 DEBUG: No highlights found, attempting to restore...');
+            // Always restore highlights after sync to catch any missing ones
+            if (State.currentBookIndex !== undefined) {
+                console.log('🔍 DEBUG: Restoring highlights after sync...');
                 setTimeout(() => {
                     console.log('🔍 DEBUG: Calling restoreHighlights...');
                     NotesManager.restoreHighlights();
+                    BookmarkManager.restoreBookmarkHighlights();
                 }, 200);
             }
         }
