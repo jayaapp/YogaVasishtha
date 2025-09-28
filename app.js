@@ -2800,19 +2800,32 @@ const NotesManager = {
      * Navigate to note
      */
     navigateToNote(noteId) {
+        console.log('🔍 DEBUG: Navigating to note:', noteId);
+
         const note = this.findNoteById(noteId);
-        if (!note) return;
+        if (!note) {
+            console.log('🔍 DEBUG: Note not found:', noteId);
+            return;
+        }
+
+        console.log('🔍 DEBUG: Found note:', note);
+        console.log('🔍 DEBUG: Current book index:', State.currentBookIndex, 'Note book index:', note.bookIndex);
 
         // Switch to the correct book if needed
         if (note.bookIndex !== State.currentBookIndex) {
+            console.log('🔍 DEBUG: Switching to book:', note.bookIndex);
             State.currentBookIndex = note.bookIndex;
             UIManager.displayCurrentBook();
         }
 
         // Scroll to the note position
         setTimeout(() => {
+            console.log('🔍 DEBUG: Looking for note highlight with ID:', noteId);
             const highlight = document.querySelector(`[data-note-id="${noteId}"]`);
+            console.log('🔍 DEBUG: Found highlight element:', !!highlight);
+
             if (highlight) {
+                console.log('🔍 DEBUG: Scrolling to highlight');
                 highlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 // Briefly highlight the note
                 highlight.style.backgroundColor = 'rgba(255, 193, 7, 0.6)';
@@ -2820,6 +2833,7 @@ const NotesManager = {
                     highlight.style.backgroundColor = '';
                 }, 2000);
             } else {
+                console.log('🔍 DEBUG: No highlight found, using fallback scroll position:', note.scrollPosition);
                 // Fallback to scroll position
                 window.scrollTo({
                     top: note.scrollPosition,
@@ -3069,8 +3083,10 @@ const NotesManager = {
      */
     restoreHighlights() {
         const currentBookNotes = State.notes[State.currentBookIndex] || [];
+        console.log('🔍 DEBUG: Restoring highlights for book', State.currentBookIndex, '- found', currentBookNotes.length, 'notes');
 
-        currentBookNotes.forEach(note => {
+        currentBookNotes.forEach((note, index) => {
+            console.log('🔍 DEBUG: Restoring highlight', index + 1, 'for note:', note.id);
             // Try to find and restore highlight based on text content
             // This is a simplified restoration - in a production app you'd want more robust text anchoring
             this.restoreHighlight(note);
@@ -3081,17 +3097,30 @@ const NotesManager = {
      * Restore individual highlight using word-index-based positioning
      */
     restoreHighlight(note) {
-        const bookContent = document.getElementById('book-content');
-        if (!bookContent) return;
+        console.log('🔍 DEBUG: Attempting to restore highlight for note:', note.id);
 
+        const bookContent = document.getElementById('book-content');
+        if (!bookContent) {
+            console.log('🔍 DEBUG: No book content element found');
+            return;
+        }
+
+        console.log('🔍 DEBUG: Note data:', {
+            id: note.id,
+            bookIndex: note.bookIndex,
+            chapter: note.chapter,
+            hasWordIndex: note.previousWordIndex !== undefined,
+            selectedText: note.selectedText?.substring(0, 50) + '...'
+        });
 
         // Check if note has word index data (new format)
         if (note.previousWordIndex !== undefined) {
+            console.log('🔍 DEBUG: Using word-index-based restoration');
             // Use word-index-based restoration
             this.restoreHighlightWithWordIndex(note);
         } else {
             // Fallback to old method for backward compatibility
-            console.warn('Note missing word index, using fallback method:', note.id);
+            console.log('🔍 DEBUG: Note missing word index, using fallback method:', note.id);
             this.restoreHighlightFallback(note);
         }
     },
@@ -4788,6 +4817,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Listen for sync data updates from Google Drive sync
     window.addEventListener('syncDataUpdated', (event) => {
+        console.log('🔍 DEBUG: Sync data updated event received');
+
+        // Debug note data integrity
+        const syncedNotes = event.detail.notes || {};
+        const noteCount = Object.values(syncedNotes).reduce((total, notes) => total + notes.length, 0);
+        console.log('🔍 DEBUG: Synced notes count:', noteCount);
+
+        if (noteCount > 0) {
+            console.log('🔍 DEBUG: Full synced notes structure:', syncedNotes);
+            // Log first note details for inspection
+            const firstBookNotes = Object.values(syncedNotes)[0];
+            if (firstBookNotes && firstBookNotes.length > 0) {
+                console.log('🔍 DEBUG: First note details:', firstBookNotes[0]);
+            }
+        }
+
         // Update internal state to match what was just written to localStorage
         State.bookmarks = event.detail.bookmarks || {};
         State.notes = event.detail.notes || {};
@@ -4797,6 +4842,24 @@ document.addEventListener('DOMContentLoaded', () => {
         BookmarkManager.renderBookmarks();
         NotesManager.loadFromStorage();
         NotesManager.renderNotes();
+
+        console.log('🔍 DEBUG: UI refresh completed');
+
+        // Check if highlights need restoration
+        if (noteCount > 0) {
+            console.log('🔍 DEBUG: Checking if highlights are visible in DOM...');
+            const highlights = document.querySelectorAll('.note-highlight');
+            console.log('🔍 DEBUG: Found', highlights.length, 'note highlights in DOM');
+
+            // Trigger highlight restoration if needed
+            if (highlights.length === 0 && State.currentBookIndex !== undefined) {
+                console.log('🔍 DEBUG: No highlights found, attempting to restore...');
+                setTimeout(() => {
+                    console.log('🔍 DEBUG: Calling restoreHighlights...');
+                    NotesManager.restoreHighlights();
+                }, 200);
+            }
+        }
     });
 });
 

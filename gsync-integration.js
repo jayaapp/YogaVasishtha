@@ -6,6 +6,7 @@
 // Sync configuration constants
 const AUTO_SYNC_INTERVAL = 30000; // 30 seconds
 const DELETE_EVENT_RETENTION = 90 * 24 * 60 * 60 * 1000; // 90 days
+const ENABLE_SYNC_LOGGING = false; // Set to true to enable sync debug logging
 
 // Smart polling-based sync for cross-device consistency
 class SmartAutoSync {
@@ -25,7 +26,7 @@ class SmartAutoSync {
             clearInterval(this.pollTimer);
         }
 
-        console.log('🔄 SMART-SYNC: Starting polling every', AUTO_SYNC_INTERVAL / 1000, 'seconds');
+        if (ENABLE_SYNC_LOGGING) console.log('🔄 SMART-SYNC: Starting polling every', AUTO_SYNC_INTERVAL / 1000, 'seconds');
 
         // Start immediately, then at intervals
         this.performSmartSync();
@@ -40,7 +41,7 @@ class SmartAutoSync {
      */
     stop() {
         if (this.pollTimer) {
-            console.log('🔄 SMART-SYNC: Stopping polling');
+            if (ENABLE_SYNC_LOGGING) console.log('🔄 SMART-SYNC: Stopping polling');
             clearInterval(this.pollTimer);
             this.pollTimer = null;
         }
@@ -57,13 +58,13 @@ class SmartAutoSync {
 
         // Prevent concurrent syncs
         if (this.isPerformingSync) {
-            console.log('🔄 SMART-SYNC: Sync already in progress, skipping');
+            if (ENABLE_SYNC_LOGGING) console.log('🔄 SMART-SYNC: Sync already in progress, skipping');
             return;
         }
 
         try {
             this.isPerformingSync = true;
-            console.log('🔄 SMART-SYNC: Starting complete sync operation');
+            if (ENABLE_SYNC_LOGGING) console.log('🔄 SMART-SYNC: Starting complete sync operation');
 
             // Show subtle sync indicator
             this.showSyncIndicator(true);
@@ -72,7 +73,7 @@ class SmartAutoSync {
             await this.syncUI.performCompleteSync();
 
             this.lastSuccessfulSync = Date.now();
-            console.log('🔄 SMART-SYNC: Sync completed successfully');
+            if (ENABLE_SYNC_LOGGING) console.log('🔄 SMART-SYNC: Sync completed successfully');
 
         } catch (error) {
             console.warn('🔄 SMART-SYNC: Sync failed:', error);
@@ -103,11 +104,11 @@ class SmartAutoSync {
      */
     async forceSync() {
         if (this.isPerformingSync) {
-            console.log('🔄 SMART-SYNC: Force sync requested but sync already in progress');
+            if (ENABLE_SYNC_LOGGING) console.log('🔄 SMART-SYNC: Force sync requested but sync already in progress');
             return;
         }
 
-        console.log('🔄 SMART-SYNC: Force sync requested');
+        if (ENABLE_SYNC_LOGGING) console.log('🔄 SMART-SYNC: Force sync requested');
         await this.performSmartSync();
     }
 }

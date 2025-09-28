@@ -110,7 +110,7 @@ class GoogleSyncUI {
 
             const localBookmarkCount = Object.values(localData.bookmarks).reduce((total, bookmarks) => total + bookmarks.length, 0);
             const localNoteCount = Object.values(localData.notes).reduce((total, notes) => total + notes.length, 0);
-            console.log('🔄 SYNC: Local data - bookmarks:', localBookmarkCount, 'notes:', localNoteCount);
+            if (ENABLE_SYNC_LOGGING) console.log('🔄 SYNC: Local data - bookmarks:', localBookmarkCount, 'notes:', localNoteCount);
 
             // Get current remote state
             const remoteData = await this.syncManager.download() || {
@@ -122,7 +122,7 @@ class GoogleSyncUI {
                 participatingDevices: []
             };
 
-            console.log('🔄 SYNC: Remote deletion events:', remoteData.deletionEvents?.length || 0);
+            if (ENABLE_SYNC_LOGGING) console.log('🔄 SYNC: Remote deletion events:', remoteData.deletionEvents?.length || 0);
 
             // Get pending local deletion events
             const pendingDeletions = this.getPendingDeletionEvents();
@@ -132,7 +132,7 @@ class GoogleSyncUI {
 
             // Clean up old deletion events (older than retention period)
             const cleanDeletionEvents = this.cleanupOldDeletionEvents(allDeletionEvents);
-            console.log('🔄 SYNC: After cleanup - deletion events:', cleanDeletionEvents.length);
+            if (ENABLE_SYNC_LOGGING) console.log('🔄 SYNC: After cleanup - deletion events:', cleanDeletionEvents.length);
 
             // Apply deletion events to both local and remote data
             const cleanedLocalData = this.applyDeletionEvents(localData, cleanDeletionEvents);
@@ -147,7 +147,7 @@ class GoogleSyncUI {
             // Apply merged data back to localStorage
             const finalBookmarkCount = Object.values(mergedData.bookmarks).reduce((total, bookmarks) => total + bookmarks.length, 0);
             const finalNoteCount = Object.values(mergedData.notes).reduce((total, notes) => total + notes.length, 0);
-            console.log('🔄 SYNC: Final data - bookmarks:', finalBookmarkCount, 'notes:', finalNoteCount);
+            if (ENABLE_SYNC_LOGGING) console.log('🔄 SYNC: Final data - bookmarks:', finalBookmarkCount, 'notes:', finalNoteCount);
 
             this.updateLocalStorage(mergedData);
             this.refreshUI(mergedData);
@@ -219,7 +219,7 @@ class GoogleSyncUI {
         });
 
         if (cleaned.length < deletionEvents.length) {
-            console.log('🔄 SYNC: Cleaned up', deletionEvents.length - cleaned.length, 'old deletion events');
+            if (ENABLE_SYNC_LOGGING) console.log('🔄 SYNC: Cleaned up', deletionEvents.length - cleaned.length, 'old deletion events');
         }
 
         return cleaned;
@@ -261,7 +261,7 @@ class GoogleSyncUI {
         });
 
         if (deletionsApplied > 0) {
-            console.log('🔄 SYNC: Applied', deletionsApplied, 'deletion events');
+            if (ENABLE_SYNC_LOGGING) console.log('🔄 SYNC: Applied', deletionsApplied, 'deletion events');
         }
 
         return cleaned;
@@ -416,7 +416,7 @@ class GoogleSyncUI {
         if (!existingEvent) {
             pendingDeletions.push(deletionEvent);
             localStorage.setItem('yoga-vasishtha-pending-deletions', JSON.stringify(pendingDeletions));
-            console.log('🔄 SYNC: Added local deletion event for', itemType, itemId);
+            if (ENABLE_SYNC_LOGGING) console.log('🔄 SYNC: Added local deletion event for', itemType, itemId);
         }
     }
 
@@ -427,7 +427,7 @@ class GoogleSyncUI {
         const pendingDeletions = JSON.parse(localStorage.getItem('yoga-vasishtha-pending-deletions') || '[]');
 
         if (pendingDeletions.length > 0) {
-            console.log('🔄 SYNC: Processing', pendingDeletions.length, 'pending deletion events');
+            if (ENABLE_SYNC_LOGGING) console.log('🔄 SYNC: Processing', pendingDeletions.length, 'pending deletion events');
             // Clear pending deletions as they'll be uploaded to remote
             localStorage.removeItem('yoga-vasishtha-pending-deletions');
         }
