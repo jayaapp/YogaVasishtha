@@ -26,7 +26,6 @@ class SmartAutoSync {
             clearInterval(this.pollTimer);
         }
 
-        if (ENABLE_SYNC_LOGGING) console.log('🔄 SMART-SYNC: Starting polling every', AUTO_SYNC_INTERVAL / 1000, 'seconds');
 
         // Start immediately, then at intervals
         this.performSmartSync();
@@ -41,7 +40,6 @@ class SmartAutoSync {
      */
     stop() {
         if (this.pollTimer) {
-            if (ENABLE_SYNC_LOGGING) console.log('🔄 SMART-SYNC: Stopping polling');
             clearInterval(this.pollTimer);
             this.pollTimer = null;
         }
@@ -58,13 +56,11 @@ class SmartAutoSync {
 
         // Prevent concurrent syncs
         if (this.isPerformingSync) {
-            if (ENABLE_SYNC_LOGGING) console.log('🔄 SMART-SYNC: Sync already in progress, skipping');
             return;
         }
 
         try {
             this.isPerformingSync = true;
-            if (ENABLE_SYNC_LOGGING) console.log('🔄 SMART-SYNC: Starting complete sync operation');
 
             // Show subtle sync indicator
             this.showSyncIndicator(true);
@@ -73,7 +69,6 @@ class SmartAutoSync {
             await this.syncUI.performCompleteSync();
 
             this.lastSuccessfulSync = Date.now();
-            if (ENABLE_SYNC_LOGGING) console.log('🔄 SMART-SYNC: Sync completed successfully');
 
         } catch (error) {
             console.warn('🔄 SMART-SYNC: Sync failed:', error);
@@ -104,11 +99,9 @@ class SmartAutoSync {
      */
     async forceSync() {
         if (this.isPerformingSync) {
-            if (ENABLE_SYNC_LOGGING) console.log('🔄 SMART-SYNC: Force sync requested but sync already in progress');
             return;
         }
 
-        if (ENABLE_SYNC_LOGGING) console.log('🔄 SMART-SYNC: Force sync requested');
         await this.performSmartSync();
     }
 }

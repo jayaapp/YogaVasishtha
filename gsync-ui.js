@@ -110,7 +110,6 @@ class GoogleSyncUI {
 
             const localBookmarkCount = Object.values(localData.bookmarks).reduce((total, bookmarks) => total + bookmarks.length, 0);
             const localNoteCount = Object.values(localData.notes).reduce((total, notes) => total + notes.length, 0);
-            if (ENABLE_SYNC_LOGGING) console.log('🔄 SYNC: Local data - bookmarks:', localBookmarkCount, 'notes:', localNoteCount);
 
             // Get current remote state
             const remoteData = await this.syncManager.download() || {
@@ -122,7 +121,6 @@ class GoogleSyncUI {
                 participatingDevices: []
             };
 
-            if (ENABLE_SYNC_LOGGING) console.log('🔄 SYNC: Remote deletion events:', remoteData.deletionEvents?.length || 0);
 
             // Get pending local deletion events
             const pendingDeletions = this.getPendingDeletionEvents();
@@ -132,7 +130,6 @@ class GoogleSyncUI {
 
             // Clean up old deletion events (older than retention period)
             const cleanDeletionEvents = this.cleanupOldDeletionEvents(allDeletionEvents);
-            if (ENABLE_SYNC_LOGGING) console.log('🔄 SYNC: After cleanup - deletion events:', cleanDeletionEvents.length);
 
             // Apply deletion events to both local and remote data
             const cleanedLocalData = this.applyDeletionEvents(localData, cleanDeletionEvents);
@@ -144,10 +141,32 @@ class GoogleSyncUI {
             // Upload merged state
             await this.syncManager.upload(mergedData);
 
+            // Log meaningful sync changes when enabled
+            if (ENABLE_SYNC_LOGGING) {
+                const finalBookmarkCount = Object.values(mergedData.bookmarks).reduce((total, bookmarks) => total + bookmarks.length, 0);
+                const finalNoteCount = Object.values(mergedData.notes).reduce((total, notes) => total + notes.length, 0);
+                const remoteBookmarkCount = Object.values(remoteData.bookmarks).reduce((total, bookmarks) => total + bookmarks.length, 0);
+                const remoteNoteCount = Object.values(remoteData.notes).reduce((total, notes) => total + notes.length, 0);
+
+                const bookmarkDiff = finalBookmarkCount - localBookmarkCount;
+                const noteDiff = finalNoteCount - localNoteCount;
+                const deletionEventsApplied = (remoteData.deletionEvents?.length || 0) + pendingDeletions.length - cleanDeletionEvents.length;
+
+                if (bookmarkDiff !== 0 || noteDiff !== 0 || deletionEventsApplied > 0) {
+                    console.log('🔄 SYNC: State changes detected');
+                    console.log('📊 Local → Final: bookmarks', localBookmarkCount, '→', finalBookmarkCount, `(${bookmarkDiff > 0 ? '+' : ''}${bookmarkDiff})`);
+                    console.log('📊 Local → Final: notes', localNoteCount, '→', finalNoteCount, `(${noteDiff > 0 ? '+' : ''}${noteDiff})`);
+                    console.log('📊 Remote → Final: bookmarks', remoteBookmarkCount, '→', finalBookmarkCount);
+                    console.log('📊 Remote → Final: notes', remoteNoteCount, '→', finalNoteCount);
+                    if (deletionEventsApplied > 0) {
+                        console.log('🗑️ Deletion events processed:', deletionEventsApplied);
+                    }
+                }
+            }
+
             // Apply merged data back to localStorage
             const finalBookmarkCount = Object.values(mergedData.bookmarks).reduce((total, bookmarks) => total + bookmarks.length, 0);
             const finalNoteCount = Object.values(mergedData.notes).reduce((total, notes) => total + notes.length, 0);
-            if (ENABLE_SYNC_LOGGING) console.log('🔄 SYNC: Final data - bookmarks:', finalBookmarkCount, 'notes:', finalNoteCount);
 
             this.updateLocalStorage(mergedData);
             this.refreshUI(mergedData);
@@ -219,7 +238,6 @@ class GoogleSyncUI {
         });
 
         if (cleaned.length < deletionEvents.length) {
-            if (ENABLE_SYNC_LOGGING) console.log('🔄 SYNC: Cleaned up', deletionEvents.length - cleaned.length, 'old deletion events');
         }
 
         return cleaned;
@@ -261,7 +279,6 @@ class GoogleSyncUI {
         });
 
         if (deletionsApplied > 0) {
-            if (ENABLE_SYNC_LOGGING) console.log('🔄 SYNC: Applied', deletionsApplied, 'deletion events');
         }
 
         return cleaned;
@@ -416,7 +433,6 @@ class GoogleSyncUI {
         if (!existingEvent) {
             pendingDeletions.push(deletionEvent);
             localStorage.setItem('yoga-vasishtha-pending-deletions', JSON.stringify(pendingDeletions));
-            if (ENABLE_SYNC_LOGGING) console.log('🔄 SYNC: Added local deletion event for', itemType, itemId);
         }
     }
 
@@ -427,7 +443,6 @@ class GoogleSyncUI {
         const pendingDeletions = JSON.parse(localStorage.getItem('yoga-vasishtha-pending-deletions') || '[]');
 
         if (pendingDeletions.length > 0) {
-            if (ENABLE_SYNC_LOGGING) console.log('🔄 SYNC: Processing', pendingDeletions.length, 'pending deletion events');
             // Clear pending deletions as they'll be uploaded to remote
             localStorage.removeItem('yoga-vasishtha-pending-deletions');
         }
