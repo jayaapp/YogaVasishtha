@@ -3179,12 +3179,16 @@ const NotesManager = {
      * Restore individual highlight using word-index-based positioning
      */
     restoreHighlight(note) {
+        // Check if note highlight already exists
+        const existingHighlight = document.querySelector(`[data-note-id="${note.id}"]`);
+        if (existingHighlight) {
+            return;
+        }
 
         const bookContent = document.getElementById('book-content');
         if (!bookContent) {
             return;
         }
-
 
         // Check if note has word index data (new format)
         if (note.previousWordIndex !== undefined) {
@@ -3250,6 +3254,99 @@ const NotesManager = {
                     console.warn('Could not restore highlight for note:', note.id);
                 }
             }
+        }
+    },
+
+    /**
+     * Remove specific note highlight from DOM
+     */
+    removeNoteHighlight(noteId) {
+        // Find all elements with this note ID (highlight and icon)
+        const elements = document.querySelectorAll(`[data-note-id="${noteId}"]`);
+
+        if (elements.length > 0) {
+            if (ENABLE_SYNC_LOGGING) {
+                console.log('📝 Removing note highlight:', noteId, '- found', elements.length, 'elements');
+            }
+
+            elements.forEach(element => {
+                if (element.classList.contains('note-highlight')) {
+                    // Unwrap the highlight, preserving the text content
+                    const parent = element.parentNode;
+                    if (parent) {
+                        while (element.firstChild) {
+                            parent.insertBefore(element.firstChild, element);
+                        }
+                        parent.removeChild(element);
+                    }
+                } else {
+                    // Remove icon elements directly
+                    element.remove();
+                }
+            });
+
+            // Normalize text nodes to clean up any fragmentation
+            const bookContent = document.getElementById('book-content');
+            if (bookContent) {
+                bookContent.normalize();
+            }
+        }
+    },
+
+    /**
+     * Handle note change events from sync
+     */
+    onNoteChanged(changeType, noteId, noteData) {
+        switch(changeType) {
+            case 'removed':
+                this.removeNoteHighlight(noteId);
+                break;
+            case 'added':
+                // For now, rely on full restore for additions
+                // Could be optimized later to add individual highlights
+                break;
+            case 'batch_update':
+                // Full refresh - clear all and restore
+                this.clearAllNoteHighlights();
+                this.restoreHighlights();
+                break;
+        }
+    },
+
+    /**
+     * Clear all existing note highlights from DOM
+     */
+    clearAllNoteHighlights() {
+        const existingHighlights = document.querySelectorAll('.note-highlight');
+
+        if (existingHighlights.length > 0 && ENABLE_SYNC_LOGGING) {
+            console.log('📝 Clearing', existingHighlights.length, 'existing note highlights');
+        }
+
+        existingHighlights.forEach(highlight => {
+            // Unwrap the highlight, preserving the text content
+            const parent = highlight.parentNode;
+            if (parent) {
+                // Move all child nodes to parent, then remove the highlight wrapper
+                while (highlight.firstChild) {
+                    parent.insertBefore(highlight.firstChild, highlight);
+                }
+                parent.removeChild(highlight);
+            }
+        });
+
+        // Also remove note icons that aren't part of highlights
+        const existingIcons = document.querySelectorAll('[data-note-id]');
+        existingIcons.forEach(icon => {
+            if (!icon.classList.contains('note-highlight')) {
+                icon.remove();
+            }
+        });
+
+        // Normalize text nodes to clean up any fragmentation
+        const bookContent = document.getElementById('book-content');
+        if (bookContent) {
+            bookContent.normalize();
         }
     },
 
@@ -4906,12 +5003,15 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // Process deleted notes immediately (for future notes implementation)
+        // Process deleted notes immediately (before updating state)
         if (deletedItems.notes && deletedItems.notes.length > 0) {
             if (ENABLE_SYNC_LOGGING) {
                 console.log('🔄 SYNC: Processing', deletedItems.notes.length, 'note deletions');
             }
-            // Note deletion handling would go here when implemented
+
+            deletedItems.notes.forEach(deletedNote => {
+                NotesManager.onNoteChanged('removed', deletedNote.id);
+            });
         }
 
         // Update internal state to match what was just written to localStorage
@@ -4939,11 +5039,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 }, 100);
             }
 
-            // Handle notes similarly (keeping existing logic for now)
+            // Handle notes with intelligent restoration based on changes
             if (noteCount > 0) {
-                setTimeout(() => {
-                    NotesManager.restoreHighlights();
-                }, 100);
+                // Use targeted approach based on what changed
+                if (deletedItems.notes.length === 0) {
+                    // Only additions/changes, restore note highlights to catch new ones
+                    setTimeout(() => {
+                        NotesManager.restoreHighlights();
+                    }, 100);
+                } else {
+                    // Mixed changes (deletions + others), do a batch update
+                    setTimeout(() => {
+                        NotesManager.onNoteChanged('batch_update');
+                    }, 100);
+                }
             }
         }
     });
