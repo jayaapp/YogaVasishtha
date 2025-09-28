@@ -307,11 +307,6 @@ const SettingsManager = {
             };
 
             localStorage.setItem(key, JSON.stringify(positionData));
-
-            // Trigger auto-sync if available
-            if (window.autoSyncTrigger) {
-                window.autoSyncTrigger.triggerSync('position_changed');
-            }
         } else {
             console.warn('Could not find visible word for reading position - position not saved');
         }
@@ -1733,8 +1728,7 @@ const BookmarkManager = {
         this.saveToStorage();
         this.renderBookmarks();
 
-        // Add deletion event AFTER local storage is updated
-        // This ensures auto-sync won't fire before deletion event is handled
+        // Add deletion event for smart sync to process
         if (window.syncUI?.addDeletionEvent) {
             window.syncUI.addDeletionEvent(bookmarkId, 'bookmark');
         }
@@ -1746,11 +1740,6 @@ const BookmarkManager = {
     saveToStorage() {
         try {
             localStorage.setItem('yoga-vasishtha-bookmarks', JSON.stringify(State.bookmarks));
-
-            // Trigger auto-sync if available
-            if (window.autoSyncTrigger) {
-                window.autoSyncTrigger.triggerSync('bookmark_changed');
-            }
         } catch (error) {
             console.error('Failed to save bookmarks:', error);
         }
@@ -2801,8 +2790,7 @@ const NotesManager = {
         this.renderNotes();
         ModalManager.close('noteEditor');
 
-        // Add deletion event AFTER local storage is updated
-        // This ensures auto-sync won't fire before deletion event is handled
+        // Add deletion event for smart sync to process
         if (window.syncUI?.addDeletionEvent) {
             window.syncUI.addDeletionEvent(noteId, 'note');
         }
@@ -3029,11 +3017,6 @@ const NotesManager = {
     saveToStorage() {
         try {
             localStorage.setItem('yoga-vasishtha-notes', JSON.stringify(State.notes));
-
-            // Trigger auto-sync if available
-            if (window.autoSyncTrigger) {
-                window.autoSyncTrigger.triggerSync('note_changed');
-            }
         } catch (error) {
             console.error('Failed to save notes:', error);
         }
@@ -4805,8 +4788,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Listen for sync data updates from Google Drive sync
     window.addEventListener('syncDataUpdated', (event) => {
-        console.log('🔄 Sync data updated, refreshing UI...');
-
         // Update internal state to match what was just written to localStorage
         State.bookmarks = event.detail.bookmarks || {};
         State.notes = event.detail.notes || {};
@@ -4814,11 +4795,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Refresh UI components (they will read from localStorage which was already updated)
         BookmarkManager.loadFromStorage();
         BookmarkManager.renderBookmarks();
-
         NotesManager.loadFromStorage();
         NotesManager.renderNotes();
-
-        console.log('✅ UI refreshed with synced data');
     });
 });
 

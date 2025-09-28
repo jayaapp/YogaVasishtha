@@ -95,11 +95,10 @@ class GoogleSyncUI {
     }
 
     /**
-     * Perform manual sync with multi-device merge logic
+     * Perform complete sync with deletion event processing and cleanup
      */
-    async performSync() {
+    async performCompleteSync() {
         try {
-            // Generate device ID for this instance
             const deviceId = this.getDeviceId();
 
             // Collect local data
@@ -108,6 +107,10 @@ class GoogleSyncUI {
                 notes: JSON.parse(localStorage.getItem('yoga-vasishtha-notes') || '{}'),
                 readingPositions: this.collectReadingPositions()
             };
+
+            const localBookmarkCount = Object.values(localData.bookmarks).reduce((total, bookmarks) => total + bookmarks.length, 0);
+            const localNoteCount = Object.values(localData.notes).reduce((total, notes) => total + notes.length, 0);
+            console.log('🔄 SYNC: Local data - bookmarks:', localBookmarkCount, 'notes:', localNoteCount);
 
             // Get current remote state
             const remoteData = await this.syncManager.download() || {
@@ -119,46 +122,57 @@ class GoogleSyncUI {
                 participatingDevices: []
             };
 
-            // Process deletion events on BOTH local and remote data
-            const cleanedLocalData = this.applyDeletionEvents(localData, remoteData.deletionEvents || []);
-            const cleanedRemoteData = this.applyDeletionEvents(remoteData, remoteData.deletionEvents || []);
+            console.log('🔄 SYNC: Remote deletion events:', remoteData.deletionEvents?.length || 0);
 
-            // Merge cleaned local and remote data
-            const mergedData = this.mergeData(cleanedLocalData, cleanedRemoteData, deviceId);
+            // Get pending local deletion events
+            const pendingDeletions = this.getPendingDeletionEvents();
+
+            // Combine remote and pending deletion events
+            const allDeletionEvents = [...(remoteData.deletionEvents || []), ...pendingDeletions];
+
+            // Clean up old deletion events (older than retention period)
+            const cleanDeletionEvents = this.cleanupOldDeletionEvents(allDeletionEvents);
+            console.log('🔄 SYNC: After cleanup - deletion events:', cleanDeletionEvents.length);
+
+            // Apply deletion events to both local and remote data
+            const cleanedLocalData = this.applyDeletionEvents(localData, cleanDeletionEvents);
+            const cleanedRemoteData = this.applyDeletionEvents(remoteData, cleanDeletionEvents);
+
+            // Merge cleaned data
+            const mergedData = this.mergeData(cleanedLocalData, cleanedRemoteData, deviceId, cleanDeletionEvents);
 
             // Upload merged state
             await this.syncManager.upload(mergedData);
 
             // Apply merged data back to localStorage
-            localStorage.setItem('yoga-vasishtha-bookmarks', JSON.stringify(mergedData.bookmarks));
-            localStorage.setItem('yoga-vasishtha-notes', JSON.stringify(mergedData.notes));
+            const finalBookmarkCount = Object.values(mergedData.bookmarks).reduce((total, bookmarks) => total + bookmarks.length, 0);
+            const finalNoteCount = Object.values(mergedData.notes).reduce((total, notes) => total + notes.length, 0);
+            console.log('🔄 SYNC: Final data - bookmarks:', finalBookmarkCount, 'notes:', finalNoteCount);
 
-            // Update reading positions
-            Object.keys(mergedData.readingPositions).forEach(bookIndex => {
-                const key = `epub-position-${bookIndex}`;
-                localStorage.setItem(key, mergedData.readingPositions[bookIndex]);
-            });
+            this.updateLocalStorage(mergedData);
+            this.refreshUI(mergedData);
 
-            // Refresh UI by triggering custom events that the app can listen to
-            window.dispatchEvent(new CustomEvent('syncDataUpdated', {
-                detail: {
-                    bookmarks: mergedData.bookmarks,
-                    notes: mergedData.notes,
-                    readingPositions: mergedData.readingPositions
-                }
-            }));
-
-            // Update local storage timestamp
+            // Update sync timestamp
             localStorage.setItem('last-sync-time', new Date().toISOString());
-
-            // Show success
             this.showLastSyncTime();
-            this.showNotification('Sync completed successfully');
-
-            this.setState('connected');
 
         } catch (error) {
-            console.error('❌ Sync failed:', error);
+            console.error('🔄 SYNC: Failed:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Legacy method for manual sync button - delegates to complete sync
+     */
+    async performSync() {
+        this.setState('syncing');
+        try {
+            await this.performCompleteSync();
+            this.showNotification('Sync completed successfully');
+            this.setState('connected');
+        } catch (error) {
+            this.setState('error');
             throw error;
         }
     }
@@ -195,10 +209,28 @@ class GoogleSyncUI {
     }
 
     /**
-     * Apply deletion events to local data
+     * Clean up old deletion events (older than retention period)
      */
-    applyDeletionEvents(localData, deletionEvents) {
-        const cleaned = JSON.parse(JSON.stringify(localData)); // Deep copy
+    cleanupOldDeletionEvents(deletionEvents) {
+        const cutoffTime = Date.now() - DELETE_EVENT_RETENTION;
+        const cleaned = deletionEvents.filter(event => {
+            const eventTime = new Date(event.deletedAt).getTime();
+            return eventTime > cutoffTime;
+        });
+
+        if (cleaned.length < deletionEvents.length) {
+            console.log('🔄 SYNC: Cleaned up', deletionEvents.length - cleaned.length, 'old deletion events');
+        }
+
+        return cleaned;
+    }
+
+    /**
+     * Apply deletion events to data
+     */
+    applyDeletionEvents(data, deletionEvents) {
+        const cleaned = JSON.parse(JSON.stringify(data)); // Deep copy
+        let deletionsApplied = 0;
 
         deletionEvents.forEach(event => {
             const { id, type } = event;
@@ -207,18 +239,30 @@ class GoogleSyncUI {
                 // Remove note from all books
                 Object.keys(cleaned.notes).forEach(bookIndex => {
                     if (cleaned.notes[bookIndex]) {
+                        const beforeCount = cleaned.notes[bookIndex].length;
                         cleaned.notes[bookIndex] = cleaned.notes[bookIndex].filter(note => note.id !== id);
+                        if (cleaned.notes[bookIndex].length < beforeCount) {
+                            deletionsApplied++;
+                        }
                     }
                 });
             } else if (type === 'bookmark') {
                 // Remove bookmark from all books
                 Object.keys(cleaned.bookmarks).forEach(bookIndex => {
                     if (cleaned.bookmarks[bookIndex]) {
+                        const beforeCount = cleaned.bookmarks[bookIndex].length;
                         cleaned.bookmarks[bookIndex] = cleaned.bookmarks[bookIndex].filter(bookmark => bookmark.id !== id);
+                        if (cleaned.bookmarks[bookIndex].length < beforeCount) {
+                            deletionsApplied++;
+                        }
                     }
                 });
             }
         });
+
+        if (deletionsApplied > 0) {
+            console.log('🔄 SYNC: Applied', deletionsApplied, 'deletion events');
+        }
 
         return cleaned;
     }
@@ -226,14 +270,14 @@ class GoogleSyncUI {
     /**
      * Merge local and remote data with conflict resolution
      */
-    mergeData(localData, remoteData, deviceId) {
+    mergeData(localData, remoteData, deviceId, cleanDeletionEvents) {
         const merged = {
             bookmarks: this.mergeByType(localData.bookmarks || {}, remoteData.bookmarks || {}),
             notes: this.mergeByType(localData.notes || {}, remoteData.notes || {}),
             readingPositions: this.mergeReadingPositions(localData.readingPositions || {}, remoteData.readingPositions || {}),
 
-            // Sync metadata
-            deletionEvents: remoteData.deletionEvents || [],
+            // Sync metadata with cleaned deletion events
+            deletionEvents: cleanDeletionEvents,
             syncVersion: (remoteData.syncVersion || 0) + 1,
             lastModified: new Date().toISOString(),
             participatingDevices: this.updateParticipatingDevices(remoteData.participatingDevices || [], deviceId),
@@ -242,13 +286,35 @@ class GoogleSyncUI {
             timestamp: new Date().toISOString()
         };
 
-        // Clean up old deletion events (older than 30 days)
-        const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
-        merged.deletionEvents = merged.deletionEvents.filter(event =>
-            new Date(event.deletedAt).getTime() > thirtyDaysAgo
-        );
-
         return merged;
+    }
+
+    /**
+     * Update localStorage with merged data
+     */
+    updateLocalStorage(mergedData) {
+        localStorage.setItem('yoga-vasishtha-bookmarks', JSON.stringify(mergedData.bookmarks));
+        localStorage.setItem('yoga-vasishtha-notes', JSON.stringify(mergedData.notes));
+
+        // Update reading positions
+        Object.keys(mergedData.readingPositions).forEach(bookIndex => {
+            const key = `epub-position-${bookIndex}`;
+            localStorage.setItem(key, mergedData.readingPositions[bookIndex]);
+        });
+    }
+
+    /**
+     * Refresh UI with merged data
+     */
+    refreshUI(mergedData) {
+        // Trigger custom event that the app listens to
+        window.dispatchEvent(new CustomEvent('syncDataUpdated', {
+            detail: {
+                bookmarks: mergedData.bookmarks,
+                notes: mergedData.notes,
+                readingPositions: mergedData.readingPositions
+            }
+        }));
     }
 
     /**
@@ -331,70 +397,42 @@ class GoogleSyncUI {
     }
 
     /**
-     * Add deletion event for distributed sync
+     * Add deletion event to local pending deletions
+     * Will be processed during next smart sync
      */
-    async addDeletionEvent(itemId, itemType) {
-        if (!this.syncManager?.isAuthenticated) {
-            return; // Skip if not connected
+    addDeletionEvent(itemId, itemType) {
+        const deletionEvent = {
+            id: itemId,
+            type: itemType,
+            deletedAt: new Date().toISOString(),
+            deviceId: this.getDeviceId()
+        };
+
+        // Store locally - will be uploaded during next smart sync
+        const pendingDeletions = JSON.parse(localStorage.getItem('yoga-vasishtha-pending-deletions') || '[]');
+
+        // Check for duplicates
+        const existingEvent = pendingDeletions.find(event => event.id === itemId && event.type === itemType);
+        if (!existingEvent) {
+            pendingDeletions.push(deletionEvent);
+            localStorage.setItem('yoga-vasishtha-pending-deletions', JSON.stringify(pendingDeletions));
+            console.log('🔄 SYNC: Added local deletion event for', itemType, itemId);
+        }
+    }
+
+    /**
+     * Get and process pending local deletion events
+     */
+    getPendingDeletionEvents() {
+        const pendingDeletions = JSON.parse(localStorage.getItem('yoga-vasishtha-pending-deletions') || '[]');
+
+        if (pendingDeletions.length > 0) {
+            console.log('🔄 SYNC: Processing', pendingDeletions.length, 'pending deletion events');
+            // Clear pending deletions as they'll be uploaded to remote
+            localStorage.removeItem('yoga-vasishtha-pending-deletions');
         }
 
-        // Block auto-sync during deletion event handling
-        const autoSyncTrigger = window.autoSyncTrigger;
-        if (autoSyncTrigger) {
-            autoSyncTrigger.isPerformingSync = true;
-        }
-
-        try {
-            // Get current remote state
-            const remoteData = await this.syncManager.download() || {
-                deletionEvents: [],
-                syncVersion: 0
-            };
-
-            // Check for duplicate deletion event
-            const existingEvent = remoteData.deletionEvents?.find(
-                event => event.id === itemId && event.type === itemType
-            );
-
-            if (existingEvent) {
-                // Deletion event already exists, no need to add duplicate
-                return;
-            }
-
-            // Add new deletion event
-            const deletionEvent = {
-                id: itemId,
-                type: itemType,
-                deletedAt: new Date().toISOString(),
-                deviceId: this.getDeviceId()
-            };
-
-            // Update deletion events
-            const updatedDeletionEvents = [
-                ...(remoteData.deletionEvents || []),
-                deletionEvent
-            ];
-
-            // Create minimal update to just add the deletion event
-            const updateData = {
-                ...remoteData,
-                deletionEvents: updatedDeletionEvents,
-                syncVersion: (remoteData.syncVersion || 0) + 1,
-                lastModified: new Date().toISOString()
-            };
-
-            // Upload updated state
-            await this.syncManager.upload(updateData);
-
-        } catch (error) {
-            console.warn('Failed to add deletion event:', error);
-            // Continue with local deletion even if sync fails
-        } finally {
-            // Re-enable auto-sync
-            if (autoSyncTrigger) {
-                autoSyncTrigger.isPerformingSync = false;
-            }
-        }
+        return pendingDeletions;
     }
 
     /**

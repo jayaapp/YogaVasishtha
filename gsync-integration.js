@@ -1,63 +1,82 @@
 /**
  * Google Drive Sync Integration
- * Simplified integration for Yoga Vasishtha app
+ * Smart polling-based sync for Yoga Vasishtha app
  */
 
-// Auto-sync trigger for background synchronization
-class AutoSyncTrigger {
+// Sync configuration constants
+const AUTO_SYNC_INTERVAL = 30000; // 30 seconds
+const DELETE_EVENT_RETENTION = 90 * 24 * 60 * 60 * 1000; // 90 days
+
+// Smart polling-based sync for cross-device consistency
+class SmartAutoSync {
     constructor(syncManager, syncUI) {
         this.syncManager = syncManager;
         this.syncUI = syncUI;
-        this.syncTimeout = null;
-        this.SYNC_DELAY = 2000; // 2 second debounce
         this.isPerformingSync = false;
+        this.pollTimer = null;
+        this.lastSuccessfulSync = null;
     }
 
     /**
-     * Trigger automatic sync after data changes
+     * Start the smart polling sync
      */
-    triggerSync(changeType) {
+    start() {
+        if (this.pollTimer) {
+            clearInterval(this.pollTimer);
+        }
+
+        console.log('🔄 SMART-SYNC: Starting polling every', AUTO_SYNC_INTERVAL / 1000, 'seconds');
+
+        // Start immediately, then at intervals
+        this.performSmartSync();
+
+        this.pollTimer = setInterval(() => {
+            this.performSmartSync();
+        }, AUTO_SYNC_INTERVAL);
+    }
+
+    /**
+     * Stop the smart polling sync
+     */
+    stop() {
+        if (this.pollTimer) {
+            console.log('🔄 SMART-SYNC: Stopping polling');
+            clearInterval(this.pollTimer);
+            this.pollTimer = null;
+        }
+    }
+
+    /**
+     * Perform smart sync with complete state reconciliation
+     */
+    async performSmartSync() {
         // Only sync if authenticated
         if (!this.syncManager?.isAuthenticated) {
             return;
         }
 
-        // Don't trigger if already syncing
+        // Prevent concurrent syncs
         if (this.isPerformingSync) {
-            return;
-        }
-
-        // Debounce multiple rapid changes
-        clearTimeout(this.syncTimeout);
-        this.syncTimeout = setTimeout(() => {
-            this.performBackgroundSync(changeType);
-        }, this.SYNC_DELAY);
-    }
-
-    /**
-     * Perform background sync without blocking UI
-     */
-    async performBackgroundSync(changeType) {
-        if (this.isPerformingSync || !this.syncManager?.isAuthenticated) {
+            console.log('🔄 SMART-SYNC: Sync already in progress, skipping');
             return;
         }
 
         try {
             this.isPerformingSync = true;
+            console.log('🔄 SMART-SYNC: Starting complete sync operation');
 
             // Show subtle sync indicator
             this.showSyncIndicator(true);
 
-            // Reuse existing sync logic from UI
-            await this.syncUI.performSync();
+            // Perform complete sync with deletion event processing
+            await this.syncUI.performCompleteSync();
 
-            // Show success indicator briefly
-            this.showSyncNotification('Auto-sync completed', 'success');
+            this.lastSuccessfulSync = Date.now();
+            console.log('🔄 SMART-SYNC: Sync completed successfully');
 
         } catch (error) {
-            console.warn('Auto-sync failed:', error);
-            // Don't show error notifications for auto-sync failures
-            // User can still manually sync if needed
+            console.warn('🔄 SMART-SYNC: Sync failed:', error);
+            // Continue silently - user can still manually sync if needed
         } finally {
             this.isPerformingSync = false;
             this.showSyncIndicator(false);
@@ -68,7 +87,6 @@ class AutoSyncTrigger {
      * Show/hide subtle sync indicator
      */
     showSyncIndicator(isVisible) {
-        // Add a small sync indicator to the sync button
         const syncButton = document.querySelector('#sync-main-btn');
         if (syncButton) {
             const icon = syncButton.querySelector('.material-icons');
@@ -81,13 +99,16 @@ class AutoSyncTrigger {
     }
 
     /**
-     * Show brief sync notification
+     * Force immediate sync (for manual sync button)
      */
-    showSyncNotification(message, type = 'info') {
-        // Use existing notification system if available
-        if (this.syncUI?.showNotification) {
-            this.syncUI.showNotification(message, type);
+    async forceSync() {
+        if (this.isPerformingSync) {
+            console.log('🔄 SMART-SYNC: Force sync requested but sync already in progress');
+            return;
         }
+
+        console.log('🔄 SMART-SYNC: Force sync requested');
+        await this.performSmartSync();
     }
 }
 
@@ -185,8 +206,9 @@ window.addEventListener('load', async () => {
         // Now set UI state based on actual authentication status
         window.syncUI.onSyncManagerReady();
 
-        // Initialize auto-sync trigger after everything is ready
-        window.autoSyncTrigger = new AutoSyncTrigger(syncManager, window.syncUI);
+        // Initialize smart auto-sync after everything is ready
+        window.smartAutoSync = new SmartAutoSync(syncManager, window.syncUI);
+        window.smartAutoSync.start();
 
         // Add debug function after everything is ready
         window.debugSync = async function() {
@@ -197,32 +219,8 @@ window.addEventListener('load', async () => {
 
             try {
                 console.log('🔍 === DEBUG SYNC START ===');
-
-                // 1. Check what's in localStorage before sync
-                const localBookmarks = localStorage.getItem('yoga-vasishtha-bookmarks');
-                const localNotes = localStorage.getItem('yoga-vasishtha-notes');
-                console.log('📱 Local bookmarks:', localBookmarks);
-                console.log('📱 Local notes:', localNotes);
-
-                // 2. Perform sync
-                console.log('⬆️ Syncing to Google Drive...');
-                await window.syncUI.performSync();
-
-                // 3. Wait a moment for Google Drive to process
-                await new Promise(resolve => setTimeout(resolve, 1000));
-
-                // 4. Read back what's actually in Google Drive
-                console.log('⬇️ Reading back from Google Drive...');
-                const syncedData = await window.syncManager.download();
-                console.log('☁️ What made it to Google Drive:', syncedData);
-
-                // 5. Compare
-                console.log('🔍 === COMPARISON ===');
-                console.log('Local vs Synced notes match:', localNotes === JSON.stringify(syncedData.notes));
-                console.log('Local vs Synced bookmarks match:', localBookmarks === JSON.stringify(syncedData.bookmarks));
-
+                await window.smartAutoSync.forceSync();
                 console.log('✅ === DEBUG SYNC COMPLETE ===');
-                return syncedData;
             } catch (error) {
                 console.error('❌ Debug sync failed:', error);
             }
