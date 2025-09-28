@@ -2767,10 +2767,41 @@ const NotesManager = {
         try {
             range.surroundContents(highlight);
         } catch (e) {
-            // If surroundContents fails (complex selection), use extractContents
-            const contents = range.extractContents();
-            highlight.appendChild(contents);
-            range.insertNode(highlight);
+            // If surroundContents fails, try to highlight just the first text node
+            try {
+                const startContainer = range.startContainer;
+                const startOffset = range.startOffset;
+
+                // Find the first text node in the selection
+                let textNode = startContainer;
+                if (textNode.nodeType !== Node.TEXT_NODE) {
+                    textNode = textNode.childNodes[startOffset] || textNode.firstChild;
+                    while (textNode && textNode.nodeType !== Node.TEXT_NODE) {
+                        textNode = textNode.firstChild || textNode.nextSibling;
+                    }
+                }
+
+                if (textNode && textNode.nodeType === Node.TEXT_NODE) {
+                    // Create a range for just this text node
+                    const textRange = document.createRange();
+                    textRange.setStart(textNode, startContainer === textNode ? startOffset : 0);
+                    textRange.setEnd(textNode, textNode.textContent.length);
+
+                    textRange.surroundContents(highlight);
+                } else {
+                    // Final fallback: just insert the highlight at start position
+                    const startRange = document.createRange();
+                    startRange.setStart(range.startContainer, range.startOffset);
+                    startRange.collapse(true);
+                    startRange.insertNode(highlight);
+                }
+            } catch (fallbackError) {
+                // Final fallback: just insert the highlight at start position
+                const startRange = document.createRange();
+                startRange.setStart(range.startContainer, range.startOffset);
+                startRange.collapse(true);
+                startRange.insertNode(highlight);
+            }
         }
 
         // Create note icon
