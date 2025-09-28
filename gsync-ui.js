@@ -132,8 +132,17 @@ class GoogleSyncUI {
             const cleanDeletionEvents = this.cleanupOldDeletionEvents(allDeletionEvents);
 
             // Apply deletion events to both local and remote data
-            const cleanedLocalData = this.applyDeletionEvents(localData, cleanDeletionEvents);
-            const cleanedRemoteData = this.applyDeletionEvents(remoteData, cleanDeletionEvents);
+            const localResult = this.applyDeletionEvents(localData, cleanDeletionEvents);
+            const remoteResult = this.applyDeletionEvents(remoteData, cleanDeletionEvents);
+
+            const cleanedLocalData = localResult.cleaned;
+            const cleanedRemoteData = remoteResult.cleaned;
+
+            // Combine deleted items from both local and remote (for comprehensive tracking)
+            const allDeletedItems = {
+                bookmarks: [...localResult.deletedItems.bookmarks, ...remoteResult.deletedItems.bookmarks],
+                notes: [...localResult.deletedItems.notes, ...remoteResult.deletedItems.notes]
+            };
 
             // Merge cleaned data
             const mergedData = this.mergeData(cleanedLocalData, cleanedRemoteData, deviceId, cleanDeletionEvents);
@@ -169,7 +178,7 @@ class GoogleSyncUI {
             const finalNoteCount = Object.values(mergedData.notes).reduce((total, notes) => total + notes.length, 0);
 
             this.updateLocalStorage(mergedData);
-            this.refreshUI(mergedData);
+            this.refreshUI(mergedData, allDeletedItems);
 
             // Update sync timestamp
             localStorage.setItem('last-sync-time', new Date().toISOString());
@@ -249,6 +258,7 @@ class GoogleSyncUI {
     applyDeletionEvents(data, deletionEvents) {
         const cleaned = JSON.parse(JSON.stringify(data)); // Deep copy
         let deletionsApplied = 0;
+        const deletedItems = { bookmarks: [], notes: [] }; // Track what gets deleted
 
         deletionEvents.forEach(event => {
             const { id, type } = event;
@@ -261,6 +271,7 @@ class GoogleSyncUI {
                         cleaned.notes[bookIndex] = cleaned.notes[bookIndex].filter(note => note.id !== id);
                         if (cleaned.notes[bookIndex].length < beforeCount) {
                             deletionsApplied++;
+                            deletedItems.notes.push({ id, bookIndex });
                         }
                     }
                 });
@@ -272,6 +283,7 @@ class GoogleSyncUI {
                         cleaned.bookmarks[bookIndex] = cleaned.bookmarks[bookIndex].filter(bookmark => bookmark.id !== id);
                         if (cleaned.bookmarks[bookIndex].length < beforeCount) {
                             deletionsApplied++;
+                            deletedItems.bookmarks.push({ id, bookIndex });
                         }
                     }
                 });
@@ -281,7 +293,7 @@ class GoogleSyncUI {
         if (deletionsApplied > 0) {
         }
 
-        return cleaned;
+        return { cleaned, deletedItems };
     }
 
     /**
@@ -323,13 +335,14 @@ class GoogleSyncUI {
     /**
      * Refresh UI with merged data
      */
-    refreshUI(mergedData) {
+    refreshUI(mergedData, deletedItems = { bookmarks: [], notes: [] }) {
         // Trigger custom event that the app listens to
         window.dispatchEvent(new CustomEvent('syncDataUpdated', {
             detail: {
                 bookmarks: mergedData.bookmarks,
                 notes: mergedData.notes,
-                readingPositions: mergedData.readingPositions
+                readingPositions: mergedData.readingPositions,
+                deletedItems: deletedItems
             }
         }));
     }

@@ -6,7 +6,7 @@
 // Sync configuration constants
 const AUTO_SYNC_INTERVAL = 30000; // 30 seconds
 const DELETE_EVENT_RETENTION = 90 * 24 * 60 * 60 * 1000; // 90 days
-const ENABLE_SYNC_LOGGING = false; // Set to true to enable sync debug logging
+const ENABLE_SYNC_LOGGING = true; // Set to true to enable sync debug logging
 
 // Smart polling-based sync for cross-device consistency
 class SmartAutoSync {

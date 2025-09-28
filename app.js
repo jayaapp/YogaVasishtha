@@ -1910,6 +1910,99 @@ const BookmarkManager = {
     },
 
     /**
+     * Remove specific bookmark highlight from DOM
+     */
+    removeBookmarkHighlight(bookmarkId) {
+        // Find all elements with this bookmark ID (highlight and icon)
+        const elements = document.querySelectorAll(`[data-bookmark-id="${bookmarkId}"]`);
+
+        if (elements.length > 0) {
+            if (ENABLE_SYNC_LOGGING) {
+                console.log('🔖 Removing bookmark highlight:', bookmarkId, '- found', elements.length, 'elements');
+            }
+
+            elements.forEach(element => {
+                if (element.classList.contains('bookmark-highlight')) {
+                    // Unwrap the highlight, preserving the text content
+                    const parent = element.parentNode;
+                    if (parent) {
+                        while (element.firstChild) {
+                            parent.insertBefore(element.firstChild, element);
+                        }
+                        parent.removeChild(element);
+                    }
+                } else {
+                    // Remove icon elements directly
+                    element.remove();
+                }
+            });
+
+            // Normalize text nodes to clean up any fragmentation
+            const bookContent = document.getElementById('book-content');
+            if (bookContent) {
+                bookContent.normalize();
+            }
+        }
+    },
+
+    /**
+     * Handle bookmark change events from sync
+     */
+    onBookmarkChanged(changeType, bookmarkId, bookData) {
+        switch(changeType) {
+            case 'removed':
+                this.removeBookmarkHighlight(bookmarkId);
+                break;
+            case 'added':
+                // For now, rely on full restore for additions
+                // Could be optimized later to add individual highlights
+                break;
+            case 'batch_update':
+                // Full refresh - clear all and restore
+                this.clearAllBookmarkHighlights();
+                this.restoreBookmarkHighlights();
+                break;
+        }
+    },
+
+    /**
+     * Clear all existing bookmark highlights from DOM
+     */
+    clearAllBookmarkHighlights() {
+        const existingHighlights = document.querySelectorAll('.bookmark-highlight');
+
+        if (existingHighlights.length > 0 && ENABLE_SYNC_LOGGING) {
+            console.log('🔖 Clearing', existingHighlights.length, 'existing bookmark highlights');
+        }
+
+        existingHighlights.forEach(highlight => {
+            // Unwrap the highlight, preserving the text content
+            const parent = highlight.parentNode;
+            if (parent) {
+                // Move all child nodes to parent, then remove the highlight wrapper
+                while (highlight.firstChild) {
+                    parent.insertBefore(highlight.firstChild, highlight);
+                }
+                parent.removeChild(highlight);
+            }
+        });
+
+        // Also remove bookmark icons
+        const existingIcons = document.querySelectorAll('[data-bookmark-id]');
+        existingIcons.forEach(icon => {
+            if (!icon.classList.contains('bookmark-highlight')) {
+                icon.remove();
+            }
+        });
+
+        // Normalize text nodes to clean up any fragmentation
+        const bookContent = document.getElementById('book-content');
+        if (bookContent) {
+            bookContent.normalize();
+        }
+    },
+
+    /**
      * Export bookmarks to JSON file
      */
     async exportToJSON() {
@@ -4795,21 +4888,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Listen for sync data updates from Google Drive sync
     window.addEventListener('syncDataUpdated', (event) => {
-
-        // Debug note data integrity
         const syncedNotes = event.detail.notes || {};
-        const noteCount = Object.values(syncedNotes).reduce((total, notes) => total + notes.length, 0);
+        const syncedBookmarks = event.detail.bookmarks || {};
+        const deletedItems = event.detail.deletedItems || { bookmarks: [], notes: [] };
 
-        if (noteCount > 0) {
-            // Log first note details for inspection
-            const firstBookNotes = Object.values(syncedNotes)[0];
-            if (firstBookNotes && firstBookNotes.length > 0) {
+        const noteCount = Object.values(syncedNotes).reduce((total, notes) => total + notes.length, 0);
+        const bookmarkCount = Object.values(syncedBookmarks).reduce((total, bookmarks) => total + bookmarks.length, 0);
+
+        // Process deleted bookmarks immediately (before updating state)
+        if (deletedItems.bookmarks && deletedItems.bookmarks.length > 0) {
+            if (ENABLE_SYNC_LOGGING) {
+                console.log('🔄 SYNC: Processing', deletedItems.bookmarks.length, 'bookmark deletions');
             }
+
+            deletedItems.bookmarks.forEach(deletedBookmark => {
+                BookmarkManager.onBookmarkChanged('removed', deletedBookmark.id);
+            });
+        }
+
+        // Process deleted notes immediately (for future notes implementation)
+        if (deletedItems.notes && deletedItems.notes.length > 0) {
+            if (ENABLE_SYNC_LOGGING) {
+                console.log('🔄 SYNC: Processing', deletedItems.notes.length, 'note deletions');
+            }
+            // Note deletion handling would go here when implemented
         }
 
         // Update internal state to match what was just written to localStorage
-        State.bookmarks = event.detail.bookmarks || {};
-        State.notes = event.detail.notes || {};
+        State.bookmarks = syncedBookmarks;
+        State.notes = syncedNotes;
 
         // Refresh UI components (they will read from localStorage which was already updated)
         BookmarkManager.loadFromStorage();
@@ -4817,17 +4924,26 @@ document.addEventListener('DOMContentLoaded', () => {
         NotesManager.loadFromStorage();
         NotesManager.renderNotes();
 
+        // Handle highlight restoration based on whether items were added/changed
+        if (State.currentBookIndex !== undefined) {
+            // Use targeted approach only when we have specific changes
+            if (deletedItems.bookmarks.length === 0 && bookmarkCount > 0) {
+                // Only additions/changes, restore bookmark highlights to catch new ones
+                setTimeout(() => {
+                    BookmarkManager.restoreBookmarkHighlights();
+                }, 100);
+            } else if (bookmarkCount > 0) {
+                // Mixed changes (deletions + others), do a batch update
+                setTimeout(() => {
+                    BookmarkManager.onBookmarkChanged('batch_update');
+                }, 100);
+            }
 
-        // Always restore highlights after sync to ensure all notes are visible
-        if (noteCount > 0) {
-            const highlights = document.querySelectorAll('.note-highlight');
-
-            // Always restore highlights after sync to catch any missing ones
-            if (State.currentBookIndex !== undefined) {
+            // Handle notes similarly (keeping existing logic for now)
+            if (noteCount > 0) {
                 setTimeout(() => {
                     NotesManager.restoreHighlights();
-                    BookmarkManager.restoreBookmarkHighlights();
-                }, 200);
+                }, 100);
             }
         }
     });
