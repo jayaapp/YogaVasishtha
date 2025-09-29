@@ -1115,3 +1115,14 @@ Analysis snippet: # विह
 **Root Analysis**:
 - √hā (hā) – "to leave, abandon" + vi (vi) – prefix meaning "apart, away" = "to leave completely; to abandon; to forsa...
 ================================================================================
+
+[2025-09-29T05:50:19.758Z] UNMATCHED WORD
+Transliteration: śe-ṣam
+Reason: No source word found with >80% similarity to transliteration
+Analysis snippet: # शेषम्
+**Transliteration**: śe-ṣam
+**POS**: noun (neuter, nominative/accusative singular)
+
+**Root Analysis**:
+- √śiṣ (śiṣ) – "to leave, remain, be left over" + suffix -a = "remainder, what is left, r...
+================================================================================
