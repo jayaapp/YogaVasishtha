@@ -476,20 +476,14 @@ if (importFileIndex !== -1) {
     importBatchResults(inputFile, LEXICON_FILE_DEVA, WORDS_FILE_DEVA);
 
     if (isRefineMode) {
-        // Extract the word key by looking at the transliteration line and using fuzzy matching
+        // Extract the word key from the first line for Devanagari mode
         const tempContent = fs.readFileSync(inputFile, 'utf8');
-        const transliterationMatch = tempContent.match(/\*\*Transliteration\*\*:\s*([^\n]+)/);
+        const lines = tempContent.trim().split('\n');
+        const firstLine = lines[0];
 
-        if (transliterationMatch) {
-            const transliteration = transliterationMatch[1].trim();
-
-            // Use the same fuzzy matching logic as the import
-            const sourceWords = loadWords(WORDS_FILE_DEVA);
-            const matchResult = findBestSourceMatch(transliteration, sourceWords);
-
-            if (matchResult) {
-                updateRefineState('deva', matchResult.match);
-            }
+        if (firstLine.startsWith('# ')) {
+            const word = firstLine.substring(2).trim();
+            updateRefineState('deva', word);
         }
 
         // Auto-delete temp file
