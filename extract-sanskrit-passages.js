@@ -9,13 +9,13 @@ function extractSanskritPassages() {
 
         const passages = [];
         let currentPassage = '';
-        const devanagariOrWhitespace = /[\u0900-\u097F\s]/;
+        const devanagariOrWhitespaceOrDash = /[\u0900-\u097F\s\-]/;
 
         for (let i = 0; i < content.length; i++) {
             const char = content[i];
 
-            // Check if character is Devanagari or whitespace (space/newline)
-            if (devanagariOrWhitespace.test(char)) {
+            // Check if character is Devanagari, whitespace (space/newline), or dash
+            if (devanagariOrWhitespaceOrDash.test(char)) {
                 currentPassage += char;
             } else {
                 // Non-Devanagari, non-whitespace character encountered
