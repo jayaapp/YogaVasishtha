@@ -1,5 +1,5 @@
 /**
- * Yoga Vasishtha EPUB Reader - Complete Rewrite
+ * Yoga Vasishtha EPUB Reader
  * A modern, robust multi-book EPUB reader with Sanskrit lexicon integration
  */
 
