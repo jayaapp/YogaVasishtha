@@ -71,12 +71,40 @@ function extractSanskritWords() {
             .filter(word => !existingIASTWords.includes(word))
             .sort();
 
-        // Prepare final word lists
-        const finalDevanagariWords = [...existingDevanagariWords, ...newDevanagariWords];
+        // Filter function to remove anomalous entries
+        function isValidDevanagariEntry(word) {
+            // Keep valid punctuation marks FIRST (। and ॥ by themselves)
+            if (word === '।' || word === '॥') return true;
+
+            // Remove entries that start with daṇḍa punctuation followed by other characters
+            if (/^।[^\s]/.test(word)) return false; // । followed by non-whitespace
+            if (/^॥[^\s]/.test(word)) return false; // ॥ followed by non-whitespace
+
+            // Remove pure numerals (but keep punctuation marks)
+            if (/^[०-९]+$/.test(word)) return false; // Pure Devanagari numerals
+            if (/^[0-9]+$/.test(word)) return false; // Pure ASCII numerals
+
+            // Remove obvious parsing errors (numeral + fragment)
+            if (/^[०-९0-9]+[^०-९0-9\s]/.test(word) && word.length < 5) return false;
+
+            // Remove the abbreviation mark ॰ by itself
+            if (word === '॰') return false;
+
+            // Keep everything else
+            return true;
+        }
+
+        // Prepare final word lists with filtering
+        const finalDevanagariWords = [...existingDevanagariWords, ...newDevanagariWords]
+            .filter(isValidDevanagariEntry);
         const finalIASTWords = [...existingIASTWords, ...newIASTWords];
 
-        // Write the Devanagari words to file
-        if (newDevanagariWords.length > 0 || existingDevanagariWords.length === 0) {
+        // Count removed entries for reporting
+        const totalBeforeFilter = existingDevanagariWords.length + newDevanagariWords.length;
+        const removedCount = totalBeforeFilter - finalDevanagariWords.length;
+
+        // Write the Devanagari words to file (always write if filtered or new words added)
+        if (newDevanagariWords.length > 0 || existingDevanagariWords.length === 0 || removedCount > 0) {
             const devanagariOutput = finalDevanagariWords.join('\n');
             fs.writeFileSync(devanagariOutputFile, devanagariOutput, 'utf8');
         }
@@ -88,6 +116,9 @@ function extractSanskritWords() {
         console.log(`Results:`);
         if (newDevanagariWords.length > 0) {
             console.log(`- Added ${newDevanagariWords.length} Devanagari script words`);
+        }
+        if (removedCount > 0) {
+            console.log(`- Removed ${removedCount} anomalous entries (punctuation+text, pure numerals, etc.)`);
         }
         console.log(`- Found ${romanizedMatches.length} total romanized matches`);
         console.log(`- Added ${newIASTWords.length} new unique IAST words`);
