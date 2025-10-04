@@ -197,11 +197,15 @@ function getNextBatch(batchSize, LEXICON_FILE, WORDS_FILE) {
 
     const batch = remainingWords.slice(0, batchSize);
 
+    // Calculate how many words from the word list have been processed
+    const wordsFromListProcessed = words.length - remainingWords.length;
+
     console.log(`\n📚 NEXT BATCH OF SANSKRIT WORDS TO ANALYZE`);
     console.log(`==========================================`);
     console.log(`Batch size: ${batch.length}`);
     console.log(`Remaining words: ${remainingWords.length}`);
-    console.log(`Progress: ${processedWords.size}/${words.length} (${((processedWords.size/words.length)*100).toFixed(1)}%)`);
+    console.log(`Progress: ${wordsFromListProcessed}/${words.length} (${((wordsFromListProcessed/words.length)*100).toFixed(1)}%)`);
+    console.log(`Total lexicon entries: ${Object.keys(lexicon).length}`);
     console.log(`\nWords to analyze:`);
 
     batch.forEach((word, index) => {
@@ -228,10 +232,11 @@ function getNextBatch(batchSize, LEXICON_FILE, WORDS_FILE) {
     console.log(`========================`);
     console.log(`1. Apply the above analysis format to EACH word in the batch`);
     console.log(`2. Save all analyses to '${BATCH_OUTPUT_FILE}'`);
-    console.log(`3. Use this delimiter between each word analysis:`);
+    console.log(`3. Only if analyzing more then 1 word per batch, use this delimiter between each word analysis:`);
     console.log(`   ${DELIMITER.trim()}`);
     console.log(`4. Run: node lexicon-manager.js ${import_switch} ${BATCH_OUTPUT_FILE}`);
-    console.log(`5. Repeat until all words are processed`);
+    console.log(`5. Delete '${BATCH_OUTPUT_FILE}'`);
+    console.log(`6. Repeat until all words are processed`);
 }
 
 function importBatchResults(inputFile, LEXICON_FILE, WORDS_FILE) {
