@@ -1,0 +1,25 @@
+{
+  "name": "yogavasishtha",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jayaapp/YogaVasishtha.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/jayaapp/YogaVasishtha/issues"
+  },
+  "homepage": "https://github.com/jayaapp/YogaVasishtha#readme",
+  "dependencies": {
+    "@xmldom/xmldom": "^0.8.11",
+    "jszip": "^3.10.1"
+  }
+}
