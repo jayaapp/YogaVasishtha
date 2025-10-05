@@ -4785,8 +4785,9 @@ const EventHandlers = {
      * Handle Sanskrit word clicks
      */
     onSanskritWordClick(e) {
-        if (e.target.classList.contains('sanskrit-word')) {
-            const word = e.target.getAttribute('data-word');
+        const sanskritWord = e.target.closest('.sanskrit-word');
+        if (sanskritWord) {
+            const word = sanskritWord.getAttribute('data-word');
             if (word) {
                 LexiconManager.showEntry(word);
             }
@@ -4797,12 +4798,14 @@ const EventHandlers = {
      * Handle Sanskrit word keyboard activation
      */
     onSanskritWordKeydown(e) {
-        if ((e.key === 'Enter' || e.key === ' ') &&
-            e.target.classList.contains('sanskrit-word')) {
-            e.preventDefault();
-            const word = e.target.getAttribute('data-word');
-            if (word) {
-                LexiconManager.showEntry(word);
+        if (e.key === 'Enter' || e.key === ' ') {
+            const sanskritWord = e.target.closest('.sanskrit-word');
+            if (sanskritWord) {
+                e.preventDefault();
+                const word = sanskritWord.getAttribute('data-word');
+                if (word) {
+                    LexiconManager.showEntry(word);
+                }
             }
         }
     },
