@@ -4647,7 +4647,7 @@ const EventHandlers = {
         }, 300));
         Elements.searchInput.addEventListener('keydown', this.onSearchKeydown.bind(this));
         Elements.searchClear.addEventListener('click', () => SearchManager.clearSearch());
-        Elements.searchClose.addEventListener('click', () => SearchManager.closePanel(true));
+        Elements.searchClose.addEventListener('click', () => SearchManager.closePanel(false));
         Elements.searchBack.addEventListener('click', () => SearchManager.returnToOriginal());
         Elements.searchPrev.addEventListener('click', () => SearchManager.navigatePrevious());
         Elements.searchNext.addEventListener('click', () => SearchManager.navigateNext());
@@ -4816,7 +4816,7 @@ const EventHandlers = {
     onSearchKeydown(e) {
         switch (e.key) {
             case 'Escape':
-                SearchManager.closePanel(true);
+                SearchManager.closePanel(false);
                 break;
             case 'ArrowUp':
                 e.preventDefault();
@@ -4848,7 +4848,7 @@ const EventHandlers = {
             }
             // If no modal is open, close search panel if it's open
             else if (State.search.isOpen) {
-                SearchManager.closePanel(true);
+                SearchManager.closePanel(false);
             }
         }
 
