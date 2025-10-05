@@ -1,0 +1,21 @@
+{
+  "devanagari": {
+    "translated": [
+      "10bc4c2c5525",
+      "5b819ac8b373",
+      "3cc7a2a4cebb",
+      "9afc7ba58c85",
+      "456deb063a38",
+      "32426d8b226c",
+      "7271ab042d93"
+    ],
+    "skipped": []
+  },
+  "iast": {
+    "translated": [],
+    "skipped": []
+  },
+  "lastRunTimestamp": "2025-10-05T15:52:25.454Z",
+  "consecutiveRuns": 6,
+  "passagesSinceFullPrompt": 3
+}

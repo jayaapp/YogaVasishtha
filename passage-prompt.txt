@@ -24,6 +24,11 @@ TRANSLATION PRINCIPLES
    - Recognize whether this is narrative, philosophical instruction, or meditation guidance
    - Honor the text's purpose: to guide seekers to Self-realization
 
+4. APPROPRIATE DEPTH
+   - Scale your analysis to match the passage's richness and complexity
+   - Even short technical terms deserve precise, insightful commentary
+   - Longer passages require comprehensive multi-layered analysis
+
 REQUIRED MARKDOWN FORMAT
 ------------------------
 
@@ -33,70 +38,115 @@ REQUIRED MARKDOWN FORMAT
 
 ## Translation
 
-[Your English translation here]
+[Your English translation]
 
-[Can be multiple paragraphs if the passage is long]
-
-[Maintain natural paragraph breaks for readability]
+[For short passages: Can be a single phrase or sentence]
+[For longer passages: Multiple paragraphs with natural breaks]
 
 ## Commentary
 
-**Context**: [Identify where/when this passage appears in Yoga Vasishtha, or its thematic placement. Examples: "Early Book 1 - establishing the nature of inquiry", "Nirvāṇa Prakaraṇa - teachings on liberation", "Story of Līlā - illustrating the mind-created universe"]
+**Context**: [Identify where/when this appears in YV, or its thematic placement]
 
 **Key Terms**:
-- [Sanskrit term 1]: [Technical meaning, why translated this way, philosophical significance]
-- [Sanskrit term 2]: [...]
-- [Add as many as needed for the passage]
+[For ALL passages - analyze the core Sanskrit terms]
+- [term 1]: [Technical meaning, philosophical significance]
+- [term 2]: [...]
 
 **Philosophical Notes**:
-[Explain the deeper Advaita Vedānta implications. Address relevant aspects:]
-- The nature of consciousness (cit/caitanya) and its relationship to phenomena
-- The mechanism of bondage (through ahaṅkāra, vāsanās, saṅkalpa)
-- The path to liberation (through vairāgya, vicāra, viveka)
-- The ontological status of the world (māyā, mithyā, vivarta)
-- The nature of the Self (ātman/Brahman) being taught
-- How this passage advances the teaching methodology of Yoga Vasishtha
+[SCALE THIS SECTION based on passage depth:]
+
+SHORT TECHNICAL TERMS (1-5 words):
+- Core Advaita concept this represents
+- How it relates to the path of liberation
+- Why it's significant in YV's teaching framework
+- 2-3 focused paragraphs
+
+MEDIUM PASSAGES (6-20 words):
+- Immediate philosophical teaching
+- Connection to broader YV themes
+- How this fits in the sādhana framework
+- 3-5 paragraphs
+
+EXTENSIVE PASSAGES (20+ words):
+- Full analysis covering:
+  * Nature of consciousness/reality being taught
+  * Mechanism of bondage/liberation addressed
+  * Ontological implications
+  * Teaching methodology employed
+- 5-10 paragraphs with detailed exploration
 
 **Practical Application**:
-[How should a spiritual practitioner work with this teaching?]
-- Meditation/contemplation practices it suggests
-- Attitude or understanding to be cultivated
-- Common obstacles this teaching addresses
-- Integration with daily sādhana
+[Again, scale appropriately:]
+
+For technical terms: How to work with this concept in practice (1-2 paragraphs)
+For teachings: Specific meditation/contemplation methods (2-3 paragraphs)
+For narratives: Life applications and obstacles addressed (3-5 paragraphs)
 
 **Cross-References**:
-[Related teachings and sources]
-- Other Yoga Vasishtha passages (if known)
-- Upaniṣadic parallels
-- Bhagavad Gītā connections
-- Related Advaita Vedānta concepts
-- Teachings from Śaṅkara, Gauḍapāda, or other ācāryas
+[Always include, but vary depth:]
+- Related YV concepts (essential)
+- Upaniṣadic parallels (when relevant)
+- Bhagavad Gītā connections (when relevant)
+- Śaṅkara/Gauḍapāda teachings (when relevant)
+
+PASSAGE TYPE EXAMPLES
+---------------------
+
+TYPE 1: Short Technical Terms (2-5 words)
+Example: "आत्मानात्म विवेक"
+→ Translate precisely, explain the technical concept thoroughly
+→ Focus on philosophical significance and practical application
+→ Commentary: 4-6 focused paragraphs
+
+TYPE 2: Section Headings/Topics (3-6 words)
+Example: "धर्म्म कर्म्म"
+→ Translate and explain their relationship
+→ Discuss how YV treats this topic
+→ Commentary: 4-6 paragraphs
+
+TYPE 3: Complete Sentences (10-30 words)
+Example: Verse fragments or teaching statements
+→ Full translation with poetic sensitivity
+→ Comprehensive philosophical analysis
+→ Commentary: 6-10 paragraphs
+
+TYPE 4: Extended Passages (30+ words)
+Example: Multi-sentence teachings or narratives
+→ Paragraph-style translation
+→ Extensive multi-layered analysis
+→ Commentary: 10-15+ paragraphs
 
 HANDLING INVALID PASSAGES
 -------------------------
 
-If the passage is:
-- Too fragmentary or corrupt to translate meaningfully
-- A single isolated word or phrase (not a complete thought)
+ONLY skip if the passage is:
 - Illegible or contains [illegible] markers
-- Exact repetition of an already-translated passage
+- Severely corrupted/garbled text (not just archaic spelling)
+- Completely meaningless fragments (not technical terms)
+- Exact duplicates you've already translated
 
-Output only:
+DO NOT skip:
+- Short passages (1-5 words) - these are often key technical terms!
+- Section headings - these guide readers through the text
+- Archaic spellings (धर्म्म vs धर्म) - simply note the variant
+- Unfamiliar compounds - research and explain them
+
+If truly invalid, output only:
 
 # INVALID PASSAGE
-**Reason**: [Brief explanation - e.g., "Fragment only, not a complete sentence", "Duplicate of passage [hash]", "Text corrupt/illegible"]
-
-Then use the skip command: ./passage-manager.js -s [hash]
+**Reason**: [Specific explanation - "Text corrupt: contains illegible markers and nonsense syllables", "Exact duplicate of passage [hash] already translated"]
 
 QUALITY STANDARDS
 ----------------
 
 Your translation and commentary should enable a sincere student of Yoga Vasishtha
 to deeply understand both the literal meaning and the profound spiritual import
-of the passage.
+of the passage - whether it's a single technical term or an extensive teaching.
 
-Aim for the scholarly depth of traditional Sanskrit commentaries combined with
-the practical clarity needed for modern practitioners.
+Even a two-word phrase like "आत्मानात्म विवेक" deserves scholarly depth because
+it represents a foundational practice for liberation.
+
+Scale your effort to the passage's significance, not just its length.
 
 Remember: You are not just translating words, but transmitting the timeless
 wisdom of Self-knowledge (ātma-jñāna) that Vasiṣṭha revealed to Rāma.
