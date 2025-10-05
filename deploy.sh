@@ -24,6 +24,7 @@ echo "Copying core application files..."
 cp index.html "$DEPLOY_DIR/"
 cp app.js "$DEPLOY_DIR/"
 cp app.css "$DEPLOY_DIR/"
+cp favicon.ico "$DEPLOY_DIR/"
 
 # PWA files
 echo "Copying PWA files..."
