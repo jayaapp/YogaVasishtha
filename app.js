@@ -2760,6 +2760,9 @@ const NotesManager = {
      * Create new highlight
      */
     createNewHighlight(range, selectedText) {
+        // Get word index BEFORE inserting highlight (to avoid counting the note's own words)
+        const previousWordIndex = this.getPreviousWordIndex(range);
+
         // Create highlight element
         const highlight = document.createElement('span');
         highlight.className = 'note-highlight';
@@ -2814,9 +2817,6 @@ const NotesManager = {
         // Create note object
         const position = this.getCurrentPosition();
         const currentChapter = BookmarkManager.getCurrentChapter();
-
-        // Get word index before selection for robust positioning
-        const previousWordIndex = this.getPreviousWordIndex(range);
 
         const note = {
             id: noteId,
