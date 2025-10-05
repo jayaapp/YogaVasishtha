@@ -1694,7 +1694,13 @@ const BookmarkManager = {
 
         // Restore bookmark using same system as notes
         const success = VolumePositioning.restoreBookmarkHighlight(bookmark, State.currentBookIndex);
-        if (!success) {
+        if (success) {
+            // Scroll to newly created highlight
+            const newHighlight = document.querySelector(`[data-bookmark-id="${bookmark.id}"]`);
+            if (newHighlight) {
+                newHighlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        } else {
             console.warn('Word bookmark navigation failed, using fallback');
             // Fallback: scroll to top if no scroll position available
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2382,9 +2388,6 @@ const VolumePositioning = {
                     });
 
                     highlight.appendChild(bookmarkIcon);
-
-                    // Scroll to the restored bookmark
-                    highlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
                     return true;
                 }
