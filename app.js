@@ -641,18 +641,21 @@ const SearchManager = {
 
         try {
             // Search across all books
-            const allResults = [];
+            const bookResults = [];
 
             for (let bookIndex = 0; bookIndex < State.bookContents.length; bookIndex++) {
                 const content = State.bookContents[bookIndex];
                 if (!content) continue;
 
-                const bookResults = await this.searchInBook(content, bookIndex, cleanQuery);
-                allResults.push(...bookResults);
+                const results = await this.searchInBook(content, bookIndex, cleanQuery);
+                bookResults.push(...results);
             }
 
-            // Sort results by relevance (exact matches first, then by position)
-            allResults.sort((a, b) => {
+            // Search in lexicons
+            const lexiconResults = await this.searchInLexicon(cleanQuery);
+
+            // Sort book results by relevance (exact matches first, then by position)
+            bookResults.sort((a, b) => {
                 if (a.exactMatch && !b.exactMatch) return -1;
                 if (!a.exactMatch && b.exactMatch) return 1;
                 if (a.bookIndex !== b.bookIndex) return a.bookIndex - b.bookIndex;
@@ -661,13 +664,21 @@ const SearchManager = {
 
             // Add simplified display labels with counters per book
             const bookCounters = {};
-            allResults.forEach(result => {
+            bookResults.forEach(result => {
                 if (!bookCounters[result.bookIndex]) {
                     bookCounters[result.bookIndex] = 0;
                 }
                 bookCounters[result.bookIndex]++;
                 result.displayText = this.formatSimpleResultDisplay(result.bookTitle, bookCounters[result.bookIndex]);
             });
+
+            // Add simplified display labels for lexicon results (L@1, L@2, etc.)
+            lexiconResults.forEach((result, index) => {
+                result.displayText = `L@${index + 1}`;
+            });
+
+            // Combine results: book results first, then lexicon results
+            const allResults = [...bookResults, ...lexiconResults];
 
             State.search.results = allResults.slice(0, 100); // Limit to 100 results
             State.search.currentIndex = -1;
@@ -770,6 +781,109 @@ const SearchManager = {
     },
 
     /**
+     * Search within lexicons (both Devanagari and IAST)
+     */
+    async searchInLexicon(query) {
+        const results = [];
+
+        // Prepare search pattern (support simple regex)
+        let searchPattern;
+        try {
+            if (/[.*+?^${}()|[\]\\]/.test(query) && query.length > 1) {
+                searchPattern = new RegExp(query, 'gi');
+            } else {
+                searchPattern = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+            }
+        } catch (e) {
+            searchPattern = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+        }
+
+        // Search Devanagari lexicon
+        if (State.lexicon) {
+            Object.entries(State.lexicon).forEach(([word, definition]) => {
+                const wordMatches = word.match(searchPattern);
+                const defMatches = definition.match(searchPattern);
+
+                if (wordMatches || defMatches) {
+                    // Prefer word match for context, otherwise use definition excerpt
+                    let context = '';
+                    let matchText = '';
+                    let exactMatch = false;
+
+                    if (wordMatches) {
+                        matchText = wordMatches[0];
+                        exactMatch = word.toLowerCase() === query.toLowerCase();
+                        // Get first 80 chars of definition for context
+                        context = word + ': ' + definition.substring(0, 80).replace(/[\r\n]+/g, ' ').trim() + '...';
+                    } else if (defMatches) {
+                        matchText = defMatches[0];
+                        // Find match position and extract context
+                        const matchIndex = definition.search(searchPattern);
+                        const contextStart = Math.max(0, matchIndex - 60);
+                        const contextEnd = Math.min(definition.length, matchIndex + matchText.length + 60);
+                        context = definition.substring(contextStart, contextEnd).replace(/[\r\n]+/g, ' ').trim();
+                    }
+
+                    results.push({
+                        isLexiconResult: true,
+                        word: word,
+                        lexiconType: 'devanagari',
+                        matchText: matchText,
+                        context: context,
+                        exactMatch: exactMatch,
+                        displayText: '' // Will be set later
+                    });
+                }
+            });
+        }
+
+        // Search IAST lexicon
+        if (State.iastLexicon) {
+            Object.entries(State.iastLexicon).forEach(([word, definition]) => {
+                const wordMatches = word.match(searchPattern);
+                const defMatches = definition.match(searchPattern);
+
+                if (wordMatches || defMatches) {
+                    let context = '';
+                    let matchText = '';
+                    let exactMatch = false;
+
+                    if (wordMatches) {
+                        matchText = wordMatches[0];
+                        exactMatch = word.toLowerCase() === query.toLowerCase();
+                        context = word + ': ' + definition.substring(0, 80).replace(/[\r\n]+/g, ' ').trim() + '...';
+                    } else if (defMatches) {
+                        matchText = defMatches[0];
+                        const matchIndex = definition.search(searchPattern);
+                        const contextStart = Math.max(0, matchIndex - 60);
+                        const contextEnd = Math.min(definition.length, matchIndex + matchText.length + 60);
+                        context = definition.substring(contextStart, contextEnd).replace(/[\r\n]+/g, ' ').trim();
+                    }
+
+                    results.push({
+                        isLexiconResult: true,
+                        word: word,
+                        lexiconType: 'iast',
+                        matchText: matchText,
+                        context: context,
+                        exactMatch: exactMatch,
+                        displayText: ''
+                    });
+                }
+            });
+        }
+
+        // Sort lexicon results: exact matches first, then alphabetically by word
+        results.sort((a, b) => {
+            if (a.exactMatch && !b.exactMatch) return -1;
+            if (!a.exactMatch && b.exactMatch) return 1;
+            return a.word.localeCompare(b.word);
+        });
+
+        return results;
+    },
+
+    /**
      * Format result display text
      */
     /**
@@ -835,7 +949,15 @@ const SearchManager = {
         const result = State.search.results[resultIndex];
         State.search.currentIndex = resultIndex;
 
+        // Handle lexicon results
+        if (result.isLexiconResult) {
+            // Show lexicon entry with highlighting
+            LexiconManager.showEntry(result.word, State.search.query);
+            this.updateResultsDisplay();
+            return;
+        }
 
+        // Handle book results (existing logic)
         // Switch book if necessary
         if (result.bookIndex !== State.currentBookIndex) {
             State.currentBookIndex = result.bookIndex;
@@ -4268,7 +4390,7 @@ const LexiconManager = {
     /**
      * Show lexicon entry for word
      */
-    showEntry(word) {
+    showEntry(word, searchQuery = null) {
         let entry = null;
         let lexiconType = '';
 
@@ -4283,9 +4405,21 @@ const LexiconManager = {
             lexiconType = 'IAST';
         }
 
-        const content = entry
+        let content = entry
             ? new showdown.Converter().makeHtml(entry)
             : `<h2>${word}</h2><p>Definition not found in lexicon.</p><p><em>Searched in both Devanagari and IAST lexicons.</em></p>`;
+
+        // Highlight search query if provided
+        if (searchQuery && entry) {
+            try {
+                const searchPattern = new RegExp(searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+                content = content.replace(searchPattern, (match) => {
+                    return `<span class="search-highlight">${match}</span>`;
+                });
+            } catch (e) {
+                // If regex fails, skip highlighting
+            }
+        }
 
         Elements.lexiconContent.innerHTML = Utils.createSafeHTML(content);
         ModalManager.open('lexicon');
