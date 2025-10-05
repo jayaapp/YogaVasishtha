@@ -3807,6 +3807,7 @@ const EPUBManager = {
             .replace(/<\/html>/gi, '')
             .replace(/<body[^>]*>/gi, '') // Remove body opening tags
             .replace(/<\/body>/gi, '') // Remove body closing tags
+            .replace(/<img[^>]*>/gi, '') // Remove img tags to avoid 404 errors
             .trim();
     },
 
