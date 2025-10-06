@@ -17,6 +17,8 @@ const CONFIG = {
     ],
     LEXICON_FILE_DEVA: "Yoga-Vasishtha-Devanagari-Lexicon.json",
     LEXICON_FILE_IAST: "Yoga-Vasishtha-IAST-Lexicon.json",
+    PASSAGES_MAPPING_FILE: "Words-Passages-Mapping.json",
+    PASSAGES_TRANSLATIONS_FILE: "Yoga-Vasishtha-Sanskrit-Passages.json",
     STORAGE_KEYS: {
         THEME: 'epub-theme',
         FONT_FAMILY: 'epub-font-family',
@@ -95,6 +97,8 @@ const State = {
     lexicon: {},
     iastLexicon: {},
     iastKeySet: new Set(), // For fast O(1) lookup
+    passagesMapping: {}, // Words-Passages-Mapping.json
+    passagesTranslations: {}, // Yoga-Vasishtha-Sanskrit-Passages.json
     notes: {}, // Book notes storage: { bookIndex: [note1, note2, ...] }
     search: {
         isOpen: false,
@@ -111,6 +115,10 @@ const State = {
         fontFamily: CONFIG.DEFAULTS.FONT_FAMILY,
         fontSize: CONFIG.DEFAULTS.FONT_SIZE,
         lineHeight: CONFIG.DEFAULTS.LINE_HEIGHT
+    },
+    lexiconView: {
+        currentWord: null,
+        showingPassages: false // Toggle state for passages view
     }
 };
 
@@ -4242,6 +4250,30 @@ const LexiconManager = {
         } catch (error) {
             console.error('Failed to load IAST lexicon:', error);
         }
+
+        try {
+            // Load passages mapping
+            const mappingResponse = await fetch(CONFIG.PASSAGES_MAPPING_FILE);
+            if (mappingResponse.ok) {
+                State.passagesMapping = await mappingResponse.json();
+            } else {
+                console.warn('Passages mapping file not found');
+            }
+        } catch (error) {
+            console.error('Failed to load passages mapping:', error);
+        }
+
+        try {
+            // Load passages translations
+            const translationsResponse = await fetch(CONFIG.PASSAGES_TRANSLATIONS_FILE);
+            if (translationsResponse.ok) {
+                State.passagesTranslations = await translationsResponse.json();
+            } else {
+                console.warn('Passages translations file not found');
+            }
+        } catch (error) {
+            console.error('Failed to load passages translations:', error);
+        }
     },
 
     /**
@@ -4391,6 +4423,18 @@ const LexiconManager = {
      * Show lexicon entry for word
      */
     showEntry(word, searchQuery = null) {
+        // Store current word and reset view state
+        State.lexiconView.currentWord = word;
+        State.lexiconView.showingPassages = false;
+
+        this.renderLexiconView(word, searchQuery);
+        ModalManager.open('lexicon');
+    },
+
+    /**
+     * Render lexicon view (either definition or passages)
+     */
+    renderLexiconView(word, searchQuery = null) {
         let entry = null;
         let lexiconType = '';
 
@@ -4405,27 +4449,376 @@ const LexiconManager = {
             lexiconType = 'IAST';
         }
 
-        let content = entry
-            ? new showdown.Converter().makeHtml(entry)
-            : `<h2>${word}</h2><p>Definition not found in lexicon.</p><p><em>Searched in both Devanagari and IAST lexicons.</em></p>`;
+        // Get passages for this word
+        const passages = State.passagesMapping[word] || [];
+        const passagesCount = passages.length;
 
-        // Highlight search query if provided
-        if (searchQuery && entry) {
-            try {
-                const searchPattern = new RegExp(searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-                content = content.replace(searchPattern, (match) => {
-                    return `<span class="search-highlight">${match}</span>`;
-                });
-            } catch (e) {
-                // If regex fails, skip highlighting
+        let content = '';
+
+        if (!State.lexiconView.showingPassages) {
+            // Show definition view
+            content = entry
+                ? new showdown.Converter().makeHtml(entry)
+                : `<h2>${word}</h2><p>Definition not found in lexicon.</p><p><em>Searched in both Devanagari and IAST lexicons.</em></p>`;
+
+            // Highlight search query if provided
+            if (searchQuery && entry) {
+                try {
+                    const searchPattern = new RegExp(searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+                    content = content.replace(searchPattern, (match) => {
+                        return `<span class="search-highlight">${match}</span>`;
+                    });
+                } catch (e) {
+                    // If regex fails, skip highlighting
+                }
             }
+
+            // Add toggle button if passages exist
+            if (passagesCount > 0) {
+                content += `
+                    <div class="lexicon-passages-toggle">
+                        <button class="passages-toggle-btn" onclick="LexiconManager.togglePassagesView(); return false;">
+                            Appears in ${passagesCount} passage${passagesCount !== 1 ? 's' : ''}
+                        </button>
+                    </div>
+                `;
+            }
+        } else {
+            // Show passages view
+            content = this.renderPassagesView(word, passages);
         }
 
         Elements.lexiconContent.innerHTML = Utils.createSafeHTML(content);
-        ModalManager.open('lexicon');
+    },
 
-        if (entry) {
+    /**
+     * Render passages view
+     */
+    renderPassagesView(word, passages) {
+        if (!passages || passages.length === 0) {
+            return `<h2>${word}</h2><p>No passages found.</p>`;
         }
+
+        const converter = new showdown.Converter();
+        let html = `<h2>${word}</h2>`;
+
+        // Add back button
+        html += `
+            <div class="lexicon-passages-toggle">
+                <button class="passages-toggle-btn" onclick="LexiconManager.togglePassagesView(); return false;">
+                    ← Back to definition
+                </button>
+            </div>
+        `;
+
+        html += `<div class="passages-list">`;
+
+        // Track location number across all passages
+        let locationNumber = 1;
+
+        passages.forEach((passageEntry, index) => {
+            const { hash, cfis, passage } = passageEntry;
+
+            html += `<div class="passage-item">`;
+
+            // Render passage with word highlighted
+            const highlightedPassage = this.highlightWordInPassage(passage, word);
+            html += `<div class="passage-text">${highlightedPassage}</div>`;
+
+            // Render CFI links
+            if (cfis && cfis.length > 0) {
+                html += `<div class="passage-cfis">`;
+                // Store hash instead of passage text (avoids HTML attribute issues with newlines/quotes)
+                cfis.forEach((cfi, cfiIndex) => {
+                    const escapedCFI = cfi.replace(/"/g, '&quot;');
+                    html += `<a href="#" class="passage-cfi-link" data-cfi="${escapedCFI}" data-hash="${hash}" onclick="LexiconManager.navigateToCFIFromLink(this); return false;">Location ${locationNumber}</a>`;
+                    locationNumber++;
+                });
+                html += `</div>`;
+            }
+
+            // Render translation if available
+            const translation = State.passagesTranslations[hash];
+            if (translation) {
+                html += `<div class="passage-translation">`;
+                html += `<div class="passage-translation-label">Analysis:</div>`;
+                html += converter.makeHtml(translation);
+                html += `</div>`;
+            }
+
+            html += `</div>`;
+        });
+
+        html += `</div>`;
+
+        return html;
+    },
+
+    /**
+     * Highlight word in passage
+     */
+    highlightWordInPassage(passage, word) {
+        try {
+            // Escape special regex characters in word
+            const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(escapedWord, 'g');
+            return passage.replace(regex, `<mark class="passage-word-highlight">${word}</mark>`);
+        } catch (e) {
+            return passage;
+        }
+    },
+
+    /**
+     * Toggle between definition and passages view
+     */
+    togglePassagesView() {
+        State.lexiconView.showingPassages = !State.lexiconView.showingPassages;
+        this.renderLexiconView(State.lexiconView.currentWord);
+    },
+
+    /**
+     * Navigate to CFI from a link element (extracts data from data attributes)
+     */
+    navigateToCFIFromLink(linkElement) {
+        const cfi = linkElement.getAttribute('data-cfi');
+        const hash = linkElement.getAttribute('data-hash');
+
+        console.log('🔍 NavigateToCFIFromLink - CFI:', cfi, 'Hash:', hash);
+
+        // Find the passage text by searching through the mapping
+        let passageText = null;
+
+        // Search through all words in the mapping to find the passage by hash
+        for (const word in State.passagesMapping) {
+            const passages = State.passagesMapping[word];
+            for (const entry of passages) {
+                if (entry.hash === hash) {
+                    passageText = entry.passage;
+                    console.log('✅ Found passage by hash:', passageText);
+                    break;
+                }
+            }
+            if (passageText) break;
+        }
+
+        if (passageText) {
+            this.navigateToCFI(cfi, passageText);
+        } else {
+            console.error('❌ Could not find passage for hash:', hash, 'CFI:', cfi);
+            console.log('Available hashes (first 10):', Object.keys(State.passagesMapping).slice(0, 10).map(w => State.passagesMapping[w].map(p => p.hash)));
+        }
+    },
+
+    /**
+     * Navigate to CFI location in the EPUB
+     * Uses passage text to find location since CFI paths don't match transformed DOM
+     */
+    navigateToCFI(cfi, passageText) {
+        // Close lexicon modal first
+        ModalManager.close('lexicon');
+
+        // Helper to aggressively normalize for searching
+        const normalizeForSearch = (text) => {
+            return text.replace(/\s+/g, '').replace(/[\u00a0\u200b\u200c\u200d\ufeff]/g, '');
+        };
+
+        const normalizedSearchPassage = normalizeForSearch(passageText);
+        const truncatedSearchPassage = normalizedSearchPassage.substring(0, Math.min(30, normalizedSearchPassage.length));
+
+        // Search for passage in current book first
+        let found = this.findAndScrollToPassage(passageText, State.currentBookIndex);
+
+        if (!found) {
+            // Search in other books using aggressive normalization
+            for (let bookIndex = 0; bookIndex < State.bookContents.length; bookIndex++) {
+                if (bookIndex === State.currentBookIndex) continue;
+
+                const content = State.bookContents[bookIndex];
+                if (!content) continue;
+
+                // Use aggressive normalization for book content search
+                const normalizedContent = normalizeForSearch(content);
+
+                // Try full match first, then truncated
+                const containsPassage = normalizedContent.includes(normalizedSearchPassage) ||
+                                       (truncatedSearchPassage.length >= 15 && normalizedContent.includes(truncatedSearchPassage));
+
+                if (containsPassage) {
+                    // Switch to this book
+                    State.currentBookIndex = bookIndex;
+                    Elements.bookSelector.value = bookIndex;
+                    Elements.bookSelectorMobile.value = bookIndex;
+                    SettingsManager.save(CONFIG.STORAGE_KEYS.CURRENT_BOOK, bookIndex);
+                    UIManager.displayCurrentBook();
+
+                    // Wait for book to render, then scroll to passage
+                    setTimeout(() => {
+                        this.findAndScrollToPassage(passageText, bookIndex);
+                    }, 500);
+
+                    found = true;
+                    break;
+                }
+            }
+        }
+
+        if (!found) {
+            console.warn('Could not find passage in any book:', passageText.substring(0, 50));
+        }
+    },
+
+    /**
+     * Find passage text in rendered content and scroll to it
+     */
+    findAndScrollToPassage(passageText, bookIndex) {
+        // Multi-level normalization for robust matching
+
+        // Level 1: Standard normalization (spaces)
+        const normalizeText = (text) => {
+            return text
+                .trim()
+                .replace(/\s+/g, ' ')  // Normalize whitespace
+                .replace(/\u00a0/g, ' ');  // Replace non-breaking spaces
+        };
+
+        // Level 2: Aggressive normalization (remove all whitespace)
+        const normalizeAggressive = (text) => {
+            return text
+                .replace(/\s+/g, '')  // Remove all whitespace
+                .replace(/[\u00a0\u200b\u200c\u200d\ufeff]/g, '');  // Remove special spaces
+        };
+
+        const normalizedPassage = normalizeText(passageText);
+        const aggressivePassage = normalizeAggressive(passageText);
+
+        console.log('🔍 Searching for passage (aggressive):', aggressivePassage.substring(0, 50));
+
+        // Also prepare a truncated version for partial matching (first 30 chars)
+        const truncatedPassage = aggressivePassage.substring(0, Math.min(30, aggressivePassage.length));
+
+        // Get all text nodes in the book content and concatenate them with context
+        const bookContent = Elements.bookContent;
+        const walker = document.createTreeWalker(
+            bookContent,
+            NodeFilter.SHOW_TEXT,
+            null
+        );
+
+        const allNodes = [];
+        let node;
+        while (node = walker.nextNode()) {
+            if (node.textContent.trim().length > 0) {
+                allNodes.push(node);
+            }
+        }
+
+        console.log('📄 Found', allNodes.length, 'text nodes in book content');
+
+        let bestMatch = null;
+        let bestMatchScore = 0;
+
+        // Strategy 1: Check individual nodes (for passages within single elements)
+        for (let i = 0; i < allNodes.length; i++) {
+            const nodeText = allNodes[i].textContent;
+            const normalizedNode = normalizeText(nodeText);
+            const aggressiveNode = normalizeAggressive(nodeText);
+
+            // Try exact match with standard normalization
+            if (normalizedNode.includes(normalizedPassage)) {
+                bestMatch = allNodes[i];
+                bestMatchScore = 3; // Highest score
+                console.log('✅ Found exact match (standard normalization) at node', i);
+                break;
+            }
+
+            // Try exact match with aggressive normalization
+            if (aggressiveNode.includes(aggressivePassage)) {
+                if (bestMatchScore < 2) {
+                    bestMatch = allNodes[i];
+                    bestMatchScore = 2;
+                    console.log('✅ Found exact match (aggressive normalization) at node', i);
+                }
+            }
+        }
+
+        // Strategy 2: Check sliding windows of concatenated nodes (for passages split across elements)
+        if (!bestMatch) {
+            console.log('⚠️ Single node search failed, trying concatenated windows...');
+            const windowSize = 5; // Look at groups of 5 consecutive text nodes
+
+            for (let i = 0; i < allNodes.length - 1; i++) {
+                const endIdx = Math.min(i + windowSize, allNodes.length);
+                const windowText = allNodes.slice(i, endIdx).map(n => n.textContent).join('');
+                const aggressiveWindow = normalizeAggressive(windowText);
+
+                if (aggressiveWindow.includes(aggressivePassage)) {
+                    bestMatch = allNodes[i];
+                    bestMatchScore = 2;
+                    console.log('✅ Found match in window at node', i, 'to', endIdx);
+                    break;
+                }
+
+                // Try partial match with truncated passage
+                if (truncatedPassage.length >= 15 && aggressiveWindow.includes(truncatedPassage)) {
+                    if (bestMatchScore < 1) {
+                        bestMatch = allNodes[i];
+                        bestMatchScore = 1;
+                        console.log('⚠️ Found partial match in window at node', i);
+                    }
+                }
+            }
+        }
+
+        // If we found a match, scroll to it
+        if (bestMatch) {
+            let targetElement = bestMatch.parentElement;
+
+            // Walk up to find a good scrollable container (paragraph or div)
+            while (targetElement && !['P', 'DIV', 'SECTION', 'ARTICLE'].includes(targetElement.tagName)) {
+                targetElement = targetElement.parentElement;
+            }
+
+            if (targetElement) {
+                // Calculate offset for fixed header
+                const headerOffset = 100;
+                const elementPosition = targetElement.getBoundingClientRect().top + window.pageYOffset;
+                const offsetPosition = elementPosition - headerOffset;
+
+                console.log('📍 Scrolling to element at position', offsetPosition);
+
+                // Scroll to position
+                window.scrollTo({
+                    top: offsetPosition,
+                    behavior: 'smooth'
+                });
+
+                // Briefly highlight the passage
+                this.highlightPassageElement(targetElement);
+
+                return true;
+            }
+        }
+
+        console.log('❌ Could not find passage in rendered content');
+        return false;
+    },
+
+    /**
+     * Temporarily highlight a passage element
+     */
+    highlightPassageElement(element) {
+        const originalBg = element.style.backgroundColor;
+        const originalTransition = element.style.transition;
+
+        element.style.transition = 'background-color 0.3s ease';
+        element.style.backgroundColor = 'rgba(255, 235, 59, 0.3)'; // Yellow highlight
+
+        setTimeout(() => {
+            element.style.backgroundColor = originalBg;
+            setTimeout(() => {
+                element.style.transition = originalTransition;
+            }, 300);
+        }, 2000);
     }
 };
 

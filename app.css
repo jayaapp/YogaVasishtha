@@ -601,6 +601,119 @@ body.dark-theme {
     color: var(--sanskrit-color);
 }
 
+/* Lexicon passages toggle button */
+.lexicon-passages-toggle {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--panel-border);
+}
+
+.passages-toggle-btn {
+    padding: 0.75rem 1.5rem;
+    background-color: var(--sanskrit-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: 100%;
+}
+
+.passages-toggle-btn:hover {
+    background-color: var(--primary-color);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.passages-toggle-btn:active {
+    transform: translateY(0);
+}
+
+/* Passages list */
+.passages-list {
+    margin-top: 1rem;
+}
+
+.passage-item {
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    background-color: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+}
+
+.passage-text {
+    font-size: 1.1rem;
+    line-height: 1.8;
+    margin-bottom: 0.75rem;
+    color: var(--text-color);
+}
+
+.passage-word-highlight {
+    background-color: var(--sanskrit-bg-hover);
+    color: var(--sanskrit-color);
+    font-weight: 600;
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+.passage-cfis {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+}
+
+.passage-cfi-link {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.4rem 0.8rem;
+    background-color: var(--bg-color);
+    color: var(--sanskrit-color);
+    text-decoration: none;
+    border: 1px solid var(--panel-border);
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.passage-cfi-link:hover {
+    background-color: var(--sanskrit-color);
+    color: white;
+    border-color: var(--sanskrit-color);
+    transform: translateY(-1px);
+}
+
+.passage-translation {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px dashed var(--panel-border);
+}
+
+.passage-translation-label {
+    font-weight: 600;
+    color: var(--sanskrit-color);
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.passage-translation p {
+    margin-bottom: 0.5rem;
+    color: var(--text-color-secondary);
+}
+
+.passage-translation h3 {
+    font-size: 1rem;
+    color: var(--text-color);
+    margin-top: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
 /* ===== ANIMATIONS ===== */
 @keyframes spin {
     0% { transform: rotate(0deg); }
