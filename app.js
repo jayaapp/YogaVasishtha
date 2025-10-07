@@ -4583,10 +4583,9 @@ const LexiconManager = {
         const cfi = linkElement.getAttribute('data-cfi');
         const hash = linkElement.getAttribute('data-hash');
 
-        console.log('🔍 NavigateToCFIFromLink - CFI:', cfi, 'Hash:', hash);
-
-        // Find the passage text by searching through the mapping
+        // Find the passage text and the word it belongs to
         let passageText = null;
+        let lexiconWord = null;
 
         // Search through all words in the mapping to find the passage by hash
         for (const word in State.passagesMapping) {
@@ -4594,23 +4593,331 @@ const LexiconManager = {
             for (const entry of passages) {
                 if (entry.hash === hash) {
                     passageText = entry.passage;
-                    console.log('✅ Found passage by hash:', passageText);
+                    lexiconWord = word;
                     break;
                 }
             }
             if (passageText) break;
         }
 
-        if (passageText) {
-            this.navigateToCFI(cfi, passageText);
+        if (passageText && lexiconWord) {
+            console.log('📖 Navigating to passage containing word:', lexiconWord);
+            this.navigateToCFIByWordContext(cfi, passageText, lexiconWord);
         } else {
             console.error('❌ Could not find passage for hash:', hash, 'CFI:', cfi);
-            console.log('Available hashes (first 10):', Object.keys(State.passagesMapping).slice(0, 10).map(w => State.passagesMapping[w].map(p => p.hash)));
         }
     },
 
     /**
-     * Navigate to CFI location in the EPUB
+     * Navigate to passage by finding the lexicon word and matching surrounding context
+     * Much more robust than trying to match entire passage text
+     */
+    navigateToCFIByWordContext(cfi, passageText, lexiconWord) {
+        // Close lexicon modal first
+        ModalManager.close('lexicon');
+
+        console.log(`🎯 Finding occurrences of "${lexiconWord}" in current book`);
+
+        // Normalize function for context comparison
+        const normalize = (text) => text.replace(/\s+/g, '').replace(/[-।॥]/g, '').toLowerCase();
+
+        // Extract context words from passage (words around the lexicon word)
+        const passageNormalized = normalize(passageText);
+        const wordNormalized = normalize(lexiconWord);
+
+        // Get words before and after the lexicon word in the passage
+        const wordIndex = passageNormalized.indexOf(wordNormalized);
+        if (wordIndex === -1) {
+            console.warn('⚠️ Lexicon word not found in passage text');
+            return;
+        }
+
+        const contextBefore = passageNormalized.substring(Math.max(0, wordIndex - 30), wordIndex);
+        const contextAfter = passageNormalized.substring(wordIndex + wordNormalized.length, Math.min(passageNormalized.length, wordIndex + wordNormalized.length + 30));
+
+        console.log(`   Context before: "${contextBefore}"`);
+        console.log(`   Word: "${wordNormalized}"`);
+        console.log(`   Context after: "${contextAfter}"`);
+
+        // Search for all occurrences of the lexicon word in the rendered content
+        const bookContent = Elements.bookContent;
+        const walker = document.createTreeWalker(
+            bookContent,
+            NodeFilter.SHOW_TEXT,
+            null
+        );
+
+        const candidates = [];
+        let node;
+
+        while (node = walker.nextNode()) {
+            const nodeText = node.textContent;
+            if (nodeText.includes(lexiconWord)) {
+                // Found an occurrence - check context
+                const parentElement = node.parentElement;
+
+                // Get surrounding text nodes for context
+                const surroundingText = this.getSurroundingText(node, 5);
+                const surroundingNormalized = normalize(surroundingText);
+
+                // Calculate context match score
+                const contextScore = this.calculateContextScore(
+                    surroundingNormalized,
+                    wordNormalized,
+                    contextBefore,
+                    contextAfter
+                );
+
+                if (contextScore > 0) {
+                    candidates.push({
+                        node: node,
+                        score: contextScore,
+                        text: surroundingText.substring(0, 100)
+                    });
+                }
+            }
+        }
+
+        console.log(`✅ Found ${candidates.length} occurrence(s) of "${lexiconWord}"`);
+
+        if (candidates.length === 0) {
+            console.warn('Could not find word in book content');
+            return;
+        }
+
+        // Sort by score and pick best match
+        candidates.sort((a, b) => b.score - a.score);
+        console.log(`🎯 Best match has score ${candidates[0].score.toFixed(2)}`);
+
+        const bestMatch = candidates[0].node;
+
+        // Navigate to the best match
+        this.scrollToAndHighlightNode(bestMatch);
+    },
+
+    /**
+     * Get surrounding text from nearby text nodes
+     */
+    getSurroundingText(centerNode, radius) {
+        const walker = document.createTreeWalker(
+            Elements.bookContent,
+            NodeFilter.SHOW_TEXT,
+            null
+        );
+
+        // Collect all text nodes
+        const allNodes = [];
+        let node;
+        while (node = walker.nextNode()) {
+            allNodes.push(node);
+        }
+
+        // Find center node index
+        const centerIndex = allNodes.indexOf(centerNode);
+        if (centerIndex === -1) return centerNode.textContent;
+
+        // Get surrounding nodes
+        const start = Math.max(0, centerIndex - radius);
+        const end = Math.min(allNodes.length, centerIndex + radius + 1);
+
+        return allNodes.slice(start, end).map(n => n.textContent).join(' ');
+    },
+
+    /**
+     * Calculate how well the context matches
+     */
+    calculateContextScore(surroundingText, word, expectedBefore, expectedAfter) {
+        const wordIndex = surroundingText.indexOf(word);
+        if (wordIndex === -1) return 0;
+
+        const actualBefore = surroundingText.substring(Math.max(0, wordIndex - 50), wordIndex);
+        const actualAfter = surroundingText.substring(wordIndex + word.length, Math.min(surroundingText.length, wordIndex + word.length + 50));
+
+        let score = 0;
+
+        // Check how much of expected context appears in actual context
+        // Score based on longest common substring
+        if (expectedBefore.length > 5) {
+            const beforeMatch = this.longestCommonSubstring(actualBefore, expectedBefore);
+            score += (beforeMatch / expectedBefore.length) * 50;
+        }
+
+        if (expectedAfter.length > 5) {
+            const afterMatch = this.longestCommonSubstring(actualAfter, expectedAfter);
+            score += (afterMatch / expectedAfter.length) * 50;
+        }
+
+        return score;
+    },
+
+    /**
+     * Find longest common substring length
+     */
+    longestCommonSubstring(str1, str2) {
+        let maxLen = 0;
+        for (let i = 0; i < str1.length; i++) {
+            for (let j = 0; j < str2.length; j++) {
+                let len = 0;
+                while (i + len < str1.length && j + len < str2.length && str1[i + len] === str2[j + len]) {
+                    len++;
+                }
+                maxLen = Math.max(maxLen, len);
+            }
+        }
+        return maxLen;
+    },
+
+    /**
+     * Scroll to node and highlight its container
+     */
+    scrollToAndHighlightNode(node) {
+        // Find the paragraph/block bounded by newlines that contains this node
+        const highlightElement = this.findParagraphBoundedByNewlines(node);
+
+        if (highlightElement) {
+            const headerOffset = 100;
+            const elementPosition = highlightElement.getBoundingClientRect().top + window.pageYOffset;
+            const offsetPosition = elementPosition - headerOffset;
+
+            window.scrollTo({
+                top: offsetPosition,
+                behavior: 'smooth'
+            });
+
+            // Highlight only the paragraph bounded by newlines
+            this.highlightPassageElement(highlightElement);
+        }
+    },
+
+    /**
+     * Find the paragraph/block bounded by newlines containing the node
+     */
+    findParagraphBoundedByNewlines(centerNode) {
+        // Collect all text nodes in order
+        const walker = document.createTreeWalker(
+            Elements.bookContent,
+            NodeFilter.SHOW_TEXT,
+            null
+        );
+
+        const allNodes = [];
+        let node;
+        while (node = walker.nextNode()) {
+            allNodes.push(node);
+        }
+
+        // Find the center node index
+        const centerIndex = allNodes.indexOf(centerNode);
+        if (centerIndex === -1) return centerNode.parentElement;
+
+        // Scan backwards to find paragraph start (double newline or block-level element boundary)
+        let startIndex = centerIndex;
+        for (let i = centerIndex; i >= 0; i--) {
+            const text = allNodes[i].textContent;
+
+            // Check if this node has double newlines (paragraph break)
+            if (/\n\s*\n/.test(text)) {
+                // Found paragraph break within this node - start after it
+                startIndex = i;
+                break;
+            }
+
+            // Check if we hit a block boundary
+            const parent = allNodes[i].parentElement;
+            const prevParent = i > 0 ? allNodes[i - 1].parentElement : null;
+
+            if (prevParent && this.isBlockBoundary(prevParent, parent)) {
+                startIndex = i;
+                break;
+            }
+
+            startIndex = i;
+        }
+
+        // Scan forwards to find paragraph end
+        let endIndex = centerIndex;
+        for (let i = centerIndex; i < allNodes.length; i++) {
+            const text = allNodes[i].textContent;
+
+            // Check if this node has double newlines
+            if (/\n\s*\n/.test(text)) {
+                endIndex = i;
+                break;
+            }
+
+            // Check if we hit a block boundary
+            const parent = allNodes[i].parentElement;
+            const nextParent = i < allNodes.length - 1 ? allNodes[i + 1].parentElement : null;
+
+            if (nextParent && this.isBlockBoundary(parent, nextParent)) {
+                endIndex = i;
+                break;
+            }
+
+            endIndex = i;
+        }
+
+        // Find common ancestor of all nodes in range
+        const rangeNodes = allNodes.slice(startIndex, endIndex + 1);
+        const commonAncestor = this.findCommonAncestor(rangeNodes);
+
+        return commonAncestor;
+    },
+
+    /**
+     * Check if there's a block-level boundary between two elements
+     */
+    isBlockBoundary(elem1, elem2) {
+        if (!elem1 || !elem2) return false;
+
+        const blockTags = ['P', 'DIV', 'SECTION', 'ARTICLE', 'LI', 'TD', 'TH', 'BLOCKQUOTE', 'PRE'];
+
+        // If they're different block elements, it's a boundary
+        if (blockTags.includes(elem1.tagName) && blockTags.includes(elem2.tagName) && elem1 !== elem2) {
+            return true;
+        }
+
+        // If one is inside a different block container than the other
+        let p1 = elem1;
+        while (p1 && !blockTags.includes(p1.tagName)) {
+            p1 = p1.parentElement;
+        }
+
+        let p2 = elem2;
+        while (p2 && !blockTags.includes(p2.tagName)) {
+            p2 = p2.parentElement;
+        }
+
+        return p1 !== p2;
+    },
+
+    /**
+     * Find common ancestor element of multiple text nodes
+     */
+    findCommonAncestor(nodes) {
+        if (nodes.length === 0) return null;
+        if (nodes.length === 1) return nodes[0].parentElement;
+
+        // Get all ancestors of first node
+        const ancestors = [];
+        let current = nodes[0].parentElement;
+        while (current) {
+            ancestors.push(current);
+            current = current.parentElement;
+        }
+
+        // Find first ancestor that contains all nodes
+        for (const ancestor of ancestors) {
+            if (nodes.every(node => ancestor.contains(node))) {
+                return ancestor;
+            }
+        }
+
+        return nodes[0].parentElement;
+    },
+
+    /**
+     * Navigate to CFI location in the EPUB (legacy method - kept for compatibility)
      * Uses passage text to find location since CFI paths don't match transformed DOM
      */
     navigateToCFI(cfi, passageText) {
@@ -4619,16 +4926,37 @@ const LexiconManager = {
 
         // Helper to aggressively normalize for searching
         const normalizeForSearch = (text) => {
-            return text.replace(/\s+/g, '').replace(/[\u00a0\u200b\u200c\u200d\ufeff]/g, '');
+            return text
+                .replace(/<[^>]*>/g, '')  // Remove HTML tags
+                .replace(/\s+/g, '')  // Remove whitespace
+                .replace(/[\u00a0\u200b\u200c\u200d\ufeff]/g, '')  // Remove special spaces
+                .replace(/[-।॥]/g, '')  // Remove hyphens and Devanagari punctuation
+                .replace(/[^\u0900-\u097F\u0980-\u09FF]/g, '');  // Keep only Devanagari and Bengali script
         };
 
         const normalizedSearchPassage = normalizeForSearch(passageText);
-        const truncatedSearchPassage = normalizedSearchPassage.substring(0, Math.min(30, normalizedSearchPassage.length));
+        // Use shorter truncation for very short passages
+        const truncateLength = Math.min(Math.max(15, Math.floor(normalizedSearchPassage.length * 0.6)), 30);
+        const truncatedSearchPassage = normalizedSearchPassage.substring(0, truncateLength);
+
+        // Parse CFI to get spine index (helps narrow down search area)
+        // CFI format: /6/{spineIndex*2}!/4/...
+        let targetSpineIndex = null;
+        const cfiMatch = cfi.match(/^\/6\/(\d+)!/);
+        if (cfiMatch) {
+            targetSpineIndex = (parseInt(cfiMatch[1]) / 2) - 1;
+        }
+
+        console.log(`🔍 Searching for passage in current book (${State.currentBookIndex})`);
+        console.log(`   Passage (first 100 chars): "${passageText.substring(0, 100)}"`);
+        console.log(`   Normalized (${normalizedSearchPassage.length} chars): "${normalizedSearchPassage}"`);
+        console.log(`   Truncated search (${truncatedSearchPassage.length} chars): "${truncatedSearchPassage}"`);
 
         // Search for passage in current book first
-        let found = this.findAndScrollToPassage(passageText, State.currentBookIndex);
+        let found = this.findAndScrollToPassage(passageText, State.currentBookIndex, targetSpineIndex);
 
         if (!found) {
+            console.log(`⚠️ Not found in current book, searching other books...`);
             // Search in other books using aggressive normalization
             for (let bookIndex = 0; bookIndex < State.bookContents.length; bookIndex++) {
                 if (bookIndex === State.currentBookIndex) continue;
@@ -4640,10 +4968,12 @@ const LexiconManager = {
                 const normalizedContent = normalizeForSearch(content);
 
                 // Try full match first, then truncated
-                const containsPassage = normalizedContent.includes(normalizedSearchPassage) ||
-                                       (truncatedSearchPassage.length >= 15 && normalizedContent.includes(truncatedSearchPassage));
+                const fullMatch = normalizedContent.includes(normalizedSearchPassage);
+                const truncMatch = truncatedSearchPassage.length >= 10 && normalizedContent.includes(truncatedSearchPassage);
+                const containsPassage = fullMatch || truncMatch;
 
                 if (containsPassage) {
+                    console.log(`✅ Found passage in book ${bookIndex} (${fullMatch ? 'full' : 'partial'} match)`);
                     // Switch to this book
                     State.currentBookIndex = bookIndex;
                     Elements.bookSelector.value = bookIndex;
@@ -4653,7 +4983,7 @@ const LexiconManager = {
 
                     // Wait for book to render, then scroll to passage
                     setTimeout(() => {
-                        this.findAndScrollToPassage(passageText, bookIndex);
+                        this.findAndScrollToPassage(passageText, bookIndex, targetSpineIndex);
                     }, 500);
 
                     found = true;
@@ -4669,8 +4999,11 @@ const LexiconManager = {
 
     /**
      * Find passage text in rendered content and scroll to it
+     * @param {string} passageText - The passage text to search for
+     * @param {number} bookIndex - The book index being searched
+     * @param {number|null} targetSpineIndex - Optional spine index hint from CFI
      */
-    findAndScrollToPassage(passageText, bookIndex) {
+    findAndScrollToPassage(passageText, bookIndex, targetSpineIndex = null) {
         // Multi-level normalization for robust matching
 
         // Level 1: Standard normalization (spaces)
@@ -4681,17 +5014,18 @@ const LexiconManager = {
                 .replace(/\u00a0/g, ' ');  // Replace non-breaking spaces
         };
 
-        // Level 2: Aggressive normalization (remove all whitespace)
+        // Level 2: Aggressive normalization (remove all whitespace and punctuation)
         const normalizeAggressive = (text) => {
             return text
+                .replace(/<[^>]*>/g, '')  // Remove HTML tags
                 .replace(/\s+/g, '')  // Remove all whitespace
-                .replace(/[\u00a0\u200b\u200c\u200d\ufeff]/g, '');  // Remove special spaces
+                .replace(/[\u00a0\u200b\u200c\u200d\ufeff]/g, '')  // Remove special spaces
+                .replace(/[-।॥]/g, '')  // Remove hyphens and Devanagari punctuation
+                .replace(/[^\u0900-\u097F\u0980-\u09FF]/g, '');  // Keep only Devanagari and Bengali script
         };
 
         const normalizedPassage = normalizeText(passageText);
         const aggressivePassage = normalizeAggressive(passageText);
-
-        console.log('🔍 Searching for passage (aggressive):', aggressivePassage.substring(0, 50));
 
         // Also prepare a truncated version for partial matching (first 30 chars)
         const truncatedPassage = aggressivePassage.substring(0, Math.min(30, aggressivePassage.length));
@@ -4712,8 +5046,6 @@ const LexiconManager = {
             }
         }
 
-        console.log('📄 Found', allNodes.length, 'text nodes in book content');
-
         let bestMatch = null;
         let bestMatchScore = 0;
 
@@ -4727,7 +5059,6 @@ const LexiconManager = {
             if (normalizedNode.includes(normalizedPassage)) {
                 bestMatch = allNodes[i];
                 bestMatchScore = 3; // Highest score
-                console.log('✅ Found exact match (standard normalization) at node', i);
                 break;
             }
 
@@ -4736,36 +5067,82 @@ const LexiconManager = {
                 if (bestMatchScore < 2) {
                     bestMatch = allNodes[i];
                     bestMatchScore = 2;
-                    console.log('✅ Found exact match (aggressive normalization) at node', i);
                 }
             }
         }
 
         // Strategy 2: Check sliding windows of concatenated nodes (for passages split across elements)
         if (!bestMatch) {
-            console.log('⚠️ Single node search failed, trying concatenated windows...');
             const windowSize = 5; // Look at groups of 5 consecutive text nodes
+
+            // Track all matches with their quality scores
+            const allMatches = [];
 
             for (let i = 0; i < allNodes.length - 1; i++) {
                 const endIdx = Math.min(i + windowSize, allNodes.length);
                 const windowText = allNodes.slice(i, endIdx).map(n => n.textContent).join('');
                 const aggressiveWindow = normalizeAggressive(windowText);
 
+                // Check for exact match
                 if (aggressiveWindow.includes(aggressivePassage)) {
-                    bestMatch = allNodes[i];
-                    bestMatchScore = 2;
-                    console.log('✅ Found match in window at node', i, 'to', endIdx);
-                    break;
+                    // Calculate match quality based on position and context length
+                    const matchIndex = aggressiveWindow.indexOf(aggressivePassage);
+                    const contextBefore = aggressiveWindow.substring(0, matchIndex).length;
+                    const contextAfter = aggressiveWindow.substring(matchIndex + aggressivePassage.length).length;
+
+                    // Prefer matches with balanced context (passage in middle of window)
+                    const balanceScore = Math.min(contextBefore, contextAfter);
+
+                    allMatches.push({
+                        node: allNodes[i],
+                        nodeIndex: i,
+                        score: 2,
+                        balanceScore: balanceScore
+                    });
                 }
 
-                // Try partial match with truncated passage
+                // Try partial match with truncated passage (only as fallback)
                 if (truncatedPassage.length >= 15 && aggressiveWindow.includes(truncatedPassage)) {
                     if (bestMatchScore < 1) {
-                        bestMatch = allNodes[i];
-                        bestMatchScore = 1;
-                        console.log('⚠️ Found partial match in window at node', i);
+                        allMatches.push({
+                            node: allNodes[i],
+                            nodeIndex: i,
+                            score: 1,
+                            balanceScore: 0
+                        });
                     }
                 }
+            }
+
+            // If we found multiple matches, prefer the one with best balance (most likely to be complete passage)
+            if (allMatches.length > 0) {
+                // If we have a spine index hint, use it to prefer matches closer to that location
+                if (targetSpineIndex !== null && allMatches.length > 1) {
+                    // Estimate which match is closer to the target spine index
+                    allMatches.forEach((match) => {
+                        // Calculate position score (prefer matches in later part of doc if spine index is high)
+                        const relativePosition = match.nodeIndex / allNodes.length;
+                        const estimatedSpineProgress = relativePosition * 100; // Rough estimate
+                        const distanceFromTarget = Math.abs(estimatedSpineProgress - targetSpineIndex);
+                        match.positionScore = 100 - distanceFromTarget;
+                    });
+
+                    // Sort by score first, then position score, then balance
+                    allMatches.sort((a, b) => {
+                        if (a.score !== b.score) return b.score - a.score;
+                        if (Math.abs(a.positionScore - b.positionScore) > 10) return b.positionScore - a.positionScore;
+                        return b.balanceScore - a.balanceScore;
+                    });
+                } else {
+                    // Sort by score first, then by balance
+                    allMatches.sort((a, b) => {
+                        if (a.score !== b.score) return b.score - a.score;
+                        return b.balanceScore - a.balanceScore;
+                    });
+                }
+
+                bestMatch = allMatches[0].node;
+                bestMatchScore = allMatches[0].score;
             }
         }
 
@@ -4773,18 +5150,44 @@ const LexiconManager = {
         if (bestMatch) {
             let targetElement = bestMatch.parentElement;
 
-            // Walk up to find a good scrollable container (paragraph or div)
-            while (targetElement && !['P', 'DIV', 'SECTION', 'ARTICLE'].includes(targetElement.tagName)) {
-                targetElement = targetElement.parentElement;
+            // Find the most specific element containing primarily Sanskrit text
+            // Start from immediate parent and check if it contains Devanagari
+            const hasDevanagari = (text) => /[\u0900-\u097F]/.test(text);
+
+            let highlightElement = targetElement;
+            let scrollElement = targetElement;
+
+            // Walk up to find a good scrollable container
+            let currentElement = targetElement;
+            while (currentElement && !['P', 'DIV', 'SECTION', 'ARTICLE'].includes(currentElement.tagName)) {
+                currentElement = currentElement.parentElement;
+            }
+            scrollElement = currentElement || targetElement;
+
+            // For highlighting, prefer the most specific element with Sanskrit text
+            // Check if the immediate parent is a small container (like <span> or <em>)
+            if (targetElement.textContent.length < 200 && hasDevanagari(targetElement.textContent)) {
+                // This is likely a Sanskrit-only element, use it for highlighting
+                highlightElement = targetElement;
+            } else {
+                // Check if there's a child element with Sanskrit that's more specific
+                const children = Array.from(scrollElement.children || []);
+                for (const child of children) {
+                    const childText = child.textContent;
+                    if (hasDevanagari(childText) &&
+                        childText.length < 500 &&
+                        normalizeAggressive(childText).includes(aggressivePassage.substring(0, 20))) {
+                        highlightElement = child;
+                        break;
+                    }
+                }
             }
 
-            if (targetElement) {
+            if (scrollElement) {
                 // Calculate offset for fixed header
                 const headerOffset = 100;
-                const elementPosition = targetElement.getBoundingClientRect().top + window.pageYOffset;
+                const elementPosition = scrollElement.getBoundingClientRect().top + window.pageYOffset;
                 const offsetPosition = elementPosition - headerOffset;
-
-                console.log('📍 Scrolling to element at position', offsetPosition);
 
                 // Scroll to position
                 window.scrollTo({
@@ -4792,14 +5195,14 @@ const LexiconManager = {
                     behavior: 'smooth'
                 });
 
-                // Briefly highlight the passage
-                this.highlightPassageElement(targetElement);
+                // Briefly highlight the specific Sanskrit passage element
+                this.highlightPassageElement(highlightElement);
 
                 return true;
             }
         }
 
-        console.log('❌ Could not find passage in rendered content');
+        // Passage not found
         return false;
     },
 
@@ -5521,8 +5924,19 @@ const App = {
         document.addEventListener('click', (e) => {
             const link = e.target.closest('a[href^="#"]');
             if (link) {
+                // Skip if this is a passage CFI link (handled by LexiconManager)
+                if (link.classList.contains('passage-cfi-link')) {
+                    return;
+                }
+
                 e.preventDefault();
                 const targetId = link.getAttribute('href').substring(1);
+
+                // Skip if href is just "#" with no target
+                if (!targetId) {
+                    return;
+                }
+
                 const targetElement = document.getElementById(targetId);
 
                 if (targetElement) {
