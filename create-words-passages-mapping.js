@@ -7,7 +7,7 @@ const crypto = require('crypto');
  * Create mapping between lexicon words and passages they appear in
  * Uses linear algorithm - single pass through EPUBs extracting passages
  *
- * Output format (simplified - no CFI needed):
+ * Output format
  * {
  *   "word": [
  *     { "hash": "abc123...", "passage": "passage text..." },
@@ -108,7 +108,7 @@ async function extractTextFromEPUB(zip) {
     }
 }
 
-// Extract passages from chapter (no CFI needed)
+// Extract passages from chapter
 function extractPassages(chapter, epubFile, devaLexiconSet, iastLexiconSet, mapping, processedPassages, errors) {
     const body = chapter.doc.getElementsByTagName('body')[0];
     if (!body) return;
@@ -226,7 +226,7 @@ function processPassage(passage, epubFile, devaLexiconSet, iastLexiconSet, mappi
 
 // Main processing function
 async function createMapping() {
-    console.log('🔍 Creating Words-Passages Mapping (simplified - no CFI)...\n');
+    console.log('🔍 Creating Words-Passages Mapping...\n');
 
     try {
         // Load lexicons

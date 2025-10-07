@@ -1,35 +1,13 @@
 {
   "devanagari": {
-    "translated": [
-      "10bc4c2c5525",
-      "5b819ac8b373",
-      "3cc7a2a4cebb",
-      "9afc7ba58c85",
-      "456deb063a38",
-      "32426d8b226c",
-      "7271ab042d93",
-      "361f866962da",
-      "053c2cdc4248",
-      "0f7daca52f7c",
-      "27079eabe1c2",
-      "1bf2deffde80",
-      "0fb74c74ef07",
-      "591ee3305003",
-      "717d189b5736",
-      "a616f46136f5",
-      "7bd437b92e49",
-      "82d903f32af2",
-      "063059ffaf95",
-      "476152929c38",
-      "67b94e67db3c"
-    ],
+    "translated": [],
     "skipped": []
   },
   "iast": {
     "translated": [],
     "skipped": []
   },
-  "lastRunTimestamp": "2025-10-05T16:20:58.499Z",
-  "consecutiveRuns": 10,
-  "passagesSinceFullPrompt": 2
+  "lastRunTimestamp": "2025-10-07T02:11:33.264Z",
+  "consecutiveRuns": 0,
+  "passagesSinceFullPrompt": 0
 }

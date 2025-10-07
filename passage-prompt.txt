@@ -32,18 +32,18 @@ TRANSLATION PRINCIPLES
 REQUIRED MARKDOWN FORMAT
 ------------------------
 
-# Sanskrit Passage
+# Passage
 
-[Copy the exact Sanskrit passage here - Devanagari or IAST]
+[Copy of the Devanagari passage here - or provide the Devanagari rendering here if working from IAST]
 
-## Translation
+[Copy of the IAST passage here - or provide the IAST rendering here if working from Devanagari]
 
-[Your English translation]
+[Your English translation here]
 
 [For short passages: Can be a single phrase or sentence]
 [For longer passages: Multiple paragraphs with natural breaks]
 
-## Commentary
+# Commentary
 
 **Context**: [Identify where/when this appears in YV, or its thematic placement]
 
