@@ -17,7 +17,7 @@ const CONFIG = {
     ],
     LEXICON_FILE_DEVA: "Yoga-Vasishtha-Devanagari-Lexicon.json",
     LEXICON_FILE_IAST: "Yoga-Vasishtha-IAST-Lexicon.json",
-    PASSAGES_MAPPING_FILE: "Words-Passages-Mapping.json",
+    PASSAGES_MAPPING_FILE: "Yoga-Vasishtha-Words-Passages-Mapping.json",
     PASSAGES_TRANSLATIONS_FILE: "Yoga-Vasishtha-Sanskrit-Passages.json",
     STORAGE_KEYS: {
         THEME: 'epub-theme',
@@ -97,7 +97,7 @@ const State = {
     lexicon: {},
     iastLexicon: {},
     iastKeySet: new Set(), // For fast O(1) lookup
-    passagesMapping: {}, // Words-Passages-Mapping.json
+    passagesMapping: {}, // Yoga-Vasishtha-Words-Passages-Mapping.json
     passagesTranslations: {}, // Yoga-Vasishtha-Sanskrit-Passages.json
     notes: {}, // Book notes storage: { bookIndex: [note1, note2, ...] }
     search: {

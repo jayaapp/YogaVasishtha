@@ -19,7 +19,7 @@ const crypto = require('crypto');
 // Configuration
 const DEVA_LEXICON_FILE = 'Yoga-Vasishtha-Devanagari-Lexicon.json';
 const IAST_LEXICON_FILE = 'Yoga-Vasishtha-IAST-Lexicon.json';
-const OUTPUT_FILE = 'Words-Passages-Mapping.json';
+const OUTPUT_FILE = 'Yoga-Vasishtha-Words-Passages-Mapping.json';
 const ERROR_FILE = 'Words-Passages-Mapping-Errors.txt';
 const EPUB_DIR = 'epub';
 
