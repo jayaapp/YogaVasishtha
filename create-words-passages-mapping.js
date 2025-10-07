@@ -6,7 +6,14 @@ const crypto = require('crypto');
 /**
  * Create mapping between lexicon words and passages they appear in
  * Uses linear algorithm - single pass through EPUBs extracting passages
- * and capturing CFI locations simultaneously
+ *
+ * Output format (simplified - no CFI needed):
+ * {
+ *   "word": [
+ *     { "hash": "abc123...", "passage": "passage text..." },
+ *     ...
+ *   ]
+ * }
  */
 
 // Configuration
@@ -101,51 +108,18 @@ async function extractTextFromEPUB(zip) {
     }
 }
 
-// Generate CFI for a text position
-function generateCFIForNode(textNode, offset, body, chapterIndex) {
-    // Build path from text node to body
-    const path = [];
-    let currentNode = textNode.parentNode;
-
-    while (currentNode && currentNode !== body) {
-        // Count position among siblings
-        let position = 0;
-        let sibling = currentNode.parentNode.firstChild;
-        while (sibling) {
-            if (sibling.nodeType === 1) { // Element node
-                position += 2;
-            }
-            if (sibling === currentNode) break;
-            sibling = sibling.nextSibling;
-        }
-
-        path.unshift(position);
-        currentNode = currentNode.parentNode;
-    }
-
-    // Build CFI string
-    const chapterPart = (chapterIndex + 1) * 2;
-    const pathPart = path.length > 0 ? '/' + path.join('/') : '';
-    const cfi = `/6/${chapterPart}!/4${pathPart}/1:${offset}`;
-
-    return cfi;
-}
-
-// Extract passages from chapter with CFI tracking
-function extractPassagesWithCFI(chapter, epubFile, devaLexiconSet, iastLexiconSet, mapping, processedPassages, errors) {
+// Extract passages from chapter (no CFI needed)
+function extractPassages(chapter, epubFile, devaLexiconSet, iastLexiconSet, mapping, processedPassages, errors) {
     const body = chapter.doc.getElementsByTagName('body')[0];
     if (!body) return;
 
-    // Get all text nodes with their positions
+    // Get all text nodes
     const textNodes = [];
     function collectTextNodes(node) {
         if (node.nodeType === 3) { // Text node
             const text = node.nodeValue || '';
             if (text.trim().length > 0) {
-                textNodes.push({
-                    node: node,
-                    text: text
-                });
+                textNodes.push(text);
             }
         } else if (node.childNodes) {
             for (let i = 0; i < node.childNodes.length; i++) {
@@ -155,19 +129,8 @@ function extractPassagesWithCFI(chapter, epubFile, devaLexiconSet, iastLexiconSe
     }
     collectTextNodes(body);
 
-    // Concatenate all text with node position tracking
-    let fullText = '';
-    const nodePositions = [];
-
-    for (let i = 0; i < textNodes.length; i++) {
-        const startPos = fullText.length;
-        fullText += textNodes[i].text;
-        nodePositions.push({
-            startPos: startPos,
-            endPos: fullText.length,
-            node: textNodes[i].node
-        });
-    }
+    // Concatenate all text
+    const fullText = textNodes.join('');
 
     // Apply same passage extraction algorithm as extract-sanskrit-passages.js
     const devanagariOrWhitespaceOrDash = /[\u0900-\u097F\s\-]/;
@@ -175,15 +138,11 @@ function extractPassagesWithCFI(chapter, epubFile, devaLexiconSet, iastLexiconSe
 
     // Extract Devanagari passages
     let currentPassage = '';
-    let passageStartPos = -1;
 
     for (let i = 0; i < fullText.length; i++) {
         const char = fullText[i];
 
         if (devanagariOrWhitespaceOrDash.test(char)) {
-            if (passageStartPos === -1) {
-                passageStartPos = i;
-            }
             currentPassage += char;
         } else {
             // Non-Devanagari boundary
@@ -191,12 +150,10 @@ function extractPassagesWithCFI(chapter, epubFile, devaLexiconSet, iastLexiconSe
                 const passage = currentPassage.trim();
                 // Check if passage contains whitespace (multiple words)
                 if (/\s/.test(passage)) {
-                    processPassage(passage, passageStartPos, nodePositions, body, chapter, epubFile,
-                                   devaLexiconSet, iastLexiconSet, mapping, processedPassages, errors);
+                    processPassage(passage, epubFile, devaLexiconSet, iastLexiconSet, mapping, processedPassages, errors);
                 }
             }
             currentPassage = '';
-            passageStartPos = -1;
         }
     }
 
@@ -204,8 +161,7 @@ function extractPassagesWithCFI(chapter, epubFile, devaLexiconSet, iastLexiconSe
     if (currentPassage.trim().length > 0) {
         const passage = currentPassage.trim();
         if (/\s/.test(passage)) {
-            processPassage(passage, passageStartPos, nodePositions, body, chapter, epubFile,
-                           devaLexiconSet, iastLexiconSet, mapping, processedPassages, errors);
+            processPassage(passage, epubFile, devaLexiconSet, iastLexiconSet, mapping, processedPassages, errors);
         }
     }
 
@@ -216,36 +172,17 @@ function extractPassagesWithCFI(chapter, epubFile, devaLexiconSet, iastLexiconSe
         const sanskritContent = match[1].trim();
 
         if (/\s/.test(sanskritContent) && !sanskritContent.includes('illegible')) {
-            const passageStartPos = match.index;
-            processPassage(sanskritContent, passageStartPos, nodePositions, body, chapter, epubFile,
-                           devaLexiconSet, iastLexiconSet, mapping, processedPassages, errors);
+            processPassage(sanskritContent, epubFile, devaLexiconSet, iastLexiconSet, mapping, processedPassages, errors);
         }
     }
 }
 
 // Process a single passage - check for lexicon words and add to mapping
-function processPassage(passage, startPos, nodePositions, body, chapter, epubFile,
-                        devaLexiconSet, iastLexiconSet, mapping, processedPassages, errors) {
+function processPassage(passage, epubFile, devaLexiconSet, iastLexiconSet, mapping, processedPassages, errors) {
     const hash = generatePassageHash(passage);
 
     // Skip if we've already processed this exact passage
     if (processedPassages.has(hash)) {
-        return;
-    }
-
-    // Find CFI for passage start
-    let cfi = null;
-    for (let i = 0; i < nodePositions.length; i++) {
-        const pos = nodePositions[i];
-        if (startPos >= pos.startPos && startPos < pos.endPos) {
-            const offset = startPos - pos.startPos;
-            cfi = generateCFIForNode(pos.node, offset, body, chapter.index);
-            break;
-        }
-    }
-
-    if (!cfi) {
-        errors.push(`No CFI found for passage ${hash}: ${passage.substring(0, 50)}...`);
         return;
     }
 
@@ -275,18 +212,12 @@ function processPassage(passage, startPos, nodePositions, body, chapter, epubFil
             mapping[word] = [];
         }
 
-        // Check if we already have this passage for this word (different CFI)
+        // Check if we already have this passage for this word
         const existing = mapping[word].find(p => p.hash === hash);
-        if (existing) {
-            // Add CFI if not already present
-            if (!existing.cfis.includes(cfi)) {
-                existing.cfis.push(cfi);
-            }
-        } else {
+        if (!existing) {
             // New passage for this word
             mapping[word].push({
                 hash: hash,
-                cfis: [cfi],
                 passage: passage
             });
         }
@@ -295,7 +226,7 @@ function processPassage(passage, startPos, nodePositions, body, chapter, epubFil
 
 // Main processing function
 async function createMapping() {
-    console.log('🔍 Creating Words-Passages Mapping...\n');
+    console.log('🔍 Creating Words-Passages Mapping (simplified - no CFI)...\n');
 
     try {
         // Load lexicons
@@ -338,38 +269,41 @@ async function createMapping() {
 
             // Extract passages from each chapter
             for (const chapter of chapters) {
-                extractPassagesWithCFI(chapter, epubFile, devaLexiconSet, iastLexiconSet,
-                                       mapping, processedPassages, errors);
+                extractPassages(chapter, epubFile, devaLexiconSet, iastLexiconSet,
+                               mapping, processedPassages, errors);
             }
         }
 
-        console.log('\n\n✅ Processing complete\n');
+        console.log('\n\n✅ Processing complete!\n');
 
-        // Write mapping file
-        console.log(`💾 Writing mapping to ${OUTPUT_FILE}...`);
-        fs.writeFileSync(OUTPUT_FILE, JSON.stringify(mapping, null, 2), 'utf8');
-        console.log('   Done!\n');
-
-        // Write errors if any
-        if (errors.length > 0) {
-            console.log(`⚠️  ${errors.length} passages without CFI locations`);
-            fs.writeFileSync(ERROR_FILE, errors.join('\n'), 'utf8');
-            console.log(`   See ${ERROR_FILE} for details\n`);
-        } else {
-            console.log('✅ No errors - all passages found!\n');
+        // Generate statistics
+        const totalWords = Object.keys(mapping).length;
+        const totalPassages = processedPassages.size;
+        let totalAssociations = 0;
+        for (const word in mapping) {
+            totalAssociations += mapping[word].length;
         }
 
-        // Statistics
-        console.log('📊 STATISTICS');
-        console.log('=============');
-        console.log(`Total lexicon words: ${devaLexiconSet.size + iastLexiconSet.size}`);
-        console.log(`Words with passages: ${Object.keys(mapping).length}`);
-        console.log(`Total passage-word associations: ${Object.values(mapping).reduce((sum, arr) => sum + arr.length, 0)}`);
-        console.log(`Unique passages found: ${processedPassages.size}`);
-        console.log(`Passages without CFI: ${errors.length}\n`);
+        console.log('📊 Statistics:');
+        console.log(`   Total unique passages: ${totalPassages}`);
+        console.log(`   Words with passages: ${totalWords}`);
+        console.log(`   Total word-passage associations: ${totalAssociations}`);
+        console.log(`   Average passages per word: ${(totalAssociations / totalWords).toFixed(1)}`);
 
-        const elapsed = (Date.now() - startTime) / 1000;
-        console.log(`⏱️  Total time: ${Math.floor(elapsed / 60)}m ${Math.floor(elapsed % 60)}s\n`);
+        // Save mapping
+        console.log(`\n💾 Saving mapping to ${OUTPUT_FILE}...`);
+        fs.writeFileSync(OUTPUT_FILE, JSON.stringify(mapping, null, 2));
+
+        const fileSizeMB = (fs.statSync(OUTPUT_FILE).size / (1024 * 1024)).toFixed(2);
+        console.log(`   File size: ${fileSizeMB} MB`);
+
+        // Save errors if any
+        if (errors.length > 0) {
+            console.log(`\n⚠️  ${errors.length} errors occurred. Saving to ${ERROR_FILE}...`);
+            fs.writeFileSync(ERROR_FILE, errors.join('\n'));
+        }
+
+        console.log('\n✨ Done!\n');
 
     } catch (error) {
         console.error('\n❌ Error:', error.message);
