@@ -34,11 +34,11 @@ REQUIRED MARKDOWN FORMAT
 
 # Passage
 
-[Copy of the Devanagari passage here - or provide the Devanagari rendering here if working from IAST]
+[Devanagari text - copy if provided, or convert from IAST if working in IAST mode]
 
-[Copy of the IAST passage here - or provide the IAST rendering here if working from Devanagari]
+[IAST text - copy if provided, or provide romanization if working from Devanagari]
 
-[Your English translation here]
+[Your English translation]
 
 [For short passages: Can be a single phrase or sentence]
 [For longer passages: Multiple paragraphs with natural breaks]

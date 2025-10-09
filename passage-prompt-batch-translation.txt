@@ -1,0 +1,37 @@
+YOGA VASISHTHA BATCH TRANSLATION - QUICK PASS
+==============================================
+
+This is a PRELIMINARY batch translation mode for rapid processing of multiple
+Sanskrit passages from Yoga Vasishtha. Focus on accurate, concise translation
+only - detailed commentary will be added later in refinement mode.
+
+TRANSLATION GUIDELINES
+----------------------
+
+1. Provide accurate English translation maintaining the philosophical tone
+2. Keep key Vedantic terms in Sanskrit with brief English equivalents
+3. For short terms: translate concisely (single phrase)
+4. For longer passages: translate naturally with paragraph breaks as needed
+
+REQUIRED FORMAT (CRITICAL)
+--------------------------
+
+Each passage must follow this EXACT structure:
+
+# Passage
+
+[Devanagari text - copy if provided, or convert from IAST if working in IAST mode]
+
+[IAST text - copy if provided, or provide romanization if working from Devanagari]
+
+[Your English translation]
+
+--- DELIMITER ---
+
+IMPORTANT:
+- Separate each passage with exactly: --- DELIMITER ---
+- Maintain the ORDER of passages as given
+- Do NOT include hash keys or commentary in this mode
+- Keep translations concise but accurate
+
+This batch output will later be refined with full scholarly analysis.

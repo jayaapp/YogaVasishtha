@@ -28,6 +28,7 @@ const PASSAGES_FILE_IAST = 'Yoga-Vasishtha-IAST-Passages.txt';
 const TRANSLATIONS_FILE = 'Yoga-Vasishtha-Sanskrit-Passages.json';
 const STATE_FILE = 'passage-manager-state.json';
 const PROMPT_FILE = 'passage-prompt.txt';
+const PROMPT_FILE_BATCH = 'passage-prompt-batch-translation.txt';
 const SESSION_GAP_MINUTES = 5;
 
 function showUsage() {
@@ -35,19 +36,24 @@ function showUsage() {
 Usage: ./passage-manager.js [options]
 
 Options:
-  -n, --next         Get next passage to translate
+  -n, --next         Get next passage to translate (full analysis mode)
+  -t <batch_size>    Get batch of passages for quick translation only
   -m <mode>          Mode: 'deva' for Devanagari (default), 'iast' for IAST
   -f, --full-prompt  Force full prompt display (otherwise shows brief after warmup)
-  -i <file>          Import translation from markdown file
+  -i <file>          Import translation from markdown file (full analysis)
+  -j <file>          Import batch translations from delimited file
   -s <hash>          Skip passage with given hash (mark as invalid/corrupt)
   -p, --progress     Show translation progress statistics
   -h, --help         Show this help message
 
 Examples:
-  ./passage-manager.js -n              # Get next Devanagari passage
+  ./passage-manager.js -n              # Get next Devanagari passage (full)
   ./passage-manager.js -n -f           # Get next with full prompt
   ./passage-manager.js -n -m iast      # Get next IAST passage
+  ./passage-manager.js -t 10           # Get 10 Devanagari passages for batch
+  ./passage-manager.js -t 5 -m iast    # Get 5 IAST passages for batch
   ./passage-manager.js -i translation-temp-deva-123456.txt
+  ./passage-manager.js -j translation-batch-deva-1234567890.txt
   ./passage-manager.js -s a1b2c3d4     # Skip corrupt passage
   ./passage-manager.js -p              # Show progress
 `);
@@ -113,6 +119,14 @@ function initializeState() {
             skipped: []
         },
         iast: {
+            translated: [],
+            skipped: []
+        },
+        devanagari_translation_only: {
+            translated: [],
+            skipped: []
+        },
+        iast_translation_only: {
             translated: [],
             skipped: []
         },
@@ -336,10 +350,26 @@ function importTranslation(inputFile) {
 
         // Update state
         const state = loadState();
+        const stateKeyTransOnly = mode === 'deva' ? 'devanagari_translation_only' : 'iast_translation_only';
+
+        // Remove from translation_only arrays if present (refinement workflow)
+        if (state[stateKeyTransOnly]) {
+            const transOnlyIndex = state[stateKeyTransOnly].translated.indexOf(hash);
+            if (transOnlyIndex !== -1) {
+                state[stateKeyTransOnly].translated.splice(transOnlyIndex, 1);
+            }
+            const skippedOnlyIndex = state[stateKeyTransOnly].skipped.indexOf(hash);
+            if (skippedOnlyIndex !== -1) {
+                state[stateKeyTransOnly].skipped.splice(skippedOnlyIndex, 1);
+            }
+        }
+
+        // Add to full analysis translated array
         if (!state[stateKey].translated.includes(hash)) {
             state[stateKey].translated.push(hash);
-            saveState(state);
         }
+
+        saveState(state);
 
         console.log(`✅ Translation imported successfully!`);
         console.log(`   Hash: ${hash}`);
@@ -410,15 +440,31 @@ function showProgress() {
 
     console.log(`📖 DEVANAGARI PASSAGES`);
     console.log(`   Total: ${devaPassages.length}`);
-    console.log(`   Translated: ${state.devanagari.translated.length} (${((state.devanagari.translated.length / devaPassages.length) * 100).toFixed(1)}%)`);
-    console.log(`   Skipped: ${state.devanagari.skipped.length}`);
-    console.log(`   Remaining: ${devaPassages.length - state.devanagari.translated.length - state.devanagari.skipped.length}\n`);
+    console.log(`   Full analysis: ${state.devanagari.translated.length} translated, ${state.devanagari.skipped.length} skipped`);
+
+    const devaTransOnlyCount = state.devanagari_translation_only ? state.devanagari_translation_only.translated.length : 0;
+    const devaSkippedOnlyCount = state.devanagari_translation_only ? state.devanagari_translation_only.skipped.length : 0;
+    if (devaTransOnlyCount > 0 || devaSkippedOnlyCount > 0) {
+        console.log(`   Batch translations: ${devaTransOnlyCount} translated, ${devaSkippedOnlyCount} skipped`);
+    }
+
+    const devaTotal = state.devanagari.translated.length + devaTransOnlyCount;
+    console.log(`   Completion: ${((devaTotal / devaPassages.length) * 100).toFixed(1)}%`);
+    console.log(`   Remaining: ${devaPassages.length - state.devanagari.translated.length - state.devanagari.skipped.length - devaTransOnlyCount - devaSkippedOnlyCount}\n`);
 
     console.log(`📖 IAST PASSAGES`);
     console.log(`   Total: ${iastPassages.length}`);
-    console.log(`   Translated: ${state.iast.translated.length} (${((state.iast.translated.length / iastPassages.length) * 100).toFixed(1)}%)`);
-    console.log(`   Skipped: ${state.iast.skipped.length}`);
-    console.log(`   Remaining: ${iastPassages.length - state.iast.translated.length - state.iast.skipped.length}\n`);
+    console.log(`   Full analysis: ${state.iast.translated.length} translated, ${state.iast.skipped.length} skipped`);
+
+    const iastTransOnlyCount = state.iast_translation_only ? state.iast_translation_only.translated.length : 0;
+    const iastSkippedOnlyCount = state.iast_translation_only ? state.iast_translation_only.skipped.length : 0;
+    if (iastTransOnlyCount > 0 || iastSkippedOnlyCount > 0) {
+        console.log(`   Batch translations: ${iastTransOnlyCount} translated, ${iastSkippedOnlyCount} skipped`);
+    }
+
+    const iastTotal = state.iast.translated.length + iastTransOnlyCount;
+    console.log(`   Completion: ${((iastTotal / iastPassages.length) * 100).toFixed(1)}%`);
+    console.log(`   Remaining: ${iastPassages.length - state.iast.translated.length - state.iast.skipped.length - iastTransOnlyCount - iastSkippedOnlyCount}\n`);
 
     console.log(`📚 TOTAL TRANSLATIONS`);
     console.log(`   Combined passages in JSON: ${Object.keys(translations).length}`);
@@ -426,9 +472,12 @@ function showProgress() {
     const totalPassages = devaPassages.length + iastPassages.length;
     const totalTranslated = state.devanagari.translated.length + state.iast.translated.length;
     const totalSkipped = state.devanagari.skipped.length + state.iast.skipped.length;
+    const totalBatchTrans = devaTransOnlyCount + iastTransOnlyCount;
 
-    console.log(`   Overall completion: ${((totalTranslated / totalPassages) * 100).toFixed(1)}%`);
-    console.log(`   Total processed: ${totalTranslated + totalSkipped}/${totalPassages}\n`);
+    console.log(`   Full analysis: ${totalTranslated} (${((totalTranslated / totalPassages) * 100).toFixed(1)}%)`);
+    console.log(`   Batch only: ${totalBatchTrans} (${((totalBatchTrans / totalPassages) * 100).toFixed(1)}%)`);
+    console.log(`   Overall completion: ${(((totalTranslated + totalBatchTrans) / totalPassages) * 100).toFixed(1)}%`);
+    console.log(`   Total processed: ${totalTranslated + totalSkipped + totalBatchTrans}/${totalPassages}\n`);
 
     // Session info
     if (state.lastRunTimestamp) {
@@ -441,6 +490,218 @@ function showProgress() {
         } else {
             console.log(`   Status: In warmup phase (full prompts)\n`);
         }
+    }
+}
+
+function getBatchPassages(batchSize, mode) {
+    const passagesFile = mode === 'deva' ? PASSAGES_FILE_DEVA : PASSAGES_FILE_IAST;
+    const passages = loadPassages(passagesFile);
+    const state = loadState();
+    const stateKey = mode === 'deva' ? 'devanagari' : 'iast';
+    const stateKeyTransOnly = mode === 'deva' ? 'devanagari_translation_only' : 'iast_translation_only';
+
+    // Ensure translation_only sections exist
+    if (!state[stateKeyTransOnly]) {
+        state[stateKeyTransOnly] = { translated: [], skipped: [] };
+    }
+
+    // Combine all processed hashes
+    const processedSet = new Set([
+        ...state[stateKey].translated,
+        ...state[stateKey].skipped,
+        ...state[stateKeyTransOnly].translated,
+        ...state[stateKeyTransOnly].skipped
+    ]);
+
+    // Find unprocessed passages
+    const unprocessedPassages = [];
+    const passageHashes = [];
+
+    for (const passage of passages) {
+        const hash = generatePassageHash(passage);
+        if (!processedSet.has(hash)) {
+            unprocessedPassages.push(passage);
+            passageHashes.push(hash);
+            if (unprocessedPassages.length >= batchSize) {
+                break;
+            }
+        }
+    }
+
+    if (unprocessedPassages.length === 0) {
+        console.log(`\n🎉 All ${mode === 'deva' ? 'Devanagari' : 'IAST'} passages have been processed!`);
+        console.log(`No unprocessed passages available for batch translation.`);
+        return;
+    }
+
+    // Generate timestamp for filenames
+    const timestamp = Date.now();
+    const txtFile = `translation-batch-${mode}-${timestamp}.txt`;
+    const hashkeysFile = `translation-batch-${mode}-${timestamp}.hashkeys`;
+
+    // Display batch prompt
+    console.log(`\n📦 BATCH TRANSLATION MODE`);
+    console.log(`=========================`);
+    console.log(`Mode: ${mode === 'deva' ? 'Devanagari' : 'IAST'}`);
+    console.log(`Batch size: ${unprocessedPassages.length} passage${unprocessedPassages.length > 1 ? 's' : ''}`);
+    console.log(`\nOutput files:`);
+    console.log(`  📝 ${txtFile}`);
+    console.log(`  🔑 ${hashkeysFile}\n`);
+
+    // Display passages
+    console.log(`📜 PASSAGES TO TRANSLATE:`);
+    console.log(`=========================\n`);
+
+    for (let i = 0; i < unprocessedPassages.length; i++) {
+        console.log(`[${i + 1}/${unprocessedPassages.length}] Hash: ${passageHashes[i]}`);
+        console.log(unprocessedPassages[i]);
+        console.log();
+    }
+
+    // Display batch translation instructions
+    if (fs.existsSync(PROMPT_FILE_BATCH)) {
+        const prompt = fs.readFileSync(PROMPT_FILE_BATCH, 'utf8');
+        console.log(`📝 BATCH TRANSLATION INSTRUCTIONS`);
+        console.log(`=================================`);
+        console.log(prompt);
+    } else {
+        console.error('⚠️  Warning: passage-prompt-batch-translation.txt not found!');
+    }
+
+    console.log(`\n🔄 WORKFLOW`);
+    console.log(`===========`);
+    console.log(`1. Translate all ${unprocessedPassages.length} passages following the format above`);
+    console.log(`2. Maintain the ORDER of passages (critical for hash mapping)`);
+    console.log(`3. Separate each passage with exactly: --- DELIMITER ---`);
+    console.log(`4. 📝 Save your translations to: '${txtFile}'`);
+    console.log(`5. Run: ./passage-manager.js -j ${txtFile}`);
+    console.log(`6. Batch will be imported and temp files auto-deleted\n`);
+
+    // Write hashkeys file
+    try {
+        fs.writeFileSync(hashkeysFile, passageHashes.join('\n'), 'utf8');
+        console.log(`✅ Hash keys file created: ${hashkeysFile}`);
+        console.log(`   (This file maps the order of passages to their hash identifiers)\n`);
+    } catch (error) {
+        console.error(`Error writing hashkeys file: ${error.message}`);
+    }
+}
+
+function importBatchTranslations(inputFile) {
+    // Determine if input is .txt or .hashkeys, find the matching pair
+    let txtFile, hashkeysFile;
+
+    if (inputFile.endsWith('.txt')) {
+        txtFile = inputFile;
+        hashkeysFile = inputFile.replace(/\.txt$/, '.hashkeys');
+    } else if (inputFile.endsWith('.hashkeys')) {
+        hashkeysFile = inputFile;
+        txtFile = inputFile.replace(/\.hashkeys$/, '.txt');
+    } else {
+        console.error('Error: File must be either .txt or .hashkeys');
+        console.error('Expected format: translation-batch-{mode}-{timestamp}.txt');
+        return;
+    }
+
+    // Check both files exist
+    if (!fs.existsSync(txtFile)) {
+        console.error(`Error: Translation file not found: ${txtFile}`);
+        return;
+    }
+    if (!fs.existsSync(hashkeysFile)) {
+        console.error(`Error: Hashkeys file not found: ${hashkeysFile}`);
+        return;
+    }
+
+    // Extract mode from filename
+    const filenameMatch = txtFile.match(/translation-batch-(deva|iast)-(\d+)\.txt$/);
+    if (!filenameMatch) {
+        console.error('Error: Invalid filename format.');
+        console.error('Expected format: translation-batch-{mode}-{timestamp}.txt');
+        console.error('Example: translation-batch-deva-1234567890.txt');
+        return;
+    }
+
+    const mode = filenameMatch[1];
+    const stateKeyTransOnly = mode === 'deva' ? 'devanagari_translation_only' : 'iast_translation_only';
+
+    try {
+        // Read files
+        const hashkeysContent = fs.readFileSync(hashkeysFile, 'utf8').trim();
+        const hashes = hashkeysContent.split('\n').map(h => h.trim()).filter(h => h.length > 0);
+
+        const txtContent = fs.readFileSync(txtFile, 'utf8').trim();
+        const passageSections = txtContent.split('--- DELIMITER ---').map(s => s.trim()).filter(s => s.length > 0);
+
+        // Validate counts match
+        if (hashes.length !== passageSections.length) {
+            console.error(`Error: Mismatch between hashkeys (${hashes.length}) and passages (${passageSections.length})`);
+            console.error('The number of hash keys must match the number of passages.');
+            return;
+        }
+
+        console.log(`\n📥 IMPORTING BATCH TRANSLATIONS`);
+        console.log(`================================`);
+        console.log(`Mode: ${mode === 'deva' ? 'Devanagari' : 'IAST'}`);
+        console.log(`Passages to import: ${hashes.length}\n`);
+
+        // Load existing data
+        const translations = loadTranslations();
+        const state = loadState();
+
+        // Ensure translation_only section exists
+        if (!state[stateKeyTransOnly]) {
+            state[stateKeyTransOnly] = { translated: [], skipped: [] };
+        }
+
+        let importedCount = 0;
+        let skippedCount = 0;
+
+        // Import each passage
+        for (let i = 0; i < hashes.length; i++) {
+            const hash = hashes[i];
+            const passageContent = passageSections[i];
+
+            // Check if hash already exists
+            if (translations[hash]) {
+                console.log(`ℹ️  INFO: Skipping hash ${hash} - already exists (passage ${i + 1}/${hashes.length})`);
+                skippedCount++;
+                continue;
+            }
+
+            // Import the translation
+            translations[hash] = passageContent;
+
+            // Update state
+            if (!state[stateKeyTransOnly].translated.includes(hash)) {
+                state[stateKeyTransOnly].translated.push(hash);
+            }
+
+            importedCount++;
+        }
+
+        // Save translations and state
+        saveTranslations(translations);
+        saveState(state);
+
+        console.log(`\n✅ Batch import complete!`);
+        console.log(`   Imported: ${importedCount} passage${importedCount !== 1 ? 's' : ''}`);
+        console.log(`   Skipped (already exist): ${skippedCount}`);
+        console.log(`   Total translations in JSON: ${Object.keys(translations).length}`);
+
+        // Auto-delete temp files
+        try {
+            fs.unlinkSync(txtFile);
+            fs.unlinkSync(hashkeysFile);
+            console.log(`\n🗑️  Auto-deleted temporary files:`);
+            console.log(`   ${txtFile}`);
+            console.log(`   ${hashkeysFile}`);
+        } catch (error) {
+            console.log(`\n⚠️  Could not delete temp files: ${error.message}`);
+        }
+
+    } catch (error) {
+        console.error(`Error importing batch translations: ${error.message}`);
     }
 }
 
@@ -481,6 +742,50 @@ if (skipIndex !== -1) {
         process.exit(1);
     }
     skipPassage(hash);
+    process.exit(0);
+}
+
+// Handle batch import
+const batchImportIndex = args.indexOf('-j');
+if (batchImportIndex !== -1) {
+    const inputFile = args[batchImportIndex + 1];
+    if (!inputFile) {
+        console.error('Error: Please specify a file after -j');
+        showUsage();
+        process.exit(1);
+    }
+    importBatchTranslations(inputFile);
+    process.exit(0);
+}
+
+// Handle batch translation
+const batchIndex = args.indexOf('-t');
+if (batchIndex !== -1) {
+    const batchSizeStr = args[batchIndex + 1];
+    if (!batchSizeStr) {
+        console.error('Error: Please specify a batch size after -t');
+        showUsage();
+        process.exit(1);
+    }
+    const batchSize = parseInt(batchSizeStr);
+    if (isNaN(batchSize) || batchSize < 1) {
+        console.error('Error: Batch size must be a positive number');
+        showUsage();
+        process.exit(1);
+    }
+
+    let mode = 'deva'; // default
+    const modeIndex = args.indexOf('-m');
+    if (modeIndex !== -1) {
+        mode = args[modeIndex + 1];
+        if (!mode || (mode !== 'deva' && mode !== 'iast')) {
+            console.error('Error: Please specify a valid mode after -m (deva or iast)');
+            showUsage();
+            process.exit(1);
+        }
+    }
+
+    getBatchPassages(batchSize, mode);
     process.exit(0);
 }
 

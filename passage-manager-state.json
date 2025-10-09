@@ -7,7 +7,15 @@
     "translated": [],
     "skipped": []
   },
-  "lastRunTimestamp": "2025-10-07T02:11:33.264Z",
+  "lastRunTimestamp": "2025-10-09T11:51:05.584Z",
   "consecutiveRuns": 0,
-  "passagesSinceFullPrompt": 0
+  "passagesSinceFullPrompt": 0,
+  "devanagari_translation_only": {
+    "translated": [],
+    "skipped": []
+  },
+  "iast_translation_only": {
+    "translated": [],
+    "skipped": []
+  }
 }
