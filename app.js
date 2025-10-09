@@ -4277,6 +4277,35 @@ const LexiconManager = {
     },
 
     /**
+     * Generate a unique hash key for a Sanskrit passage (browser-compatible version)
+     * This replicates the exact same hashing as passage-manager.js
+     * @param {string} passage - The Sanskrit passage text
+     * @returns {Promise<string>} - 12-character hash key
+     */
+    async generatePassageHash(passage) {
+        // Normalize: remove extra whitespace, trim (EXACT same as passage-manager.js)
+        const normalized = passage.trim().replace(/\s+/g, ' ');
+
+        // Use Web Crypto API (browser equivalent of Node's crypto)
+        // Use window.crypto explicitly to avoid conflicts
+        if (!window.crypto || !window.crypto.subtle) {
+            console.error('Web Crypto API not available. Requires HTTPS or localhost.');
+            throw new Error('Web Crypto API not available');
+        }
+
+        const encoder = new TextEncoder();
+        const data = encoder.encode(normalized);
+        const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+
+        // Convert to hex string
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+        // Return first 12 characters (same as passage-manager.js)
+        return hashHex.substring(0, 12);
+    },
+
+    /**
      * Process content to make Sanskrit words clickable
      */
     processContent(element) {
@@ -5701,13 +5730,164 @@ const EventHandlers = {
     },
 
     /**
+     * Extract complete Devanagari passage surrounding a clicked element
+     * Scans left and right collecting Devanagari characters, whitespace, and dashes
+     */
+    extractDevanagariPassage(clickedElement) {
+        const bookContent = Elements.bookContent;
+        if (!bookContent) {
+            console.log('❌ Book content not found');
+            return null;
+        }
+
+        // Create a TreeWalker to traverse all text nodes in the book
+        const walker = document.createTreeWalker(
+            bookContent,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+
+        // Collect all text nodes
+        const allTextNodes = [];
+        let node;
+        while (node = walker.nextNode()) {
+            allTextNodes.push(node);
+        }
+
+        // Find the text node that contains the clicked word
+        let clickedNodeIndex = -1;
+        for (let i = 0; i < allTextNodes.length; i++) {
+            if (clickedElement.contains(allTextNodes[i]) || allTextNodes[i].parentElement === clickedElement) {
+                clickedNodeIndex = i;
+                break;
+            }
+        }
+
+        if (clickedNodeIndex === -1) {
+            console.log('❌ Could not find clicked word in text nodes');
+            return null;
+        }
+
+        console.log(`📍 Found clicked word at text node index: ${clickedNodeIndex}`);
+
+        // Pattern: Devanagari characters, whitespace, or dash
+        const devanagariPattern = /[\u0900-\u097F\s\-]/;
+
+        // Scan LEFT from nodes BEFORE the clicked node
+        let leftPassage = '';
+        for (let i = clickedNodeIndex - 1; i >= 0; i--) {
+            const text = allTextNodes[i].textContent;
+
+            // Scan backwards through this text node
+            for (let j = text.length - 1; j >= 0; j--) {
+                const char = text[j];
+                if (devanagariPattern.test(char)) {
+                    leftPassage = char + leftPassage;
+                } else {
+                    // Hit a non-Devanagari character, stop scanning left
+                    console.log(`⬅️  Stopped scanning left at character: "${char}"`);
+                    i = -1; // Break outer loop
+                    break;
+                }
+            }
+        }
+
+        // Process the CLICKED NODE itself (add to both left and right)
+        const clickedNodeText = allTextNodes[clickedNodeIndex].textContent;
+        let clickedNodePassage = '';
+        for (let j = 0; j < clickedNodeText.length; j++) {
+            const char = clickedNodeText[j];
+            if (devanagariPattern.test(char)) {
+                clickedNodePassage += char;
+            } else {
+                break; // Stop at first non-Devanagari in clicked node
+            }
+        }
+
+        // Scan RIGHT from nodes AFTER the clicked node
+        let rightPassage = '';
+        for (let i = clickedNodeIndex + 1; i < allTextNodes.length; i++) {
+            const text = allTextNodes[i].textContent;
+
+            // Scan forwards through this text node
+            for (let j = 0; j < text.length; j++) {
+                const char = text[j];
+                if (devanagariPattern.test(char)) {
+                    rightPassage += char;
+                } else {
+                    // Hit a non-Devanagari character, stop scanning right
+                    console.log(`➡️  Stopped scanning right at character: "${char}"`);
+                    i = allTextNodes.length; // Break outer loop
+                    break;
+                }
+            }
+        }
+
+        // Combine: left + clicked node + right, then trim
+        const completePassage = (leftPassage + clickedNodePassage + rightPassage).trim();
+
+        console.log('📜 EXTRACTED DEVANAGARI PASSAGE:');
+        console.log('═══════════════════════════════════════');
+        console.log(completePassage);
+        console.log('═══════════════════════════════════════');
+        console.log(`Length: ${completePassage.length} characters`);
+
+        return completePassage;
+    },
+
+    /**
+     * Lookup passage translation by generating hash and checking State.passagesTranslations
+     */
+    async lookupPassageTranslation(passage) {
+        console.log('🔑 GENERATING HASH FOR PASSAGE...');
+
+        try {
+            // Generate hash using the same method as passage-manager.js
+            const hash = await LexiconManager.generatePassageHash(passage);
+
+            console.log('═══════════════════════════════════════');
+            console.log(`Hash: ${hash}`);
+            console.log('═══════════════════════════════════════');
+
+            // Lookup translation in State.passagesTranslations
+            const translation = State.passagesTranslations[hash];
+
+            if (translation) {
+                console.log('✅ TRANSLATION FOUND:');
+                console.log('───────────────────────────────────────');
+                console.log(translation);
+                console.log('───────────────────────────────────────');
+            } else {
+                console.log('❌ NO TRANSLATION FOUND for hash:', hash);
+                console.log(`   Total translations available: ${Object.keys(State.passagesTranslations).length}`);
+                console.log('   Sample of available hashes:', Object.keys(State.passagesTranslations).slice(0, 5));
+            }
+        } catch (error) {
+            console.error('❌ ERROR generating hash:', error.message);
+            console.log('   This may be due to:');
+            console.log('   - Page not served over HTTPS (Web Crypto API requires secure context)');
+            console.log('   - Use http://localhost or https:// instead of file:// or http://');
+        }
+    },
+
+    /**
      * Handle Sanskrit word clicks
      */
-    onSanskritWordClick(e) {
+    async onSanskritWordClick(e) {
         const sanskritWord = e.target.closest('.sanskrit-word');
         if (sanskritWord) {
             const word = sanskritWord.getAttribute('data-word');
             if (word) {
+                // Extract surrounding Devanagari passage
+                const passage = this.extractDevanagariPassage(sanskritWord);
+
+                // Generate hash and lookup translation if passage was extracted
+                if (passage) {
+                    await this.lookupPassageTranslation(passage);
+                }
+
+                // Show lexicon entry (we'll pass the passage later)
                 LexiconManager.showEntry(word);
             }
         }
