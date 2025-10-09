@@ -11,7 +11,18 @@
   "consecutiveRuns": 0,
   "passagesSinceFullPrompt": 0,
   "devanagari_translation_only": {
-    "translated": [],
+    "translated": [
+      "10bc4c2c5525",
+      "5b819ac8b373",
+      "3cc7a2a4cebb",
+      "9afc7ba58c85",
+      "456deb063a38",
+      "32426d8b226c",
+      "7271ab042d93",
+      "361f866962da",
+      "053c2cdc4248",
+      "0f7daca52f7c"
+    ],
     "skipped": []
   },
   "iast_translation_only": {
