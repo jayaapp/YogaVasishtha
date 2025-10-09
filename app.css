@@ -660,14 +660,14 @@ body.dark-theme {
     border-radius: 3px;
 }
 
-.passage-cfis {
+.passage-locations {
     display: flex;
     gap: 0.5rem;
     flex-wrap: wrap;
     margin-bottom: 0.75rem;
 }
 
-.passage-cfi-link {
+.passage-location-link {
     display: inline-flex;
     align-items: center;
     padding: 0.4rem 0.8rem;
@@ -681,7 +681,7 @@ body.dark-theme {
     transition: all 0.2s ease;
 }
 
-.passage-cfi-link:hover {
+.passage-location-link:hover {
     background-color: var(--sanskrit-color);
     color: white;
     border-color: var(--sanskrit-color);

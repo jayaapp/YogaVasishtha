@@ -4517,7 +4517,7 @@ const LexiconManager = {
         let locationNumber = 1;
 
         passages.forEach((passageEntry, index) => {
-            const { hash, cfis, passage } = passageEntry;
+            const { hash, locations, passage } = passageEntry;
 
             html += `<div class="passage-item">`;
 
@@ -4525,13 +4525,13 @@ const LexiconManager = {
             const highlightedPassage = this.highlightWordInPassage(passage, word);
             html += `<div class="passage-text">${highlightedPassage}</div>`;
 
-            // Render CFI links
-            if (cfis && cfis.length > 0) {
-                html += `<div class="passage-cfis">`;
+            // Render location links
+            if (locations && locations.length > 0) {
+                html += `<div class="passage-locations">`;
                 // Store hash instead of passage text (avoids HTML attribute issues with newlines/quotes)
-                cfis.forEach((cfi, cfiIndex) => {
-                    const escapedCFI = cfi.replace(/"/g, '&quot;');
-                    html += `<a href="#" class="passage-cfi-link" data-cfi="${escapedCFI}" data-hash="${hash}" onclick="LexiconManager.navigateToCFIFromLink(this); return false;">Location ${locationNumber}</a>`;
+                locations.forEach((location, locationIndex) => {
+                    const escapedLocation = location.replace(/"/g, '&quot;');
+                    html += `<a href="#" class="passage-location-link" data-location="${escapedLocation}" data-hash="${hash}" onclick="LexiconManager.navigateToPassageFromLink(this); return false;">Location ${locationNumber}</a>`;
                     locationNumber++;
                 });
                 html += `</div>`;
@@ -4577,10 +4577,10 @@ const LexiconManager = {
     },
 
     /**
-     * Navigate to CFI from a link element (extracts data from data attributes)
+     * Navigate to passage from a link element (extracts data from data attributes)
      */
-    navigateToCFIFromLink(linkElement) {
-        const cfi = linkElement.getAttribute('data-cfi');
+    navigateToPassageFromLink(linkElement) {
+        const location = linkElement.getAttribute('data-location');
         const hash = linkElement.getAttribute('data-hash');
 
         // Find the passage text and the word it belongs to
@@ -4602,9 +4602,9 @@ const LexiconManager = {
 
         if (passageText && lexiconWord) {
             console.log('📖 Navigating to passage containing word:', lexiconWord);
-            this.navigateToCFIByWordContext(cfi, passageText, lexiconWord);
+            this.navigateToPassageByWordContext(location, passageText, lexiconWord);
         } else {
-            console.error('❌ Could not find passage for hash:', hash, 'CFI:', cfi);
+            console.error('❌ Could not find passage for hash:', hash);
         }
     },
 
@@ -4612,7 +4612,7 @@ const LexiconManager = {
      * Navigate to passage by finding the lexicon word and matching surrounding context
      * Much more robust than trying to match entire passage text
      */
-    navigateToCFIByWordContext(cfi, passageText, lexiconWord) {
+    navigateToPassageByWordContext(location, passageText, lexiconWord) {
         // Close lexicon modal first
         ModalManager.close('lexicon');
 
@@ -4917,10 +4917,9 @@ const LexiconManager = {
     },
 
     /**
-     * Navigate to CFI location in the EPUB (legacy method - kept for compatibility)
-     * Uses passage text to find location since CFI paths don't match transformed DOM
+     * Navigate to passage location in the EPUB using text search
      */
-    navigateToCFI(cfi, passageText) {
+    navigateToPassage(passageText) {
         // Close lexicon modal first
         ModalManager.close('lexicon');
 
@@ -4939,21 +4938,13 @@ const LexiconManager = {
         const truncateLength = Math.min(Math.max(15, Math.floor(normalizedSearchPassage.length * 0.6)), 30);
         const truncatedSearchPassage = normalizedSearchPassage.substring(0, truncateLength);
 
-        // Parse CFI to get spine index (helps narrow down search area)
-        // CFI format: /6/{spineIndex*2}!/4/...
-        let targetSpineIndex = null;
-        const cfiMatch = cfi.match(/^\/6\/(\d+)!/);
-        if (cfiMatch) {
-            targetSpineIndex = (parseInt(cfiMatch[1]) / 2) - 1;
-        }
-
         console.log(`🔍 Searching for passage in current book (${State.currentBookIndex})`);
         console.log(`   Passage (first 100 chars): "${passageText.substring(0, 100)}"`);
         console.log(`   Normalized (${normalizedSearchPassage.length} chars): "${normalizedSearchPassage}"`);
         console.log(`   Truncated search (${truncatedSearchPassage.length} chars): "${truncatedSearchPassage}"`);
 
         // Search for passage in current book first
-        let found = this.findAndScrollToPassage(passageText, State.currentBookIndex, targetSpineIndex);
+        let found = this.findAndScrollToPassage(passageText, State.currentBookIndex);
 
         if (!found) {
             console.log(`⚠️ Not found in current book, searching other books...`);
@@ -4983,7 +4974,7 @@ const LexiconManager = {
 
                     // Wait for book to render, then scroll to passage
                     setTimeout(() => {
-                        this.findAndScrollToPassage(passageText, bookIndex, targetSpineIndex);
+                        this.findAndScrollToPassage(passageText, bookIndex);
                     }, 500);
 
                     found = true;
@@ -5001,9 +4992,8 @@ const LexiconManager = {
      * Find passage text in rendered content and scroll to it
      * @param {string} passageText - The passage text to search for
      * @param {number} bookIndex - The book index being searched
-     * @param {number|null} targetSpineIndex - Optional spine index hint from CFI
      */
-    findAndScrollToPassage(passageText, bookIndex, targetSpineIndex = null) {
+    findAndScrollToPassage(passageText, bookIndex) {
         // Multi-level normalization for robust matching
 
         // Level 1: Standard normalization (spaces)
@@ -5924,8 +5914,8 @@ const App = {
         document.addEventListener('click', (e) => {
             const link = e.target.closest('a[href^="#"]');
             if (link) {
-                // Skip if this is a passage CFI link (handled by LexiconManager)
-                if (link.classList.contains('passage-cfi-link')) {
+                // Skip if this is a passage location link (handled by LexiconManager)
+                if (link.classList.contains('passage-location-link')) {
                     return;
                 }
 
