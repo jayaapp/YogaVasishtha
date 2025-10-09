@@ -4496,8 +4496,11 @@ const LexiconManager = {
      */
     renderPassagesView(word, passages) {
         if (!passages || passages.length === 0) {
+            console.warn('📖 No passages found for word:', word);
             return `<h2>${word}</h2><p>No passages found.</p>`;
         }
+
+        console.log(`📖 Rendering passages view for "${word}":`, passages.length, 'passages');
 
         const converter = new showdown.Converter();
         let html = `<h2>${word}</h2>`;
@@ -4517,7 +4520,9 @@ const LexiconManager = {
         let locationNumber = 1;
 
         passages.forEach((passageEntry, index) => {
-            const { hash, locations, passage } = passageEntry;
+            console.log(`📍 Passage ${index + 1}:`, passageEntry);
+
+            const { hash, passage } = passageEntry;
 
             html += `<div class="passage-item">`;
 
@@ -4525,17 +4530,11 @@ const LexiconManager = {
             const highlightedPassage = this.highlightWordInPassage(passage, word);
             html += `<div class="passage-text">${highlightedPassage}</div>`;
 
-            // Render location links
-            if (locations && locations.length > 0) {
-                html += `<div class="passage-locations">`;
-                // Store hash instead of passage text (avoids HTML attribute issues with newlines/quotes)
-                locations.forEach((location, locationIndex) => {
-                    const escapedLocation = location.replace(/"/g, '&quot;');
-                    html += `<a href="#" class="passage-location-link" data-location="${escapedLocation}" data-hash="${hash}" onclick="LexiconManager.navigateToPassageFromLink(this); return false;">Location ${locationNumber}</a>`;
-                    locationNumber++;
-                });
-                html += `</div>`;
-            }
+            // Render location link (one per passage, since locations are computed algorithmically)
+            html += `<div class="passage-locations">`;
+            html += `<a href="#" class="passage-location-link" data-hash="${hash}" onclick="LexiconManager.navigateToPassageFromLink(this); return false;">Link ${locationNumber}</a>`;
+            locationNumber++;
+            html += `</div>`;
 
             // Render translation if available
             const translation = State.passagesTranslations[hash];
@@ -4580,7 +4579,6 @@ const LexiconManager = {
      * Navigate to passage from a link element (extracts data from data attributes)
      */
     navigateToPassageFromLink(linkElement) {
-        const location = linkElement.getAttribute('data-location');
         const hash = linkElement.getAttribute('data-hash');
 
         // Find the passage text and the word it belongs to
@@ -4602,7 +4600,7 @@ const LexiconManager = {
 
         if (passageText && lexiconWord) {
             console.log('📖 Navigating to passage containing word:', lexiconWord);
-            this.navigateToPassageByWordContext(location, passageText, lexiconWord);
+            this.navigateToPassageByWordContext(passageText, lexiconWord);
         } else {
             console.error('❌ Could not find passage for hash:', hash);
         }
@@ -4612,7 +4610,7 @@ const LexiconManager = {
      * Navigate to passage by finding the lexicon word and matching surrounding context
      * Much more robust than trying to match entire passage text
      */
-    navigateToPassageByWordContext(location, passageText, lexiconWord) {
+    navigateToPassageByWordContext(passageText, lexiconWord) {
         // Close lexicon modal first
         ModalManager.close('lexicon');
 
