@@ -244,7 +244,8 @@ function displayBriefPrompt(passage, hash, mode, translatedCount, skippedCount, 
     console.log(`🔄 WORKFLOW`);
     console.log(`===========`);
     console.log(`1. Translate and analyze following the format`);
-    console.log(`2. Save markdown to '${tempFile}'`);
+    console.log(`2. 📝 Save markdown to EXACT filename: '${tempFile}'`);
+    console.log(`   ⚠️  Hash (${hash}) is pre-calculated - do not change filename!`);
     console.log(`3. Run: ./passage-manager.js -i ${tempFile}`);
     console.log(`4. Run: ./passage-manager.js -n -m ${mode}  # next passage`);
     console.log();
@@ -258,7 +259,7 @@ function displayPassageForTranslation(passage, hash, mode, translatedCount, skip
     console.log(`Progress: ${translatedCount} translated, ${skippedCount} skipped, ${totalCount - translatedCount - skippedCount} remaining`);
     console.log(`Completion: ${((translatedCount / totalCount) * 100).toFixed(1)}%\n`);
 
-    const tempFile = `translation-temp-${mode}-${Date.now()}.txt`;
+    const tempFile = `translation-temp-${mode}-${hash}.txt`;
 
     if (showFullPrompt) {
         console.log(`📜 PASSAGE:`);
@@ -280,7 +281,9 @@ function displayPassageForTranslation(passage, hash, mode, translatedCount, skip
         console.log(`===========`);
         console.log(`1. Translate and analyze the passage following the format above`);
         console.log(`2. Scale commentary depth to match passage significance`);
-        console.log(`3. Save your markdown to '${tempFile}'`);
+        console.log(`3. 📝 IMPORTANT: Save your markdown to EXACT filename below:`);
+        console.log(`   '${tempFile}'`);
+        console.log(`   ⚠️  Do not change the filename! The hash (${hash}) is pre-calculated.`);
         console.log(`4. Run: ./passage-manager.js -i ${tempFile}`);
         console.log(`5. The translation will be imported and temp file auto-deleted`);
         console.log(`6. Run: ./passage-manager.js -n -m ${mode}  # to get next passage`);
@@ -308,22 +311,22 @@ function importTranslation(inputFile) {
             return;
         }
 
-        // Extract the original Sanskrit passage from the markdown
-        const passageMatch = markdown.match(/# Sanskrit Passage\s*\n\s*\n([\s\S]+?)\n\n## Translation/);
+        // Extract hash and mode from filename
+        // Expected format: translation-temp-{mode}-{hash}.txt
+        const filenameMatch = inputFile.match(/translation-temp-(deva|iast)-([a-f0-9]{12})\.txt$/);
 
-        if (!passageMatch) {
-            console.error('Error: Could not extract Sanskrit passage from markdown.');
-            console.error('Make sure your markdown starts with:');
-            console.error('# Sanskrit Passage\n\n[sanskrit text]\n\n## Translation');
+        if (!filenameMatch) {
+            console.error('Error: Invalid filename format.');
+            console.error('Expected format: translation-temp-{mode}-{hash}.txt');
+            console.error('Example: translation-temp-deva-10bc4c2c5525.txt');
+            console.error('');
+            console.error('The hash is provided by the tool when you run: ./passage-manager.js -n');
+            console.error('Please use the exact filename suggested by the tool.');
             return;
         }
 
-        const sanskritPassage = passageMatch[1].trim();
-        const hash = generatePassageHash(sanskritPassage);
-
-        // Determine mode from passage content
-        const isDevanagari = /[\u0900-\u097F]/.test(sanskritPassage);
-        const mode = isDevanagari ? 'deva' : 'iast';
+        const mode = filenameMatch[1];
+        const hash = filenameMatch[2];
         const stateKey = mode === 'deva' ? 'devanagari' : 'iast';
 
         // Load and update translations
