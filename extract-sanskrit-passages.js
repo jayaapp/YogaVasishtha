@@ -9,33 +9,47 @@ function extractSanskritPassages() {
 
         const passages = [];
         let currentPassage = '';
-        const devanagariOrWhitespaceOrDash = /[\u0900-\u097F\s\-]/;
+        // Stop only at Roman letters (a-z, A-Z)
+        // Include: Devanagari, whitespace, numbers, ALL punctuation
+        const romanLetterPattern = /[a-zA-Z]/;
+
+        const hasDevanagariPattern = /[\u0900-\u097F]/;
 
         for (let i = 0; i < content.length; i++) {
             const char = content[i];
 
-            // Check if character is Devanagari, whitespace (space/newline), or dash
-            if (devanagariOrWhitespaceOrDash.test(char)) {
-                currentPassage += char;
-            } else {
-                // Non-Devanagari, non-whitespace character encountered
+            // Check if character is a Roman letter (passage boundary)
+            if (romanLetterPattern.test(char)) {
+                // Roman letter encountered - end of passage
                 if (currentPassage.trim().length > 0) {
-                    // Save the accumulated passage if it contains multiple words or newlines
-                    const passage = currentPassage.trim();
-                    // Check if passage contains whitespace (space or newline) indicating multiple words/lines
-                    if (/\s/.test(passage) && !passages.includes(passage)) {
+                    // Clean leading/trailing non-Devanagari characters (including numbers, punctuation)
+                    let passage = currentPassage
+                        .replace(/^[^\u0900-\u097F]+/, '')  // Remove ALL leading non-Devanagari
+                        .replace(/[^\u0900-\u097F]+$/, '')  // Remove ALL trailing non-Devanagari
+                        .trim();
+
+                    // Save only if: contains whitespace AND has at least 2 Devanagari characters
+                    const devanagariChars = (passage.match(/[\u0900-\u097F]/g) || []);
+                    if (/\s/.test(passage) && devanagariChars.length >= 2 && !passages.includes(passage)) {
                         passages.push(passage);
                     }
                 }
                 currentPassage = '';
+            } else {
+                // Include everything else: Devanagari, numbers, punctuation, whitespace
+                currentPassage += char;
             }
         }
 
         // Handle any remaining passage at end of file
         if (currentPassage.trim().length > 0) {
-            const passage = currentPassage.trim();
-            // Check if passage contains whitespace (space or newline) indicating multiple words/lines
-            if (/\s/.test(passage) && !passages.includes(passage)) {
+            let passage = currentPassage
+                .replace(/^[^\u0900-\u097F]+/, '')  // Remove ALL leading non-Devanagari
+                .replace(/[^\u0900-\u097F]+$/, '')  // Remove ALL trailing non-Devanagari
+                .trim();
+            // Save only if: contains whitespace AND has at least 2 Devanagari characters
+            const devanagariChars = (passage.match(/[\u0900-\u097F]/g) || []);
+            if (/\s/.test(passage) && devanagariChars.length >= 2 && !passages.includes(passage)) {
                 passages.push(passage);
             }
         }

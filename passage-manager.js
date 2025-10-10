@@ -262,16 +262,21 @@ function getRunsUntilFullPrompt(state) {
 function getNextPassage(mode, forceFullPrompt) {
     const passagesFile = mode === 'deva' ? PASSAGES_FILE_DEVA : PASSAGES_FILE_IAST;
     const passages = loadPassages(passagesFile);
+    const translations = loadTranslations();
     const state = loadState();
-    const stateKey = mode === 'deva' ? 'devanagari' : 'iast';
 
-    const translatedSet = new Set(state[stateKey].translated);
-    const skippedSet = new Set(state[stateKey].skipped);
+    // Count translated passages
+    let translatedCount = 0;
+    let skippedCount = 0;
 
-    // Find first passage that hasn't been translated or skipped
+    // Find first passage that hasn't been translated
     for (const passage of passages) {
         const hash = generatePassageHash(passage);
-        if (!translatedSet.has(hash) && !skippedSet.has(hash)) {
+
+        if (translations[hash]) {
+            translatedCount++;
+        } else {
+            // Found untranslated passage
             const showFull = shouldShowFullPrompt(state, forceFullPrompt);
 
             // Update timestamp
@@ -282,8 +287,8 @@ function getNextPassage(mode, forceFullPrompt) {
                 passage,
                 hash,
                 mode,
-                translatedSet.size,
-                skippedSet.size,
+                translatedCount,
+                skippedCount,
                 passages.length,
                 showFull,
                 getRunsUntilFullPrompt(state)
@@ -295,8 +300,8 @@ function getNextPassage(mode, forceFullPrompt) {
     // All passages processed
     console.log(`\n🎉 All ${mode === 'deva' ? 'Devanagari' : 'IAST'} passages have been processed!`);
     console.log(`Total passages: ${passages.length}`);
-    console.log(`Translated: ${translatedSet.size}`);
-    console.log(`Skipped: ${skippedSet.size}`);
+    console.log(`Translated: ${translatedCount}`);
+    console.log(`Remaining: 0`);
 }
 
 function displayBriefPrompt(passage, hash, mode, translatedCount, skippedCount, totalCount, runsUntilFull, tempFile) {
@@ -516,67 +521,56 @@ function showProgress() {
         state.missing_translation_only = { translated: [], skipped: [] };
     }
 
+    // Generate actual hashes from current passages
+    const devaHashes = devaPassages.map(p => generatePassageHash(p));
+    const iastHashes = iastPassages.map(p => generatePassageHash(p));
+    const missingHashes = missingPassages.map(mp => mp.hash);
+
+    const allValidHashes = new Set([...devaHashes, ...iastHashes, ...missingHashes]);
+
+    // Count how many valid passages have translations
+    const devaTranslated = devaHashes.filter(h => translations[h]).length;
+    const iastTranslated = iastHashes.filter(h => translations[h]).length;
+    const missingTranslated = missingHashes.filter(h => translations[h]).length;
+
+    // Count valid translations (that match current passages)
+    const validTranslations = Object.keys(translations).filter(h => allValidHashes.has(h)).length;
+    const obsoleteTranslations = Object.keys(translations).length - validTranslations;
+
     console.log(`\n📊 PASSAGE TRANSLATION PROGRESS`);
     console.log(`================================\n`);
 
     console.log(`📖 DEVANAGARI PASSAGES`);
     console.log(`   Total: ${devaPassages.length}`);
-    console.log(`   Full analysis: ${state.devanagari.translated.length} translated, ${state.devanagari.skipped.length} skipped`);
-
-    const devaTransOnlyCount = state.devanagari_translation_only ? state.devanagari_translation_only.translated.length : 0;
-    const devaSkippedOnlyCount = state.devanagari_translation_only ? state.devanagari_translation_only.skipped.length : 0;
-    if (devaTransOnlyCount > 0 || devaSkippedOnlyCount > 0) {
-        console.log(`   Batch translations: ${devaTransOnlyCount} translated, ${devaSkippedOnlyCount} skipped`);
-    }
-
-    const devaTotal = state.devanagari.translated.length + devaTransOnlyCount;
-    console.log(`   Completion: ${((devaTotal / devaPassages.length) * 100).toFixed(1)}%`);
-    console.log(`   Remaining: ${devaPassages.length - state.devanagari.translated.length - state.devanagari.skipped.length - devaTransOnlyCount - devaSkippedOnlyCount}\n`);
+    console.log(`   Translated: ${devaTranslated}`);
+    console.log(`   Completion: ${((devaTranslated / devaPassages.length) * 100).toFixed(1)}%`);
+    console.log(`   Remaining: ${devaPassages.length - devaTranslated}\n`);
 
     console.log(`📖 IAST PASSAGES`);
     console.log(`   Total: ${iastPassages.length}`);
-    console.log(`   Full analysis: ${state.iast.translated.length} translated, ${state.iast.skipped.length} skipped`);
-
-    const iastTransOnlyCount = state.iast_translation_only ? state.iast_translation_only.translated.length : 0;
-    const iastSkippedOnlyCount = state.iast_translation_only ? state.iast_translation_only.skipped.length : 0;
-    if (iastTransOnlyCount > 0 || iastSkippedOnlyCount > 0) {
-        console.log(`   Batch translations: ${iastTransOnlyCount} translated, ${iastSkippedOnlyCount} skipped`);
-    }
-
-    const iastTotal = state.iast.translated.length + iastTransOnlyCount;
-    console.log(`   Completion: ${((iastTotal / iastPassages.length) * 100).toFixed(1)}%`);
-    console.log(`   Remaining: ${iastPassages.length - state.iast.translated.length - state.iast.skipped.length - iastTransOnlyCount - iastSkippedOnlyCount}\n`);
+    console.log(`   Translated: ${iastTranslated}`);
+    console.log(`   Completion: ${((iastTranslated / iastPassages.length) * 100).toFixed(1)}%`);
+    console.log(`   Remaining: ${iastPassages.length - iastTranslated}\n`);
 
     console.log(`📖 MISSING PASSAGES (from error report)`);
     console.log(`   Total: ${missingPassages.length}`);
-    console.log(`   Full analysis: ${state.missing.translated.length} translated, ${state.missing.skipped.length} skipped`);
-
-    const missingTransOnlyCount = state.missing_translation_only.translated.length;
-    const missingSkippedOnlyCount = state.missing_translation_only.skipped.length;
-    if (missingTransOnlyCount > 0 || missingSkippedOnlyCount > 0) {
-        console.log(`   Batch translations: ${missingTransOnlyCount} translated, ${missingSkippedOnlyCount} skipped`);
-    }
-
-    const missingTotal = state.missing.translated.length + missingTransOnlyCount;
+    console.log(`   Translated: ${missingTranslated}`);
     if (missingPassages.length > 0) {
-        console.log(`   Completion: ${((missingTotal / missingPassages.length) * 100).toFixed(1)}%`);
-        console.log(`   Remaining: ${missingPassages.length - state.missing.translated.length - state.missing.skipped.length - missingTransOnlyCount - missingSkippedOnlyCount}\n`);
+        console.log(`   Completion: ${((missingTranslated / missingPassages.length) * 100).toFixed(1)}%`);
+        console.log(`   Remaining: ${missingPassages.length - missingTranslated}\n`);
     } else {
         console.log(`   (No missing passages file found yet)\n`);
     }
 
     console.log(`📚 TOTAL TRANSLATIONS`);
-    console.log(`   Combined passages in JSON: ${Object.keys(translations).length}`);
-
-    const totalPassages = devaPassages.length + iastPassages.length + missingPassages.length;
-    const totalTranslated = state.devanagari.translated.length + state.iast.translated.length + state.missing.translated.length;
-    const totalSkipped = state.devanagari.skipped.length + state.iast.skipped.length + state.missing.skipped.length;
-    const totalBatchTrans = devaTransOnlyCount + iastTransOnlyCount + missingTransOnlyCount;
-
-    console.log(`   Full analysis: ${totalTranslated} (${((totalTranslated / totalPassages) * 100).toFixed(1)}%)`);
-    console.log(`   Batch only: ${totalBatchTrans} (${((totalBatchTrans / totalPassages) * 100).toFixed(1)}%)`);
-    console.log(`   Overall completion: ${(((totalTranslated + totalBatchTrans) / totalPassages) * 100).toFixed(1)}%`);
-    console.log(`   Total processed: ${totalTranslated + totalSkipped + totalBatchTrans}/${totalPassages}\n`);
+    console.log(`   Valid passages: ${allValidHashes.size}`);
+    console.log(`   Translated: ${validTranslations}`);
+    console.log(`   Completion: ${((validTranslations / allValidHashes.size) * 100).toFixed(1)}%`);
+    console.log(`   Remaining: ${allValidHashes.size - validTranslations}`);
+    if (obsoleteTranslations > 0) {
+        console.log(`   ⚠️  Obsolete translations: ${obsoleteTranslations} (from old passages)`);
+    }
+    console.log();
 
     // Session info
     if (state.lastRunTimestamp) {
@@ -594,16 +588,15 @@ function showProgress() {
 
 function getBatchPassages(batchSize, mode) {
     const state = loadState();
+    const translations = loadTranslations();
 
-    let passages, passageHashes, stateKey, stateKeyTransOnly, modeLabel;
+    let passages, passageHashes, modeLabel;
 
     // Load passages and hashes based on mode
     if (mode === 'deva' || mode === 'iast') {
         const passagesFile = mode === 'deva' ? PASSAGES_FILE_DEVA : PASSAGES_FILE_IAST;
         passages = loadPassages(passagesFile);
         passageHashes = passages.map(p => generatePassageHash(p));
-        stateKey = mode === 'deva' ? 'devanagari' : 'iast';
-        stateKeyTransOnly = mode === 'deva' ? 'devanagari_translation_only' : 'iast_translation_only';
         modeLabel = mode === 'deva' ? 'Devanagari' : 'IAST';
     } else {
         // Invalid mode - should not reach here
@@ -611,44 +604,17 @@ function getBatchPassages(batchSize, mode) {
         return;
     }
 
-    // Ensure translation_only sections exist
-    if (!state[stateKeyTransOnly]) {
-        state[stateKeyTransOnly] = { translated: [], skipped: [] };
-    }
-
     // Also load missing passages
     const missingPassagesData = loadMissingPassages();
-    if (!state.missing) {
-        state.missing = { translated: [], skipped: [] };
-    }
-    if (!state.missing_translation_only) {
-        state.missing_translation_only = { translated: [], skipped: [] };
-    }
 
-    // Combine all processed hashes from the current mode
-    const processedSet = new Set([
-        ...state[stateKey].translated,
-        ...state[stateKey].skipped,
-        ...state[stateKeyTransOnly].translated,
-        ...state[stateKeyTransOnly].skipped
-    ]);
-
-    // Also track processed missing passages
-    const processedMissingSet = new Set([
-        ...state.missing.translated,
-        ...state.missing.skipped,
-        ...state.missing_translation_only.translated,
-        ...state.missing_translation_only.skipped
-    ]);
-
-    // Find unprocessed passages from regular files
+    // Find unprocessed passages from regular files (check translations JSON)
     const unprocessedPassages = [];
     const unprocessedHashes = [];
 
     for (let i = 0; i < passages.length; i++) {
         const passage = passages[i];
         const hash = passageHashes[i];
-        if (!processedSet.has(hash)) {
+        if (!translations[hash]) {
             unprocessedPassages.push(passage);
             unprocessedHashes.push(hash);
             if (unprocessedPassages.length >= batchSize) {
@@ -660,7 +626,7 @@ function getBatchPassages(batchSize, mode) {
     // If we haven't filled the batch yet, add missing passages
     if (unprocessedPassages.length < batchSize && missingPassagesData.length > 0) {
         for (const missingData of missingPassagesData) {
-            if (!processedMissingSet.has(missingData.hash)) {
+            if (!translations[missingData.hash]) {
                 unprocessedPassages.push(missingData.passage);
                 unprocessedHashes.push(missingData.hash);
                 if (unprocessedPassages.length >= batchSize) {

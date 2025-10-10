@@ -5741,8 +5741,10 @@ const EventHandlers = {
     },
 
     /**
-     * Extract complete Devanagari passage surrounding a clicked element
-     * Scans left and right collecting Devanagari characters, whitespace, and dashes
+     * Extract complete passage surrounding a clicked element
+     * Supports two modes:
+     * 1. Devanagari mode: Scans left/right, stops at Roman letters, cleans leading punctuation
+     * 2. Romanized mode: Extracts text between [Sanskrit: ...] markers
      */
     extractDevanagariPassage(clickedElement) {
         const bookContent = Elements.bookContent;
@@ -5750,6 +5752,130 @@ const EventHandlers = {
             console.log('❌ Book content not found');
             return null;
         }
+
+        // Detect if this is a Romanized Sanskrit passage
+        const clickedText = clickedElement.textContent || '';
+        const hasDevanagari = /[\u0900-\u097F]/.test(clickedText);
+
+        // Check if clicked element is inside [Sanskrit: ...] construct
+        const isRomanized = !hasDevanagari && this.isInsideSanskritConstruct(clickedElement);
+
+        if (isRomanized) {
+            return this.extractRomanizedPassage(clickedElement);
+        } else if (hasDevanagari) {
+            return this.extractDevanagariPassageMode(clickedElement);
+        } else {
+            return null; // Not a valid passage
+        }
+    },
+
+    /**
+     * Check if element is inside [Sanskrit: ...] construct
+     */
+    isInsideSanskritConstruct(element) {
+        const bookContent = Elements.bookContent;
+        const fullText = bookContent.textContent;
+
+        // Get the position of clicked element in full text
+        const range = document.createRange();
+        range.setStart(bookContent, 0);
+        range.setEnd(element, 0);
+        const position = range.toString().length;
+
+        // Search for [Sanskrit: before the position
+        const textBefore = fullText.substring(0, position);
+        const lastSanskritStart = textBefore.lastIndexOf('[Sanskrit: ');
+
+        if (lastSanskritStart === -1) return false;
+
+        // Check if there's a closing ] after that [Sanskrit: but before our position
+        const textBetween = fullText.substring(lastSanskritStart, position);
+        const hasClosingBracket = textBetween.indexOf(']') > 10; // 10 = length of '[Sanskrit: '
+
+        return !hasClosingBracket; // We're inside if no closing bracket found
+    },
+
+    /**
+     * Extract Romanized Sanskrit from [Sanskrit: ...] construct
+     */
+    extractRomanizedPassage(clickedElement) {
+        const bookContent = Elements.bookContent;
+        const walker = document.createTreeWalker(
+            bookContent,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+
+        // Collect all text nodes
+        const allTextNodes = [];
+        let node;
+        while (node = walker.nextNode()) {
+            allTextNodes.push(node);
+        }
+
+        // Find the clicked node index
+        let clickedNodeIndex = -1;
+        for (let i = 0; i < allTextNodes.length; i++) {
+            if (clickedElement.contains(allTextNodes[i]) || allTextNodes[i].parentElement === clickedElement) {
+                clickedNodeIndex = i;
+                break;
+            }
+        }
+
+        if (clickedNodeIndex === -1) return null;
+
+        // Scan LEFT to find '[Sanskrit: ' (BEFORE clicked node to avoid duplication)
+        let leftText = '';
+        let foundStart = false;
+        for (let i = clickedNodeIndex - 1; i >= 0; i--) {
+            const text = allTextNodes[i].textContent;
+            leftText = text + leftText;
+
+            if (leftText.includes('[Sanskrit: ')) {
+                foundStart = true;
+                break;
+            }
+        }
+
+        if (!foundStart) return null;
+
+        // Scan RIGHT to find ']' (FROM clicked node)
+        let rightText = '';
+        let foundEnd = false;
+        for (let i = clickedNodeIndex; i < allTextNodes.length; i++) {
+            const text = allTextNodes[i].textContent;
+            rightText += text;
+
+            if (rightText.includes(']')) {
+                foundEnd = true;
+                break;
+            }
+        }
+
+        if (!foundEnd) return null;
+
+        // Extract the passage between markers
+        const combined = leftText + rightText;
+        const startMarker = '[Sanskrit: ';
+        const startIndex = combined.lastIndexOf(startMarker);
+        const endIndex = combined.indexOf(']', startIndex);
+
+        if (startIndex === -1 || endIndex === -1) return null;
+
+        const passage = combined.substring(startIndex + startMarker.length, endIndex).trim();
+
+        console.log('📖 Identified passage (Romanized):', passage);
+        return passage;
+    },
+
+    /**
+     * Extract Devanagari passage mode
+     * Stops at Roman letters, allows all other characters (punctuation, numbers, etc.)
+     * Cleans leading romanized punctuation from left boundary
+     */
+    extractDevanagariPassageMode(clickedElement) {
+        const bookContent = Elements.bookContent;
 
         // Create a TreeWalker to traverse all text nodes in the book
         const walker = document.createTreeWalker(
@@ -5779,8 +5905,8 @@ const EventHandlers = {
             return null;
         }
 
-        // Pattern: Devanagari characters, whitespace, or dash
-        const devanagariPattern = /[\u0900-\u097F\s\-]/;
+        // Pattern: Stop only at Roman letters (a-z, A-Z)
+        const romanLetterPattern = /[a-zA-Z]/;
 
         // Scan LEFT from nodes BEFORE the clicked node
         let leftPassage = '';
@@ -5790,25 +5916,26 @@ const EventHandlers = {
             // Scan backwards through this text node
             for (let j = text.length - 1; j >= 0; j--) {
                 const char = text[j];
-                if (devanagariPattern.test(char)) {
-                    leftPassage = char + leftPassage;
-                } else {
-                    // Hit a non-Devanagari character, stop scanning left
+                if (romanLetterPattern.test(char)) {
+                    // Hit a Roman letter, stop scanning left
                     i = -1; // Break outer loop
                     break;
+                } else {
+                    // Include everything else (Devanagari, numbers, punctuation, whitespace)
+                    leftPassage = char + leftPassage;
                 }
             }
         }
 
-        // Process the CLICKED NODE itself (add to both left and right)
+        // Process the CLICKED NODE itself
         const clickedNodeText = allTextNodes[clickedNodeIndex].textContent;
         let clickedNodePassage = '';
         for (let j = 0; j < clickedNodeText.length; j++) {
             const char = clickedNodeText[j];
-            if (devanagariPattern.test(char)) {
-                clickedNodePassage += char;
+            if (romanLetterPattern.test(char)) {
+                break; // Stop at first Roman letter in clicked node
             } else {
-                break; // Stop at first non-Devanagari in clicked node
+                clickedNodePassage += char;
             }
         }
 
@@ -5820,18 +5947,28 @@ const EventHandlers = {
             // Scan forwards through this text node
             for (let j = 0; j < text.length; j++) {
                 const char = text[j];
-                if (devanagariPattern.test(char)) {
-                    rightPassage += char;
-                } else {
-                    // Hit a non-Devanagari character, stop scanning right
+                if (romanLetterPattern.test(char)) {
+                    // Hit a Roman letter, stop scanning right
                     i = allTextNodes.length; // Break outer loop
                     break;
+                } else {
+                    // Include everything else
+                    rightPassage += char;
                 }
             }
         }
 
-        // Combine: left + clicked node + right, then trim
-        const completePassage = (leftPassage + clickedNodePassage + rightPassage).trim();
+        // Combine: left + clicked node + right
+        let completePassage = leftPassage + clickedNodePassage + rightPassage;
+
+        // Clean leading romanized punctuation from left boundary
+        // Remove leading: . ! ? ; : - — … etc.
+        completePassage = completePassage.replace(/^[.!?;:\-—…\s]+/, '');
+
+        // Final trim to remove trailing whitespace
+        completePassage = completePassage.trim();
+
+        console.log('📖 Identified passage (Devanagari):', completePassage);
 
         return completePassage;
     },
@@ -5845,15 +5982,25 @@ const EventHandlers = {
             // Generate hash using the same method as passage-manager.js
             const hash = await LexiconManager.generatePassageHash(passage);
 
+            console.log('🔍 Hash lookup - Passage:', passage);
+            console.log('🔍 Hash lookup - Generated hash:', hash);
+
             // Lookup translation in State.passagesTranslations
             const translation = State.passagesTranslations[hash];
 
             if (translation) {
+                console.log('✅ Hash lookup - Translation found:', translation);
                 return hash; // Return hash so caller can access the translation
             } else {
+                console.log('❌ Hash lookup - No translation found for hash:', hash);
+                console.log('🔍 Hash lookup - Available hashes count:', Object.keys(State.passagesTranslations).length);
+                // Show first few available hashes for debugging
+                const availableHashes = Object.keys(State.passagesTranslations).slice(0, 5);
+                console.log('🔍 Hash lookup - Sample available hashes:', availableHashes);
                 return null;
             }
         } catch (error) {
+            console.error('❌ Hash lookup - Error:', error);
             return null;
         }
     },

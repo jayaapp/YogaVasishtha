@@ -133,7 +133,10 @@ function extractPassages(chapter, epubFile, devaLexiconSet, iastLexiconSet, mapp
     const fullText = textNodes.join('');
 
     // Apply same passage extraction algorithm as extract-sanskrit-passages.js
-    const devanagariOrWhitespaceOrDash = /[\u0900-\u097F\s\-]/;
+    // Stop only at Roman letters (a-z, A-Z)
+    // Include: Devanagari, whitespace, numbers, ALL punctuation
+    const romanLetterPattern = /[a-zA-Z]/;
+    const hasDevanagariPattern = /[\u0900-\u097F]/;
     const SANSKRIT_PATTERN_REGEX = /\[Sanskrit:\s*([^\]]+)\]/g;
 
     // Extract Devanagari passages
@@ -142,25 +145,35 @@ function extractPassages(chapter, epubFile, devaLexiconSet, iastLexiconSet, mapp
     for (let i = 0; i < fullText.length; i++) {
         const char = fullText[i];
 
-        if (devanagariOrWhitespaceOrDash.test(char)) {
-            currentPassage += char;
-        } else {
-            // Non-Devanagari boundary
+        if (romanLetterPattern.test(char)) {
+            // Roman letter - passage boundary
             if (currentPassage.trim().length > 0) {
-                const passage = currentPassage.trim();
-                // Check if passage contains whitespace (multiple words)
-                if (/\s/.test(passage)) {
+                // Clean leading/trailing non-Devanagari characters (including numbers, punctuation)
+                let passage = currentPassage
+                    .replace(/^[^\u0900-\u097F]+/, '')  // Remove ALL leading non-Devanagari
+                    .replace(/[^\u0900-\u097F]+$/, '')  // Remove ALL trailing non-Devanagari
+                    .trim();
+                // Check if passage contains whitespace AND has at least 2 Devanagari characters
+                const devanagariChars = (passage.match(/[\u0900-\u097F]/g) || []);
+                if (/\s/.test(passage) && devanagariChars.length >= 2) {
                     processPassage(passage, epubFile, devaLexiconSet, iastLexiconSet, mapping, processedPassages, errors);
                 }
             }
             currentPassage = '';
+        } else {
+            // Include everything else: Devanagari, numbers, punctuation, whitespace
+            currentPassage += char;
         }
     }
 
     // Handle remaining passage at end
     if (currentPassage.trim().length > 0) {
-        const passage = currentPassage.trim();
-        if (/\s/.test(passage)) {
+        let passage = currentPassage
+            .replace(/^[^\u0900-\u097F]+/, '')  // Remove ALL leading non-Devanagari
+            .replace(/[^\u0900-\u097F]+$/, '')  // Remove ALL trailing non-Devanagari
+            .trim();
+        const devanagariChars = (passage.match(/[\u0900-\u097F]/g) || []);
+        if (/\s/.test(passage) && devanagariChars.length >= 2) {
             processPassage(passage, epubFile, devaLexiconSet, iastLexiconSet, mapping, processedPassages, errors);
         }
     }
