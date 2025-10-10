@@ -5,6 +5,7 @@ const fs = require('fs');
 // Configuration
 const MAPPING_FILE = 'Yoga-Vasishtha-Words-Passages-Mapping.json';
 const TRANSLATIONS_FILE = 'Yoga-Vasishtha-Sanskrit-Passages.json';
+const ERROR_OUTPUT_FILE = 'missing-passages-errors.txt';
 
 console.log('🔍 Testing Words-Passages Mapping against Translations...\n');
 
@@ -108,6 +109,49 @@ try {
         if (missingCount > sampleSize) {
             console.log(`\n(... and ${missingCount - sampleSize} more missing translations)`);
         }
+
+        // Write complete list of missing passages to file
+        console.log(`\n📝 Writing complete list of ${missingCount} missing passages to ${ERROR_OUTPUT_FILE}...`);
+
+        let errorReport = '';
+        errorReport += '═══════════════════════════════════════════════════════════\n';
+        errorReport += 'MISSING PASSAGE TRANSLATIONS REPORT\n';
+        errorReport += `Generated: ${new Date().toISOString()}\n`;
+        errorReport += '═══════════════════════════════════════════════════════════\n\n';
+        errorReport += `Total Missing: ${missingCount} / ${allHashes.size} passages\n`;
+        errorReport += `Coverage: ${(foundCount / allHashes.size * 100).toFixed(2)}% translated\n\n`;
+        errorReport += '───────────────────────────────────────────────────────────\n\n';
+
+        missingHashes.forEach((item, index) => {
+            const wordsList = item.words.join(', ');
+            errorReport += `${index + 1}. Hash: ${item.hash}\n`;
+            errorReport += `   Referenced by ${item.words.length} word(s): ${wordsList}\n`;
+
+            // Find and show the actual passage text
+            let passageText = null;
+            for (const word of item.words) {
+                const passages = mapping[word];
+                const passage = passages.find(p => p.hash === item.hash);
+                if (passage) {
+                    passageText = passage.passage;
+                    break;
+                }
+            }
+
+            if (passageText) {
+                errorReport += `   Passage: ${passageText}\n`;
+            } else {
+                errorReport += `   Passage: [TEXT NOT FOUND]\n`;
+            }
+            errorReport += '\n';
+        });
+
+        errorReport += '═══════════════════════════════════════════════════════════\n';
+        errorReport += 'END OF REPORT\n';
+        errorReport += '═══════════════════════════════════════════════════════════\n';
+
+        fs.writeFileSync(ERROR_OUTPUT_FILE, errorReport, 'utf8');
+        console.log(`   ✅ Complete error report written to ${ERROR_OUTPUT_FILE}`);
     }
 
     console.log('\n✨ Test complete!\n');
