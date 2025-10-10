@@ -4284,8 +4284,23 @@ const LexiconManager = {
      * @returns {Promise<string>} - 12-character hash key
      */
     async generatePassageHash(passage) {
-        // Normalize: remove extra whitespace, trim (EXACT same as passage-manager.js)
-        const normalized = passage.trim().replace(/\s+/g, ' ');
+        // HYBRID HASHING APPROACH:
+        // - For passages with Devanagari: use Devanagari-only hashing (immune to whitespace)
+        // - For pure IAST/romanized: use full-text normalization (original working method)
+
+        const hasDevanagari = /[\u0900-\u097F]/.test(passage);
+
+        let normalized;
+        if (hasDevanagari) {
+            // Extract only Devanagari characters (U+0900 to U+097F)
+            // This makes hashing immune to whitespace and punctuation variations
+            const devanagariOnly = passage.match(/[\u0900-\u097F]/g);
+            normalized = devanagariOnly ? devanagariOnly.join('') : '';
+        } else {
+            // Pure IAST/romanized passage - use full-text normalization
+            // Normalize: remove extra whitespace, trim (original working method)
+            normalized = passage.trim().replace(/\s+/g, ' ');
+        }
 
         // Use Web Crypto API (browser equivalent of Node's crypto)
         // Use window.crypto explicitly to avoid conflicts
@@ -5964,6 +5979,11 @@ const EventHandlers = {
         // Clean leading romanized punctuation from left boundary
         // Remove leading: . ! ? ; : - — … etc.
         completePassage = completePassage.replace(/^[.!?;:\-—…\s]+/, '');
+
+        // Remove ALL non-Devanagari characters from the beginning and end
+        // This removes passage references like (11. 2), numbers, punctuation, etc.
+        // Devanagari Unicode range: \u0900-\u097F
+        completePassage = completePassage.replace(/^[^\u0900-\u097F]+/, '').replace(/[^\u0900-\u097F]+$/, '');
 
         // Final trim to remove trailing whitespace
         completePassage = completePassage.trim();

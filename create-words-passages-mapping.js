@@ -35,7 +35,25 @@ const EPUB_FILES = [
 
 // Generate passage hash (same as passage-manager.js)
 function generatePassageHash(passage) {
-    const normalized = passage.trim().replace(/\s+/g, ' ');
+    // HYBRID HASHING APPROACH:
+    // - For passages with Devanagari: use Devanagari-only hashing (immune to whitespace)
+    // - For pure IAST/romanized: use full-text normalization (original working method)
+
+    const hasDevanagari = /[\u0900-\u097F]/.test(passage);
+
+    let normalized;
+    if (hasDevanagari) {
+        // Extract only Devanagari characters (U+0900 to U+097F)
+        // This makes hashing immune to whitespace and punctuation variations
+        const devanagariOnly = passage.match(/[\u0900-\u097F]/g);
+        normalized = devanagariOnly ? devanagariOnly.join('') : '';
+    } else {
+        // Pure IAST/romanized passage - use full-text normalization
+        // Normalize: remove extra whitespace, trim (original working method)
+        normalized = passage.trim().replace(/\s+/g, ' ');
+    }
+
+    // Generate SHA256 hash and take first 12 characters
     return crypto.createHash('sha256').update(normalized, 'utf8').digest('hex').substring(0, 12);
 }
 
