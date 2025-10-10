@@ -4552,25 +4552,32 @@ const LexiconManager = {
             console.log(`📍 Passage ${index + 1}:`, passageEntry);
 
             const { hash, passage } = passageEntry;
+            const translation = State.passagesTranslations[hash];
 
             html += `<div class="passage-item">`;
 
-            // Render passage with word highlighted
-            const highlightedPassage = this.highlightWordInPassage(passage, word);
-            html += `<div class="passage-text">${highlightedPassage}</div>`;
-
-            // Render location link (one per passage, since locations are computed algorithmically)
-            html += `<div class="passage-locations">`;
-            html += `<a href="#" class="passage-location-link" data-hash="${hash}" onclick="LexiconManager.navigateToPassageFromLink(this); return false;">Link ${locationNumber}</a>`;
-            locationNumber++;
-            html += `</div>`;
-
-            // Render translation if available
-            const translation = State.passagesTranslations[hash];
             if (translation) {
+                // When translation exists: show translation with word highlighted, then link button
+                const translationHtml = converter.makeHtml(translation);
+                const highlightedTranslation = this.highlightWordInPassage(translationHtml, word);
                 html += `<div class="passage-translation">`;
-                html += `<div class="passage-translation-label">Analysis:</div>`;
-                html += converter.makeHtml(translation);
+                html += highlightedTranslation;
+                html += `</div>`;
+
+                // Render location link after translation
+                html += `<div class="passage-locations">`;
+                html += `<a href="#" class="passage-location-link" data-hash="${hash}" onclick="LexiconManager.navigateToPassageFromLink(this); return false;">Link ${locationNumber}</a>`;
+                locationNumber++;
+                html += `</div>`;
+            } else {
+                // When translation not found: show raw passage with word highlighted, then link button
+                const highlightedPassage = this.highlightWordInPassage(passage, word);
+                html += `<div class="passage-text">${highlightedPassage}</div>`;
+
+                // Render location link after passage
+                html += `<div class="passage-locations">`;
+                html += `<a href="#" class="passage-location-link" data-hash="${hash}" onclick="LexiconManager.navigateToPassageFromLink(this); return false;">Link ${locationNumber}</a>`;
+                locationNumber++;
                 html += `</div>`;
             }
 
