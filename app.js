@@ -1855,7 +1855,7 @@ const BookmarkManager = {
             }
         }
 
-        // Remove bookmark from storage first
+        // Remove bookmark from storage
         Object.keys(State.bookmarks).forEach(bookIndex => {
             State.bookmarks[bookIndex] = State.bookmarks[bookIndex].filter(
                 bookmark => bookmark.id !== bookmarkId
@@ -4554,11 +4554,8 @@ const LexiconManager = {
      */
     renderPassagesView(word, passages) {
         if (!passages || passages.length === 0) {
-            console.warn('📖 No passages found for word:', word);
             return `<h2>${word}</h2><p>No passages found.</p>`;
         }
-
-        console.log(`📖 Rendering passages view for "${word}":`, passages.length, 'passages');
 
         const converter = new showdown.Converter();
         let html = `<h2>${word}</h2>`;
@@ -4578,7 +4575,6 @@ const LexiconManager = {
         let locationNumber = 1;
 
         passages.forEach((passageEntry, index) => {
-            console.log(`📍 Passage ${index + 1}:`, passageEntry);
 
             const { hash, passage } = passageEntry;
             const translation = State.passagesTranslations[hash];
@@ -4664,10 +4660,7 @@ const LexiconManager = {
         }
 
         if (passageText && lexiconWord) {
-            console.log('📖 Navigating to passage containing word:', lexiconWord);
             this.navigateToPassageByWordContext(passageText, lexiconWord);
-        } else {
-            console.error('❌ Could not find passage for hash:', hash);
         }
     },
 
@@ -4679,8 +4672,6 @@ const LexiconManager = {
         // Close lexicon modal first
         ModalManager.close('lexicon');
 
-        console.log(`🎯 Finding occurrences of "${lexiconWord}" in current book`);
-
         // Normalize function for context comparison
         const normalize = (text) => text.replace(/\s+/g, '').replace(/[-।॥]/g, '').toLowerCase();
 
@@ -4691,16 +4682,11 @@ const LexiconManager = {
         // Get words before and after the lexicon word in the passage
         const wordIndex = passageNormalized.indexOf(wordNormalized);
         if (wordIndex === -1) {
-            console.warn('⚠️ Lexicon word not found in passage text');
             return;
         }
 
         const contextBefore = passageNormalized.substring(Math.max(0, wordIndex - 30), wordIndex);
         const contextAfter = passageNormalized.substring(wordIndex + wordNormalized.length, Math.min(passageNormalized.length, wordIndex + wordNormalized.length + 30));
-
-        console.log(`   Context before: "${contextBefore}"`);
-        console.log(`   Word: "${wordNormalized}"`);
-        console.log(`   Context after: "${contextAfter}"`);
 
         // Search for all occurrences of the lexicon word in the rendered content
         const bookContent = Elements.bookContent;
@@ -4741,16 +4727,12 @@ const LexiconManager = {
             }
         }
 
-        console.log(`✅ Found ${candidates.length} occurrence(s) of "${lexiconWord}"`);
-
         if (candidates.length === 0) {
-            console.warn('Could not find word in book content');
             return;
         }
 
         // Sort by score and pick best match
         candidates.sort((a, b) => b.score - a.score);
-        console.log(`🎯 Best match has score ${candidates[0].score.toFixed(2)}`);
 
         const bestMatch = candidates[0].node;
 
@@ -5001,16 +4983,10 @@ const LexiconManager = {
         const truncateLength = Math.min(Math.max(15, Math.floor(normalizedSearchPassage.length * 0.6)), 30);
         const truncatedSearchPassage = normalizedSearchPassage.substring(0, truncateLength);
 
-        console.log(`🔍 Searching for passage in current book (${State.currentBookIndex})`);
-        console.log(`   Passage (first 100 chars): "${passageText.substring(0, 100)}"`);
-        console.log(`   Normalized (${normalizedSearchPassage.length} chars): "${normalizedSearchPassage}"`);
-        console.log(`   Truncated search (${truncatedSearchPassage.length} chars): "${truncatedSearchPassage}"`);
-
         // Search for passage in current book first
         let found = this.findAndScrollToPassage(passageText, State.currentBookIndex);
 
         if (!found) {
-            console.log(`⚠️ Not found in current book, searching other books...`);
             // Search in other books using aggressive normalization
             for (let bookIndex = 0; bookIndex < State.bookContents.length; bookIndex++) {
                 if (bookIndex === State.currentBookIndex) continue;
@@ -5027,7 +5003,6 @@ const LexiconManager = {
                 const containsPassage = fullMatch || truncMatch;
 
                 if (containsPassage) {
-                    console.log(`✅ Found passage in book ${bookIndex} (${fullMatch ? 'full' : 'partial'} match)`);
                     // Switch to this book
                     State.currentBookIndex = bookIndex;
                     Elements.bookSelector.value = bookIndex;
@@ -5801,11 +5776,8 @@ const EventHandlers = {
         }
 
         if (clickedNodeIndex === -1) {
-            console.log('❌ Could not find clicked word in text nodes');
             return null;
         }
-
-        console.log(`📍 Found clicked word at text node index: ${clickedNodeIndex}`);
 
         // Pattern: Devanagari characters, whitespace, or dash
         const devanagariPattern = /[\u0900-\u097F\s\-]/;
@@ -5822,7 +5794,6 @@ const EventHandlers = {
                     leftPassage = char + leftPassage;
                 } else {
                     // Hit a non-Devanagari character, stop scanning left
-                    console.log(`⬅️  Stopped scanning left at character: "${char}"`);
                     i = -1; // Break outer loop
                     break;
                 }
@@ -5853,7 +5824,6 @@ const EventHandlers = {
                     rightPassage += char;
                 } else {
                     // Hit a non-Devanagari character, stop scanning right
-                    console.log(`➡️  Stopped scanning right at character: "${char}"`);
                     i = allTextNodes.length; // Break outer loop
                     break;
                 }
@@ -5863,12 +5833,6 @@ const EventHandlers = {
         // Combine: left + clicked node + right, then trim
         const completePassage = (leftPassage + clickedNodePassage + rightPassage).trim();
 
-        console.log('📜 EXTRACTED DEVANAGARI PASSAGE:');
-        console.log('═══════════════════════════════════════');
-        console.log(completePassage);
-        console.log('═══════════════════════════════════════');
-        console.log(`Length: ${completePassage.length} characters`);
-
         return completePassage;
     },
 
@@ -5877,36 +5841,19 @@ const EventHandlers = {
      * Returns the hash if translation found, null otherwise
      */
     async lookupPassageTranslation(passage) {
-        console.log('🔑 GENERATING HASH FOR PASSAGE...');
-
         try {
             // Generate hash using the same method as passage-manager.js
             const hash = await LexiconManager.generatePassageHash(passage);
-
-            console.log('═══════════════════════════════════════');
-            console.log(`Hash: ${hash}`);
-            console.log('═══════════════════════════════════════');
 
             // Lookup translation in State.passagesTranslations
             const translation = State.passagesTranslations[hash];
 
             if (translation) {
-                console.log('✅ TRANSLATION FOUND:');
-                console.log('───────────────────────────────────────');
-                console.log(translation);
-                console.log('───────────────────────────────────────');
                 return hash; // Return hash so caller can access the translation
             } else {
-                console.log('❌ NO TRANSLATION FOUND for hash:', hash);
-                console.log(`   Total translations available: ${Object.keys(State.passagesTranslations).length}`);
-                console.log('   Sample of available hashes:', Object.keys(State.passagesTranslations).slice(0, 5));
                 return null;
             }
         } catch (error) {
-            console.error('❌ ERROR generating hash:', error.message);
-            console.log('   This may be due to:');
-            console.log('   - Page not served over HTTPS (Web Crypto API requires secure context)');
-            console.log('   - Use http://localhost or https:// instead of file:// or http://');
             return null;
         }
     },
