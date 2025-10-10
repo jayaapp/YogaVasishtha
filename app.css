@@ -601,6 +601,20 @@ body.dark-theme {
     color: var(--sanskrit-color);
 }
 
+/* Passage context section when showing passage translation at top */
+.passage-section-title {
+    margin-top: 10px !important;
+    margin-bottom: 0.75rem;
+    font-size: 1.25rem;
+    color: var(--text-color);
+}
+
+.passage-context {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--panel-border);
+}
+
 /* Lexicon passages toggle button */
 .lexicon-passages-toggle {
     margin-top: 1.5rem;
@@ -689,9 +703,9 @@ body.dark-theme {
 }
 
 .passage-translation {
-    margin-top: 1rem;
-    padding-top: 1rem;
-    border-top: 1px dashed var(--panel-border);
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
 }
 
 .passage-translation-label {
@@ -701,6 +715,14 @@ body.dark-theme {
     font-size: 0.9rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+}
+
+.passage-translation h1 {
+    color: var(--text-color);
+    font-size: 1.25rem;
+    margin: 0.5rem 0 1rem 0;
+    border-bottom: 1px solid var(--panel-border);
+    padding-bottom: 0.5rem;
 }
 
 .passage-translation p {

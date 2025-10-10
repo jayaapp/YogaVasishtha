@@ -118,7 +118,8 @@ const State = {
     },
     lexiconView: {
         currentWord: null,
-        showingPassages: false // Toggle state for passages view
+        showingPassages: false, // Toggle state for passages view
+        contextPassageHash: null // Hash of passage context when word is clicked
     }
 };
 
@@ -4451,10 +4452,11 @@ const LexiconManager = {
     /**
      * Show lexicon entry for word
      */
-    showEntry(word, searchQuery = null) {
+    showEntry(word, searchQuery = null, passageHash = null) {
         // Store current word and reset view state
         State.lexiconView.currentWord = word;
         State.lexiconView.showingPassages = false;
+        State.lexiconView.contextPassageHash = passageHash; // Store passage hash for context
 
         this.renderLexiconView(word, searchQuery);
         ModalManager.open('lexicon');
@@ -4485,22 +4487,49 @@ const LexiconManager = {
         let content = '';
 
         if (!State.lexiconView.showingPassages) {
+            // Check if we have passage context from word click
+            const contextHash = State.lexiconView.contextPassageHash;
+            const contextTranslation = contextHash ? State.passagesTranslations[contextHash] : null;
+
+            // If we have passage context with translation, show it first
+            if (contextTranslation) {
+                const converter = new showdown.Converter();
+                content += `<h2 class="passage-section-title">Passage</h2>`;
+
+                // Render translation with word highlighted
+                const translationHtml = converter.makeHtml(contextTranslation);
+
+                // Remove the "# Passage" heading and horizontal rule from the markdown-rendered HTML
+                // The translation markdown contains "# Passage" which creates duplicate heading
+                const cleanedTranslationHtml = translationHtml
+                    .replace(/<h1[^>]*>Passage<\/h1>/gi, '')
+                    .replace(/<hr\s*\/?>/gi, '');
+
+                const highlightedTranslation = this.highlightWordInPassage(cleanedTranslationHtml, word);
+                content += `<div class="passage-translation passage-context">`;
+                content += highlightedTranslation;
+                content += `</div>`;
+            }
+
             // Show definition view
-            content = entry
+            const definitionContent = entry
                 ? new showdown.Converter().makeHtml(entry)
                 : `<h2>${word}</h2><p>Definition not found in lexicon.</p><p><em>Searched in both Devanagari and IAST lexicons.</em></p>`;
 
             // Highlight search query if provided
+            let highlightedDefinition = definitionContent;
             if (searchQuery && entry) {
                 try {
                     const searchPattern = new RegExp(searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-                    content = content.replace(searchPattern, (match) => {
+                    highlightedDefinition = definitionContent.replace(searchPattern, (match) => {
                         return `<span class="search-highlight">${match}</span>`;
                     });
                 } catch (e) {
                     // If regex fails, skip highlighting
                 }
             }
+
+            content += highlightedDefinition;
 
             // Add toggle button if passages exist
             if (passagesCount > 0) {
@@ -5845,6 +5874,7 @@ const EventHandlers = {
 
     /**
      * Lookup passage translation by generating hash and checking State.passagesTranslations
+     * Returns the hash if translation found, null otherwise
      */
     async lookupPassageTranslation(passage) {
         console.log('🔑 GENERATING HASH FOR PASSAGE...');
@@ -5865,16 +5895,19 @@ const EventHandlers = {
                 console.log('───────────────────────────────────────');
                 console.log(translation);
                 console.log('───────────────────────────────────────');
+                return hash; // Return hash so caller can access the translation
             } else {
                 console.log('❌ NO TRANSLATION FOUND for hash:', hash);
                 console.log(`   Total translations available: ${Object.keys(State.passagesTranslations).length}`);
                 console.log('   Sample of available hashes:', Object.keys(State.passagesTranslations).slice(0, 5));
+                return null;
             }
         } catch (error) {
             console.error('❌ ERROR generating hash:', error.message);
             console.log('   This may be due to:');
             console.log('   - Page not served over HTTPS (Web Crypto API requires secure context)');
             console.log('   - Use http://localhost or https:// instead of file:// or http://');
+            return null;
         }
     },
 
@@ -5890,12 +5923,13 @@ const EventHandlers = {
                 const passage = this.extractDevanagariPassage(sanskritWord);
 
                 // Generate hash and lookup translation if passage was extracted
+                let passageHash = null;
                 if (passage) {
-                    await this.lookupPassageTranslation(passage);
+                    passageHash = await this.lookupPassageTranslation(passage);
                 }
 
-                // Show lexicon entry (we'll pass the passage later)
-                LexiconManager.showEntry(word);
+                // Show lexicon entry with passage context
+                LexiconManager.showEntry(word, null, passageHash);
             }
         }
     },
