@@ -603,7 +603,7 @@ body.dark-theme {
 
 /* Passage context section when showing passage translation at top */
 .passage-section-title {
-    margin-top: 10px !important;
+    margin-top: -1.5rem !important; /* Pull up to counteract modal-content padding (2rem - 0.5rem = 1.5rem) */
     margin-bottom: 0.75rem;
     font-size: 1.25rem;
     color: var(--text-color);
@@ -611,8 +611,8 @@ body.dark-theme {
 
 .passage-context {
     margin-bottom: 1.5rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid var(--panel-border);
+    padding-bottom: 0;
+    border-bottom: none;
 }
 
 /* Lexicon passages toggle button */
