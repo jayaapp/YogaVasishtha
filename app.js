@@ -27,7 +27,7 @@ const CONFIG = {
         CURRENT_BOOK: 'epub-current-book',
         READING_POSITION: 'epub-position-'
     },
-    DEVANAGARI_REGEX: /[\u0900-\u097F]+/g,
+    DEVANAGARI_REGEX: /[\u0900-\u097F\u200B\u200C\u200D\uFEFF]+/g,  // Include zero-width chars
     SANSKRIT_PATTERN_REGEX: /\[Sanskrit:\s*([^\]]+)\]/g,
     DEFAULTS: {
         THEME: 'light',
@@ -4353,11 +4353,14 @@ const LexiconManager = {
             CONFIG.DEVANAGARI_REGEX.lastIndex = 0;
             let match;
             while ((match = CONFIG.DEVANAGARI_REGEX.exec(text)) !== null) {
-                if (State.lexicon[match[0]]) {
+                // Normalize: remove zero-width spaces for lexicon lookup
+                const normalized = match[0].replace(/[\u200B\u200C\u200D\uFEFF]/g, '');
+                if (State.lexicon[normalized]) {
                     matches.push({
                         index: match.index,
                         length: match[0].length,
-                        text: match[0],
+                        text: match[0],  // Keep original text with zero-width chars
+                        normalizedText: normalized,  // Store normalized for lexicon lookup
                         type: 'devanagari'
                     });
                 }
@@ -4441,11 +4444,13 @@ const LexiconManager = {
                 const span = document.createElement('span');
                 span.className = 'sanskrit-word';
                 span.textContent = match.text;
-                span.setAttribute('data-word', match.text);
+                // Use normalized text for lexicon lookup (removes zero-width spaces)
+                const lookupWord = match.normalizedText || match.text;
+                span.setAttribute('data-word', lookupWord);
                 span.setAttribute('data-type', match.type);
                 span.setAttribute('role', 'button');
                 span.setAttribute('tabindex', '0');
-                span.setAttribute('aria-label', `Sanskrit word: ${match.text}`);
+                span.setAttribute('aria-label', `Sanskrit word: ${lookupWord}`);
                 fragment.appendChild(span);
 
                 lastIndex = match.index + match.length;
