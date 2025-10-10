@@ -5769,7 +5769,6 @@ const EventHandlers = {
     extractDevanagariPassage(clickedElement) {
         const bookContent = Elements.bookContent;
         if (!bookContent) {
-            console.log('❌ Book content not found');
             return null;
         }
 
@@ -5885,7 +5884,6 @@ const EventHandlers = {
 
         const passage = combined.substring(startIndex + startMarker.length, endIndex).trim();
 
-        console.log('📖 Identified passage (Romanized):', passage);
         return passage;
     },
 
@@ -5993,8 +5991,6 @@ const EventHandlers = {
         // Final trim to remove trailing whitespace
         completePassage = completePassage.trim();
 
-        console.log('📖 Identified passage (Devanagari):', completePassage);
-
         return completePassage;
     },
 
@@ -6007,25 +6003,16 @@ const EventHandlers = {
             // Generate hash using the same method as passage-manager.js
             const hash = await LexiconManager.generatePassageHash(passage);
 
-            console.log('🔍 Hash lookup - Passage:', passage);
-            console.log('🔍 Hash lookup - Generated hash:', hash);
-
             // Lookup translation in State.passagesTranslations
             const translation = State.passagesTranslations[hash];
 
             if (translation) {
-                console.log('✅ Hash lookup - Translation found:', translation);
                 return hash; // Return hash so caller can access the translation
             } else {
-                console.log('❌ Hash lookup - No translation found for hash:', hash);
-                console.log('🔍 Hash lookup - Available hashes count:', Object.keys(State.passagesTranslations).length);
-                // Show first few available hashes for debugging
-                const availableHashes = Object.keys(State.passagesTranslations).slice(0, 5);
-                console.log('🔍 Hash lookup - Sample available hashes:', availableHashes);
                 return null;
             }
         } catch (error) {
-            console.error('❌ Hash lookup - Error:', error);
+            console.error('Hash lookup error:', error);
             return null;
         }
     },
