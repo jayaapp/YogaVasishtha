@@ -13,7 +13,7 @@ def get_local_ip():
         return "127.0.0.1"
 
 # Server settings
-PORT = 8000
+PORT = 7000
 HOST = "0.0.0.0"  # Listen on all interfaces
 
 # Custom handler to print the server link
