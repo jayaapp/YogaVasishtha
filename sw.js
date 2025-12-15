@@ -12,11 +12,11 @@ const urlsToCache = [
   '/manifest.json',
   '/assets/icon.png',
   // Include gsync files for offline support but use network-first strategy
-  '/gsync-minimal.js',
-  '/gsync-ui.js',
-  '/gsync-style.css',
-  '/gsync-integration.js',
-  '/gsync-loader.js',
+  // TrueHeart cloud sync files (replaced gsync)
+  '/trueheart-integration.js',
+  '/trueheart-ui.js',
+  '/trueheart-style.css',
+  '/trueheart-loader.js',
   // EPUB files
   '/epub/yoga-vasishtha-1.epub',
   '/epub/yoga-vasishtha-2.epub',
@@ -83,7 +83,7 @@ self.addEventListener('fetch', (event) => {
       .then((response) => {
         // Check if this is a sync-related file that should use network-first strategy
         const url = event.request.url;
-        const isSyncFile = url.includes('gsync-') || url.includes('sync');
+        const isSyncFile = url.includes('trueheart-') || url.includes('sync');
 
         if (isSyncFile) {
           // Network-first strategy for sync files to ensure fresh auth state
@@ -171,15 +171,15 @@ self.addEventListener('message', (event) => {
 
 // Background sync for Google Drive when online
 self.addEventListener('sync', (event) => {
-  if (event.tag === 'google-drive-sync') {
-    console.log('🔄 Background sync triggered for Google Drive');
+  if (event.tag === 'trueheart-sync') {
+    console.log('🔄 Background sync triggered for TrueHeart');
     event.waitUntil(
-      // This would trigger a sync operation when back online
+      // Trigger a sync operation when back online
       self.clients.matchAll().then((clients) => {
         clients.forEach((client) => {
           client.postMessage({
             type: 'BACKGROUND_SYNC',
-            action: 'google-drive-sync'
+            action: 'trueheart-sync'
           });
         });
       })
@@ -187,12 +187,12 @@ self.addEventListener('sync', (event) => {
   }
 });
 
-// Push notifications (for future Google Drive sync notifications)
+// Push notifications (for future cloud sync notifications)
 self.addEventListener('push', (event) => {
   console.log('📬 Push notification received');
   
   const options = {
-    body: 'Your reading progress has been synced to Google Drive',
+    body: 'Your reading progress has been synced to cloud storage',
     icon: '/assets/icon.png',
     badge: '/assets/icon.png',
     tag: 'sync-notification'

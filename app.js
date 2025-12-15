@@ -84,7 +84,7 @@ Each pattern searches across all books simultaneously, showing results with cont
 - **Table of contents**: Native EPUB navigation
 - **Customizable reading**: Adjust fonts, sizes, and themes
 - **Reading progress**: Automatically saved position per book
-- **Google Drive sync**: Cloud backup of bookmarks, notes, and reading positions
+- **Cloud sync (TrueHeart)**: Cloud backup of bookmarks, notes, and reading positions
 - **Export functionality**: Download bookmarks and notes as JSON files`
 };
 

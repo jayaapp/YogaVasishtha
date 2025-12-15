@@ -16,10 +16,12 @@
 
     <!-- External Resources -->
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!-- Material Symbols Outlined for modern icon rendering -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
 
     <!-- App Styles -->
     <link rel="stylesheet" href="app.css">
-    <link rel="stylesheet" href="gsync-style.css">
+    <link rel="stylesheet" href="trueheart-style.css">
 </head>
 <body class="light-theme">
     <!-- Fixed Header Bar -->
@@ -346,7 +348,10 @@
     <!-- JSZip for EPUB handling -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <!-- Google Drive Sync (includes all dependencies) -->
-    <script src="gsync-loader.js"></script>
+    <!-- TrueHeart Cloud Sync (replaces Google Drive sync) -->
+    <script src="trueheart-integration.js"></script>
+    <script src="trueheart-ui.js"></script>
+    <script src="trueheart-loader.js"></script>
     <!-- Custom EPUB reader implementation -->
     <script src="app.js"></script>
 
@@ -378,7 +383,7 @@
             navigator.serviceWorker.addEventListener('message', (event) => {
                 if (event.data && event.data.type === 'BACKGROUND_SYNC') {
                     console.log('🔄 PWA: Background sync triggered');
-                    // Could trigger Google Drive sync here
+                    // Could trigger cloud sync here
                 }
             });
         }

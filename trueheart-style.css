@@ -1,0 +1,423 @@
+/**
+ * TrueHeart UI Styles
+ * Styling for authentication and sync interface
+ */
+
+/* Ensure Material Symbols render correctly even if Google stylesheet is slow or overridden */
+.material-symbols-outlined {
+    font-family: 'Material Symbols Outlined', 'Material Icons Outlined', sans-serif;
+    font-weight: normal;
+    font-style: normal;
+    font-size: 20px;
+    line-height: 1;
+    display: inline-block;
+    vertical-align: middle;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+
+.trueheart-sync-container {
+    padding: 20px;
+    background: var(--panel-bg, #f5f5f5);
+    border-radius: 8px;
+    margin-top: 20px;  /* Hand-tunable: top spacing */
+    margin-bottom: 20px;
+    max-width: 720px;  /* Hand-tunable: panel width cap */
+    margin-left: auto; margin-right: auto; /* Comment out to disable centering */
+}
+
+.trueheart-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 2px solid var(--border-color, #ddd);
+    padding-bottom: 10px;
+}
+
+.trueheart-header h3 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    font-size: 18px;
+    color: var(--text-primary, #e0e0e0);
+}
+
+.trueheart-header i,
+.trueheart-header .material-symbols-outlined {
+    font-size: 24px;
+    color: var(--primary-color, #4285f4);
+}
+
+/* Tabs */
+.trueheart-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.trueheart-tab {
+    flex: 1;
+    padding: 10px 20px;
+    background: var(--button-bg, #fff);
+    border: 2px solid var(--border-color, #ddd);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary, #333);
+    transition: all 0.2s;
+}
+
+.trueheart-tab:hover {
+    background: var(--button-hover, #f0f0f0);
+}
+
+.trueheart-tab.active {
+    background: var(--primary-color, #4285f4);
+    color: white;
+    border-color: var(--primary-color, #4285f4);
+}
+
+/* Forms */
+.trueheart-form {
+    flex-direction: column !important;
+    gap: 12px;
+    width: 100%;
+}
+
+.trueheart-form-active {
+    display: flex !important;
+}
+
+.trueheart-form-hidden {
+    display: none !important;
+}
+
+.trueheart-form input[type="email"],
+.trueheart-form input[type="password"] {
+    padding: 12px;
+    border: 2px solid var(--border-color, #ddd);
+    border-radius: 6px;
+    font-size: 14px;
+    background: var(--input-bg, #fff);
+    color: var(--text-primary, #e0e0e0);
+    transition: border-color 0.2s;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.trueheart-form input:focus {
+    outline: none;
+    border-color: var(--primary-color, #4285f4);
+}
+
+/* Buttons */
+.trueheart-btn-primary,
+.trueheart-btn-secondary,
+.trueheart-btn-sync {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.trueheart-btn-primary {
+    background: var(--primary-color, #4285f4);
+    color: white;
+}
+
+.trueheart-btn-primary:hover {
+    background: var(--primary-hover, #357ae8);
+}
+
+.trueheart-btn-primary:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.trueheart-btn-secondary {
+    background: var(--button-bg, #fff);
+    color: var(--text-primary, #333);
+    border: 2px solid var(--border-color, #ddd);
+}
+
+.trueheart-btn-secondary:hover {
+    background: var(--button-hover, #f0f0f0);
+}
+
+.trueheart-btn-sync {
+    background: var(--success-color, #34a853);
+    color: white;
+    width: 100%;
+}
+
+.trueheart-btn-sync:hover:not(:disabled) {
+    background: var(--success-hover, #2d9248);
+}
+
+.trueheart-btn-sync:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.trueheart-btn-text {
+    background: none;
+    border: none;
+    color: var(--primary-color, #4285f4);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 8px;
+    text-decoration: underline;
+    width: auto;
+    display: inline-block;
+}
+
+.trueheart-btn-text:hover {
+    opacity: 0.8;
+}
+
+.trueheart-btn-danger {
+    background: #d32f2f;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    margin-top: 10px;
+    width: 100%;
+    transition: background 0.2s;
+}
+
+.trueheart-btn-danger:hover {
+    background: #c62828;
+}
+
+.trueheart-btn-danger:active {
+    background: #b71c1c;
+}
+
+/* Messages */
+.trueheart-message {
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    margin-top: 12px;
+    display: none;
+}
+
+.trueheart-message.info {
+    background: #e3f2fd;
+    color: #1976d2;
+    border: 1px solid #90caf9;
+}
+
+.trueheart-message.success {
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #81c784;
+}
+
+.trueheart-message.error {
+    background: #ffebee;
+    color: #c62828;
+    border: 1px solid #ef9a9a;
+}
+
+/* Description text */
+.trueheart-description {
+    color: var(--text-secondary, #666);
+    font-size: 13px;
+    margin-bottom: 15px;
+    line-height: 1.5;
+}
+
+.trueheart-note {
+    color: var(--text-secondary, #666);
+    font-size: 12px;
+    margin-top: 8px;
+    line-height: 1.4;
+    width: 100%;
+    text-align: left;
+}
+
+/* ToS Notice */
+.trueheart-tos-notice {
+    margin: 12px 0;
+    padding: 8px 12px;
+    font-size: 11px;
+    color: var(--text-secondary, #666);
+    background: var(--panel-bg-lighter, #f5f5f5);
+    border-radius: 4px;
+    text-align: center;
+}
+
+.trueheart-tos-notice a {
+    color: var(--primary-color, #4285f4);
+    text-decoration: none;
+}
+
+.trueheart-tos-notice a:hover {
+    text-decoration: underline;
+}
+
+/* Hobby Notice */
+.trueheart-hobby-notice {
+    margin: 15px 0;
+    padding: 12px;
+    font-size: 12px;
+    color: var(--text-secondary, #666);
+    background: var(--panel-bg-lighter, #f9f9f9);
+    border-radius: 6px;
+    border-left: 3px solid var(--primary-color, #4285f4);
+}
+
+.trueheart-hobby-notice strong {
+    color: var(--text-primary, #333);
+}
+
+.trueheart-hobby-notice a {
+    color: var(--primary-color, #4285f4);
+    text-decoration: none;
+}
+
+.trueheart-hobby-notice a:hover {
+    text-decoration: underline;
+}
+
+/* Account view */
+.trueheart-user-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px;
+    background: var(--panel-bg-lighter, #fff);
+    border-radius: 6px;
+    margin-bottom: 20px;
+    border: 2px solid var(--border-color, #ddd);
+}
+
+.trueheart-user-info i,
+.trueheart-user-info .material-symbols-outlined {
+    font-size: 40px;
+    color: var(--primary-color, #4285f4);
+}
+
+.trueheart-email {
+    font-weight: 500;
+    color: #ffffff !important;
+    margin-bottom: 4px;
+}
+
+.trueheart-service-status {
+    font-size: 12px;
+}
+
+.trueheart-service-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+    font-size: 11px;
+    text-transform: uppercase;
+}
+
+.trueheart-service-badge.trial {
+    background: #fff3e0;
+    color: #e65100;
+}
+
+.trueheart-service-badge.premium {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+.trueheart-service-badge.free {
+    background: #f5f5f5;
+    color: #666;
+}
+
+/* Sync controls */
+.trueheart-sync-controls {
+    margin-bottom: 15px;
+}
+
+.trueheart-sync-info,
+.trueheart-storage-info {
+    font-size: 12px;
+    color: var(--text-secondary, #666);
+    margin-top: 8px;
+    text-align: center;
+}
+
+.trueheart-storage-info {
+    margin-top: 4px;
+}
+
+/* Animation for sync icon */
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .trueheart-sync-container {
+        padding: 15px;
+    }
+
+    .trueheart-tabs {
+        flex-direction: column;
+    }
+
+    .trueheart-tab {
+        width: 100%;
+    }
+}
+
+/* Dark theme support */
+@media (prefers-color-scheme: dark) {
+    .trueheart-sync-container {
+        background: var(--panel-bg, #1e1e1e);
+    }
+
+    .trueheart-header {
+        border-bottom-color: var(--border-color, #444);
+    }
+
+    .trueheart-tab {
+        background: var(--button-bg, #2d2d2d);
+        border-color: var(--border-color, #444);
+        color: var(--text-primary, #e0e0e0);
+    }
+
+    .trueheart-tab:hover {
+        background: var(--button-hover, #3a3a3a);
+    }
+
+    .trueheart-form input {
+        background: var(--input-bg, #2d2d2d);
+        border-color: var(--border-color, #444);
+        color: var(--text-primary, #e0e0e0);
+    }
+
+    .trueheart-user-info {
+        background: var(--panel-bg-lighter, #2d2d2d);
+        border-color: var(--border-color, #444);
+    }
+}
