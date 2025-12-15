@@ -33,8 +33,8 @@ cp sw.js "$DEPLOY_DIR/"
 
 # Google Drive sync files
 echo "Copying sync files..."
-cp gsync-*.js "$DEPLOY_DIR/"
-cp gsync-style.css "$DEPLOY_DIR/"
+cp trueheart-*.js "$DEPLOY_DIR/"
+cp trueheart-style.css "$DEPLOY_DIR/"
 
 # Lexicon files
 echo "Copying lexicon files..."
