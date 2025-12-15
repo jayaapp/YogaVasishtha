@@ -444,7 +444,12 @@ class TrueHeartUI {
         this.showMessage('account', this.getLocalizedMessage('syncing'), 'info');
 
         try {
-            await window.trueheartAPI.performTrueHeartSync();
+            // Use syncController if available to get unified behaviour (debounce, UI state)
+            if (window.syncController && typeof window.syncController.immediateSync === 'function') {
+                await window.syncController.immediateSync('manual');
+            } else {
+                await window.trueheartAPI.performTrueHeartSync();
+            }
             
             const now = new Date().toLocaleString();
             localStorage.setItem('trueheart-last-sync', now);

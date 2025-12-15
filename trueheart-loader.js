@@ -82,10 +82,9 @@
                 window.syncUI.onSyncManagerStateChange(true);
             }
 
-            // Start SmartAutoSync if available
-            if (typeof SmartAutoSync !== 'undefined' && !window.smartAutoSync) {
-                window.smartAutoSync = new SmartAutoSync(window.trueheartSync, window.syncUI);
-                window.smartAutoSync.start();
+            // Perform a one-time sync on load if authenticated
+            if (window.syncController) {
+                window.syncController.immediateSync('init');
             }
         }
 

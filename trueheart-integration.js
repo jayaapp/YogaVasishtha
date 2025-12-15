@@ -438,48 +438,71 @@ async function performTrueHeartSync() {
 }
 
 
-// SmartAutoSync class to approximate previous gsync auto-sync behavior
-class SmartAutoSync {
-    constructor(syncAPI, ui, interval = 30000) {
-        this.syncAPI = syncAPI;
-        this.ui = ui;
-        this.interval = interval;
-        this.timer = null;
-        this.isPerforming = false;
+// Sync controller: event-driven sync (debounced) and manual immediate sync
+const SYNC_DEBOUNCE_MS = 2000; // coalesce rapid local edits
+
+class SyncController {
+    constructor() {
+        this.debounceTimer = null;
+        this.isSyncing = false;
+        this.pendingChanges = false;
+        this.lastToastShown = false;
     }
 
-    start() {
-        if (this.timer) clearInterval(this.timer);
-        this.perform();
-        this.timer = setInterval(() => this.perform(), this.interval);
-    }
+    scheduleSync(reason) {
+        // Mark there are pending changes
+        this.pendingChanges = true;
 
-    stop() {
-        if (this.timer) {
-            clearInterval(this.timer);
-            this.timer = null;
-        }
-    }
-
-    async perform() {
-        if (!window.trueheartState.isAuthenticated) return;
-        if (this.isPerforming) return;
-        this.isPerforming = true;
-        try {
-            if (this.ui && this.ui.setState) {
-                this.ui.setState('syncing');
+        if (!window.trueheartState?.isAuthenticated) {
+            // Not authenticated: defer sync until login; notify user once
+            if (!this.lastToastShown) {
+                if (window.showAlert) window.showAlert('Changes saved locally; they will be synced when you sign in.', 3000);
+                this.lastToastShown = true;
             }
+            return;
+        }
+
+        // Debounce frequent updates
+        if (this.debounceTimer) clearTimeout(this.debounceTimer);
+        this.debounceTimer = setTimeout(() => {
+            this.debounceTimer = null;
+            this.immediateSync(reason || 'scheduled');
+        }, SYNC_DEBOUNCE_MS);
+    }
+
+    async immediateSync(reason = 'manual') {
+        if (!window.trueheartState?.isAuthenticated) {
+            if (window.showAlert) window.showAlert('Not signed in. Please sign in to sync.', 2500);
+            return;
+        }
+
+        if (this.isSyncing) return; // avoid concurrent syncs
+        this.isSyncing = true;
+        this.pendingChanges = false;
+
+        try {
+            if (window.syncUI && typeof window.syncUI.setState === 'function') {
+                window.syncUI.setState('syncing');
+            }
+            if (window.showAlert) window.showAlert('Syncing...', 1200);
+
             await performTrueHeartSync();
-        } catch (e) {
-            console.warn('SmartAutoSync failed:', e);
+
+            if (window.showAlert) window.showAlert('Sync completed', 2000);
+        } catch (err) {
+            console.error('Sync failed:', err);
+            if (window.showAlert) window.showAlert('Sync failed: ' + (err.message || err), 4000);
         } finally {
-            this.isPerforming = false;
-            if (this.ui && this.ui.setState) {
-                this.ui.setState('connected');
+            this.isSyncing = false;
+            if (window.syncUI && typeof window.syncUI.setState === 'function') {
+                window.syncUI.setState('connected');
             }
         }
     }
 }
+
+// Create global controller
+window.syncController = new SyncController();
 
 // Expose debugging helpers and compatibility objects
 window.syncManager = window.trueheartSync;
@@ -530,14 +553,11 @@ document.addEventListener('authChanged', () => {
         window.syncUI.onSyncManagerStateChange(window.trueheartState.isAuthenticated);
     }
 
-    if (!window.smartAutoSync && window.syncUI) {
-        window.smartAutoSync = new SmartAutoSync(window.trueheartSync, window.syncUI);
-    }
-
+    // On login, immediately sync to reconcile state
     if (window.trueheartState.isAuthenticated) {
-        window.smartAutoSync?.start();
-    } else {
-        window.smartAutoSync?.stop();
+        // Reset any toast flag so user sees messages for subsequent changes
+        if (window.syncController) window.syncController.lastToastShown = false;
+        if (window.syncController) window.syncController.immediateSync('login');
     }
 });
 

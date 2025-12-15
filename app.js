@@ -316,6 +316,8 @@ const SettingsManager = {
             };
 
             localStorage.setItem(key, JSON.stringify(positionData));
+            // Schedule sync for reading position update
+            if (window.syncController?.scheduleSync) window.syncController.scheduleSync('position');
         } else {
             console.warn('Could not find visible word for reading position - position not saved');
         }
@@ -1460,6 +1462,8 @@ const BookmarkManager = {
 
         this.saveToStorage();
         this.renderBookmarks();
+        // Schedule sync for bookmark addition/update
+        if (window.syncController?.scheduleSync) window.syncController.scheduleSync('bookmark');
     },
 
     /**
@@ -1869,6 +1873,8 @@ const BookmarkManager = {
         if (window.syncUI?.addDeletionEvent) {
             window.syncUI.addDeletionEvent(bookmarkId, 'bookmark');
         }
+        // Schedule sync for bookmark deletion
+        if (window.syncController?.scheduleSync) window.syncController.scheduleSync('bookmark-delete');
     },
 
     /**
@@ -3018,7 +3024,9 @@ const NotesManager = {
         this.saveToStorage();
         this.renderNotes();
 
-    },
++        // Schedule sync for note content change
++        if (window.syncController?.scheduleSync) window.syncController.scheduleSync('note');
++    },
 
     /**
      * Delete note
@@ -3052,6 +3060,8 @@ const NotesManager = {
         if (window.syncUI?.addDeletionEvent) {
             window.syncUI.addDeletionEvent(noteId, 'note');
         }
+        // Schedule sync for note deletion
+        if (window.syncController?.scheduleSync) window.syncController.scheduleSync('note-delete');
     },
 
     /**
@@ -3121,7 +3131,9 @@ const NotesManager = {
         }
 
         this.saveToStorage();
-    },
++        // Schedule sync for new note
++        if (window.syncController?.scheduleSync) window.syncController.scheduleSync('note');
++    },
 
     /**
      * Get current position
