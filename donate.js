@@ -821,6 +821,9 @@ if (typeof window !== 'undefined') {
 let donationManager = null;
 
 function initAppDonation() {
+  // Prevent double initialization
+  if (window.donationManager) return;
+
   // Initialize DonationManager with blog config
   donationManager = new DonationManager({
     appId: 'yogavasishtha',
@@ -836,6 +839,8 @@ function initAppDonation() {
       console.error('Donation error:', err);
     }
   });
+  // Expose the active instance on window for other modules to detect and use
+  window.donationManager = donationManager;
   
   // Bind to donate link
   const donateLink = document.getElementById('donate-btn');

@@ -191,7 +191,7 @@ class TrueHeartUI {
 
                     <div class="trueheart-hobby-notice">
                         <p><strong locale-id="hobby_project_title">Free Hobby Project</strong></p>
-                        <p locale-id="hobby_project_notice" data-donate-link="trueheart-donate-link">You have 1MB free sync storage. This is a volunteer-run service with limited capacity. Want to help? Consider <a href="#" id="trueheart-donate-link">donating</a>.</p>
+                        <p locale-id="hobby_project_notice" data-donate-link="trueheart-donate-link">You have 1MB free sync storage. This is a volunteer-run service with limited capacity. Want to help? <a href="#" id="trueheart-donate-link">Consider donating.</a></p>
                     </div>
 
                     <button class="trueheart-btn-secondary" id="trueheart-logout-btn">
@@ -246,11 +246,57 @@ class TrueHeartUI {
         const syncBtn = this.container.querySelector('#trueheart-sync-btn');
         syncBtn?.addEventListener('click', () => this.handleSync());
 
-        // Donate link
+        // Donate link: open donation panel (init if necessary)
         const donateLink = this.container.querySelector('#trueheart-donate-link');
-        // Placeholder donate link: prevent navigation and do nothing (donation panel is planned separately)
-        donateLink?.addEventListener('click', (e) => {
+        donateLink?.addEventListener('click', async (e) => {
             e.preventDefault();
+            // Close settings modal if open so donation panel isn't hidden behind it
+            try {
+                if (window.ModalManager && typeof window.ModalManager.close === 'function') {
+                    window.ModalManager.close('settings');
+                } else {
+                    const settingsModal = document.getElementById('settings-modal');
+                    if (settingsModal) {
+                        settingsModal.classList.remove('active');
+                        settingsModal.setAttribute('aria-hidden', 'true');
+                    }
+                }
+            } catch (err) {
+                console.warn('Could not close settings modal:', err);
+            }
+            try {
+                // Ensure donation manager is initialized (only call init if not present)
+                if (typeof window.initAppDonation === 'function' && !window.donationManager) {
+                    window.initAppDonation();
+                }
+
+                // Wait briefly for donationManager to be ready (max 5s)
+                const start = Date.now();
+                const waitForReady = () => new Promise((resolve) => {
+                    const check = () => {
+                        if (window.donationManager && window.donationManager.isInitialized) return resolve(true);
+                        if (Date.now() - start > 5000) return resolve(false);
+                        setTimeout(check, 200);
+                    };
+                    check();
+                });
+
+                const ready = await waitForReady();
+
+                if (ready && window.donationManager) {
+                    window.donationManager.open();
+                } else if (window.donationManager) {
+                    // Try to open anyway (the manager may show a loading message)
+                    window.donationManager.open();
+                } else if (window.showAlert) {
+                    window.showAlert('Donation service is unavailable right now. Please try again later.');
+                } else {
+                    console.warn('Donation service unavailable and no alert UI present');
+                }
+            } catch (err) {
+                console.error('Failed to open donation panel:', err);
+                if (window.showAlert) window.showAlert('Unable to open donation panel');
+            }
         });
 
         // Enter key handling
