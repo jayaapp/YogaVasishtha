@@ -3024,9 +3024,9 @@ const NotesManager = {
         this.saveToStorage();
         this.renderNotes();
 
-+        // Schedule sync for note content change
-+        if (window.syncController?.scheduleSync) window.syncController.scheduleSync('note');
-+    },
+        // Schedule sync for note content change
+        if (window.syncController?.scheduleSync) window.syncController.scheduleSync('note');
+    },
 
     /**
      * Delete note
@@ -3131,9 +3131,9 @@ const NotesManager = {
         }
 
         this.saveToStorage();
-+        // Schedule sync for new note
-+        if (window.syncController?.scheduleSync) window.syncController.scheduleSync('note');
-+    },
+        // Schedule sync for new note
+        if (window.syncController?.scheduleSync) window.syncController.scheduleSync('note');
+    },
 
     /**
      * Get current position

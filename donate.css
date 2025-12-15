@@ -1,0 +1,414 @@
+/**
+ * TrueHeartDonate - Blog-Specific Donation Panel Styles
+ * Simplified, minimalist styling matching the blog aesthetic
+ */
+
+/* CSS Custom Properties matching blog theme */
+:root {
+  --thd-bg-color: #ffffff;
+  --thd-text-color: #333333;
+  --thd-primary-color: #0066cc;
+  --thd-primary-hover: #004b99;
+  --thd-border-color: #e0e0e0;
+  --thd-panel-bg: #ffffff;
+  --thd-overlay-color: rgba(0, 0, 0, 0.5);
+  --thd-button-bg: #333333;
+  --thd-button-hover: #555555;
+}
+
+/* Dark theme override matching blog's dark theme */
+body.dark-theme {
+  --thd-bg-color: #1a1a1a;
+  --thd-text-color: #e0e0e0;
+  --thd-border-color: #444444;
+  --thd-panel-bg: #2d2d2d;
+  --thd-overlay-color: rgba(0, 0, 0, 0.7);
+  --thd-button-bg: #e0e0e0;
+  --thd-button-hover: #ffffff;
+}
+
+/* Overlay */
+.thd-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--thd-overlay-color);
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.thd-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Main Panel - Simplified, centered modal */
+.thd-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.95);
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  background-color: var(--thd-panel-bg);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  z-index: 1001;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+  overflow: hidden;
+  font-family: 'Roboto', sans-serif;
+}
+
+.thd-panel.active {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+/* Header - Simplified */
+.thd-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--thd-border-color);
+}
+
+.thd-title {
+  margin: 0;
+  font-size: 1.3em;
+  font-weight: 400;
+  color: var(--thd-text-color);
+}
+
+.thd-close {
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  background: none;
+  border: none;
+  color: var(--thd-text-color);
+  font-size: 28px;
+  line-height: 1;
+  opacity: 0.6;
+}
+
+.thd-close:hover {
+  opacity: 1;
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+body.dark-theme .thd-close:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Content */
+.thd-content {
+  padding: 24px;
+  overflow-y: auto;
+  max-height: calc(90vh - 80px);
+  color: var(--thd-text-color);
+}
+
+/* Sections - Minimal style */
+.thd-section {
+  margin-bottom: 20px;
+}
+
+.thd-section-title {
+  display: none; /* Hide icon-based titles for simple blog aesthetic */
+}
+
+.thd-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+/* Form Elements - Matching blog style */
+.thd-input,
+.thd-textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--thd-border-color);
+  border-radius: 4px;
+  background-color: var(--thd-bg-color);
+  color: var(--thd-text-color);
+  font-size: 16px;
+  font-family: 'Roboto', sans-serif;
+  box-sizing: border-box;
+}
+
+.thd-input:focus,
+.thd-textarea:focus {
+  outline: none;
+  border-color: var(--thd-primary-color);
+}
+
+.thd-textarea {
+  resize: vertical;
+  min-height: 80px;
+  margin-bottom: 16px;
+}
+
+.thd-input-amount {
+  width: 120px;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+/* Hide complex UI elements not needed for simple blog donations */
+.thd-select,
+.thd-stats-toggle,
+.thd-stats-content,
+.thd-progress-container,
+.thd-completed {
+  display: none !important;
+}
+
+/* Error messages */
+.thd-error {
+  color: #dc3545;
+  font-size: 14px;
+  margin: 16px 0;
+  padding: 12px;
+  background-color: rgba(220, 53, 69, 0.1);
+  border-radius: 4px;
+  border-left: 3px solid #dc3545;
+  display: none;
+}
+
+.thd-error:not(:empty) {
+  display: block;
+}
+
+/* Footer message */
+.thd-footer {
+  margin: 24px 0 0 0;
+  padding: 16px;
+  background-color: rgba(0, 0, 0, 0.02);
+  border-radius: 4px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+body.dark-theme .thd-footer {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.thd-footer p {
+  margin: 0;
+}
+
+/* Actions - Single payment button style */
+.thd-actions {
+  margin: 20px 0 0 0;
+  text-align: center;
+}
+
+.thd-btn {
+  padding: 14px 32px;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  font-family: 'Roboto', sans-serif;
+}
+
+.thd-btn-primary {
+  background-color: var(--thd-button-bg);
+  color: #ffffff;
+}
+
+.thd-btn-primary:hover {
+  background-color: var(--thd-button-hover);
+}
+
+body.dark-theme .thd-btn-primary {
+  background-color: var(--thd-button-bg);
+  color: var(--thd-bg-color);
+}
+
+body.dark-theme .thd-btn-primary:hover {
+  background-color: var(--thd-button-hover);
+}
+
+.thd-btn-secondary {
+  background-color: transparent;
+  color: var(--thd-text-color);
+  border: 1px solid var(--thd-border-color);
+  margin-top: 12px;
+}
+
+.thd-btn-secondary:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+body.dark-theme .thd-btn-secondary:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Summary view */
+.thd-summary-header h3 {
+  margin: 0 0 20px 0;
+  text-align: center;
+  font-size: 1.3em;
+  font-weight: 400;
+}
+
+.thd-summary-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  margin-bottom: 12px;
+  background-color: rgba(0, 0, 0, 0.02);
+  border-radius: 4px;
+}
+
+body.dark-theme .thd-summary-item {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.thd-summary-title {
+  font-weight: 400;
+}
+
+.thd-summary-details {
+  font-size: 14px;
+  opacity: 0.7;
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.thd-summary-amount {
+  font-weight: 500;
+  color: var(--thd-primary-color);
+  font-size: 18px;
+}
+
+.thd-total {
+  padding: 20px;
+  background-color: rgba(0, 0, 0, 0.03);
+  border-radius: 4px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+body.dark-theme .thd-total {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.thd-total h4 {
+  margin: 0;
+  font-size: 1.4em;
+  font-weight: 400;
+}
+
+/* Payment buttons */
+.thd-paypal-container {
+  margin-top: 20px;
+  min-height: 45px;
+}
+
+.thd-stripe-container {
+  margin-top: 16px;
+  display: none; /* Blog uses PayPal only */
+}
+
+/* Toast messages */
+.thd-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 16px 20px;
+  color: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  z-index: 10000;
+  animation: thdSlideIn 0.3s ease-out;
+  font-size: 15px;
+}
+
+.thd-toast-success {
+  background: #28a745;
+}
+
+.thd-toast-error {
+  background: #dc3545;
+}
+
+.thd-toast-info {
+  background: #0066cc;
+}
+
+@keyframes thdSlideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes thdSlideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+/* Stages */
+.thd-stage {
+  transition: opacity 0.3s ease;
+}
+
+.thd-stage.hidden {
+  display: none;
+}
+
+/* Mobile Responsive */
+@media (max-width: 600px) {
+  .thd-panel {
+    width: 95%;
+    max-height: 95vh;
+  }
+  
+  .thd-content {
+    padding: 20px;
+  }
+  
+  .thd-header {
+    padding: 16px 20px;
+  }
+  
+  .thd-title {
+    font-size: 1.1em;
+  }
+  
+  .thd-btn {
+    padding: 12px 24px;
+    font-size: 15px;
+  }
+}
