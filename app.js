@@ -37,9 +37,7 @@ const CONFIG = {
     },
     HELP_TEXT: `# Yoga Vasishtha EPUB Reader
 
-## Keyboard Shortcuts
-- **Escape**: Close any open modal
-- **Tab**: Navigate through interface elements
+A modern EPUB reader for the Yoga Vasishtha with integrated Sanskrit lexicon, notes, bookmarks, and cloud sync.
 
 ## Search
 
@@ -75,17 +73,24 @@ The search functionality supports regex patterns with automatic fallback to lite
 
 Each pattern searches across all books simultaneously, showing results with context and allowing navigation to exact locations in the text.
 
-## Features
-- **Multi-volume EPUB library**: Navigate between 7 volumes of Yoga Vasishtha
-- **Sanskrit lexicon**: Click on Sanskrit words for instant definitions
-- **Advanced search**: Regex-powered search across all volumes with context highlighting
-- **Personal annotations**: Add, edit, and manage notes with text selection
-- **Bookmark system**: Save reading positions with automatic previews
-- **Table of contents**: Native EPUB navigation
-- **Customizable reading**: Adjust fonts, sizes, and themes
-- **Reading progress**: Automatically saved position per book
-- **Cloud sync (TrueHeart)**: Cloud backup of bookmarks, notes, and reading positions
-- **Export functionality**: Download bookmarks and notes as JSON files`
+## Keyboard Shortcuts
+- **Escape**: Close any open modal
+- **Tab**: Navigate through interface elements
+
+## Acknowledgments
+
+The Yoga Vasishtha ebooks were sourced from 
+<a href="https://www.gutenberg.org/ebooks/search/?query=Yoga-Vasishtha" target="_blank" rel="noopener">Project Gutenberg</a>.
+
+AI tools were used in the development of this application (Claude, VS Code Copilot).
+
+## License
+
+The application's source is available under the <a href="https://mit-license.org/" target="_blank" rel="noopener">MIT License</a> via <a href="https://github.com/jayaapp" target="_blank" rel="noopener">GitHub</a>.
+
+## Copyright
+
+© <a href="https://trueheartapps.com" target="_blank" rel="noopener">True❤️Apps</a>`
 };
 
 // ===== APPLICATION STATE =====
