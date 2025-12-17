@@ -3,7 +3,8 @@
  * Provides offline functionality and install prompts
  */
 
-const CACHE_NAME = 'yoga-vasishtha-v1';
+const CACHE_NAME = 'yoga-vasishtha-core-v1';
+const RUNTIME_CACHE = 'yoga-vasishtha-runtime-v1';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -16,14 +17,25 @@ const urlsToCache = [
   '/trueheart-integration.js',
   '/trueheart-ui.js',
   '/trueheart-style.css',
-  '/trueheart-loader.js',
-  // EPUB files
-  '/epub/yoga-vasishtha-1.epub',
-  '/epub/yoga-vasishtha-2.epub',
-  '/epub/yoga-vasishtha-3.epub',
-  '/epub/yoga-vasishtha-4.epub',
-  '/epub/yoga-vasishtha-5.epub',
-  '/epub/yoga-vasishtha-6.epub'
+  '/trueheart-loader.js'
+];
+
+// Files to preload for full offline use
+const DATA_PRELOAD = [
+  '/Yoga-Vasishtha-Devanagari-Lexicon.json',
+  '/Yoga-Vasishtha-IAST-Lexicon.json',
+  '/Yoga-Vasishtha-Sanskrit-Passages.json',
+  '/Yoga-Vasishtha-Words-Passages-Mapping.json'
+];
+
+const EPUB_PRELOAD = [
+  '/epub/Yoga-Vasishtha-V1.epub',
+  '/epub/Yoga-Vasishtha-V2-P1of2.epub',
+  '/epub/Yoga-Vasishtha-V2-P2of2.epub',
+  '/epub/Yoga-Vasishtha-V3-P1of2.epub',
+  '/epub/Yoga-Vasishtha-V3-P2of2.epub',
+  '/epub/Yoga-Vasishtha-V4-P1of2.epub',
+  '/epub/Yoga-Vasishtha-V4-P2of2.epub'
 ];
 
 // Install event - cache resources
@@ -31,12 +43,41 @@ self.addEventListener('install', (event) => {
   console.log('📦 Service Worker installing...');
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => {
+      .then(async (cache) => {
         console.log('📦 Caching app resources');
-        return cache.addAll(urlsToCache.map(url => {
-          // Handle both root and index.html
-          return url === '/' ? '/index.html' : url;
-        }));
+        await cache.addAll(urlsToCache.map(url => (url === '/' ? '/index.html' : url)));
+        // Attempt to preload data files and epubs into runtime cache (non-fatal)
+        try {
+          const runtime = await caches.open(RUNTIME_CACHE);
+          // preload data
+          await Promise.all(DATA_PRELOAD.map(async (p) => {
+            try {
+              const r = await fetch(p);
+              if (r && r.status === 200) {
+                await runtime.put(p, r.clone());
+                console.log('💾 Preloaded data file:', p);
+              }
+            } catch (e) {
+              console.warn('⚠️ Failed to preload data file', p, e && e.message);
+            }
+          }));
+          // preload epubs (may be large) - fire-and-forget to avoid blocking install
+          (function preloadEpubs() {
+            Promise.all(EPUB_PRELOAD.map(async (p) => {
+              try {
+                const r = await fetch(p);
+                if (r && r.status === 200) {
+                  await runtime.put(p, r.clone());
+                  console.log('💾 Preloaded epub:', p);
+                }
+              } catch (e) {
+                console.warn('⚠️ Failed to preload epub', p, e && e.message);
+              }
+            })).catch(e => console.warn('⚠️ EPUB preloading failed', e && e.message));
+          })();
+        } catch (e) {
+          console.warn('⚠️ Preloading step failed', e && e.message);
+        }
       })
       .catch((error) => {
         console.error('📦 Cache installation failed:', error);
