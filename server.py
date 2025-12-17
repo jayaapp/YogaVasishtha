@@ -13,8 +13,16 @@ def get_local_ip():
         return "127.0.0.1"
 
 # Server settings
-PORT = 7000
-HOST = "0.0.0.0"  # Listen on all interfaces
+import argparse
+
+parser = argparse.ArgumentParser(description='Serve YogaVasishtha locally with optional bind host')
+parser.add_argument('--port', '-p', type=int, default=7000, help='Port to serve on')
+parser.add_argument('--host', '-H', default='0.0.0.0', help='Host/IP to bind to (default all interfaces)')
+parser.add_argument('--print-only', action='store_true', help='Print candidate URLs and exit (for testing)')
+args = parser.parse_args()
+
+PORT = args.port
+HOST = args.host  # Bind address (e.g., 0.0.0.0 or 127.0.0.2)
 
 # Custom handler to print the server link
 class MyHandler(http.server.SimpleHTTPRequestHandler):
@@ -74,24 +82,35 @@ if selected_port is None:
     exit(1)
 
 if __name__ == "__main__":
+    # If user just wanted to print candidate URLs and exit, do so
+    local_ip = get_local_ip()
+    print(f"Candidate URLs for this host (bind host: {HOST}):")
+    print(f"   • http://localhost:{PORT}/index.html  (localhost)")
+    print(f"   • http://127.0.0.1:{PORT}/index.html  (fast localhost)")
+    if HOST and HOST != '0.0.0.0' and HOST != '::':
+        print(f"   • http://{HOST}:{PORT}/index.html  (bound host)")
+    print(f"   • http://{local_ip}:{PORT}/index.html  (for network access)")
+    print("📂 Make sure your files are in the same directory as this script.")
+    print("🔗 Open the link in your browser.")
+    if HOST == '0.0.0.0':
+        print(f"💡 Tip: To serve on a specific loopback (distinct origin), run: python server.py --host 127.0.0.2 --port {PORT}")
+    else:
+        print(f"💡 Serving bound to {HOST}. You can install by opening http://{HOST}:{PORT}/index.html on device.")
+
+    if args.print_only:
+        exit(0)
+
     try:
         if use_dual_stack:
             httpd = DualStackServer(('::', selected_port), MyHandler)
-            print(f"🚀 Serving at (IPv4 + IPv6):")
+            print(f"🚀 Serving at (IPv4 + IPv6) on port {selected_port}:")
         else:
             httpd = socketserver.TCPServer((HOST, selected_port), MyHandler)
-            print(f"🚀 Serving at (IPv4 only):")
+            print(f"🚀 Serving at (IPv4 only) on host {HOST} port {selected_port}:")
     except Exception as e:
-        # Fallback to IPv4 only
+        # Fallback to IPv4 only binding to HOST
         httpd = socketserver.TCPServer((HOST, selected_port), MyHandler)
-        print(f"🚀 Serving at (IPv4 only):")
-    
-    local_ip = get_local_ip()
-    print(f"   • http://localhost:{selected_port}/index.html  (for PWA install)")
-    print(f"   • http://127.0.0.1:{selected_port}/index.html  (fast localhost)")
-    print(f"   • http://{local_ip}:{selected_port}/index.html  (for network access)")
-    print("📂 Make sure your files are in the same directory as this script.")
-    print("🔗 Open the link in your browser.")
+        print(f"🚀 Serving at (IPv4 only) on host {HOST} port {selected_port}:")
     
     try:
         httpd.serve_forever()
