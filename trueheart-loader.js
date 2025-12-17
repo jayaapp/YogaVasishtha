@@ -157,9 +157,13 @@ window.syncUI = {
         console.log('🔄 TrueHeart: Manual sync triggered');
         if (window.trueheartState.isAuthenticated && window.trueheartAPI) {
             try {
-                await window.trueheartAPI.performTrueHeartSync();
+                if (window.syncController && typeof window.syncController.immediateSync === 'function') {
+                    await window.syncController.immediateSync('manual');
+                } else {
+                    await window.trueheartAPI.performTrueHeartSync();
+                }
                 console.log('✅ TrueHeart: Sync completed');
-                window.dispatchEvent(new CustomEvent('trueheart-sync-complete'));
+                // completion event emitted centrally by performTrueHeartSync()
             } catch (error) {
                 console.error('❌ TrueHeart: Sync failed:', error);
             }

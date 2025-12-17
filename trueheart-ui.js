@@ -519,9 +519,6 @@ class TrueHeartUI {
             
             this.setState('connected');
             this.showMessage('account', this.getLocalizedMessage('success_sync_complete'), 'success');
-            
-            // Notify app to refresh data
-            window.dispatchEvent(new CustomEvent('trueheart-sync-complete'));
         } catch (error) {
             this.setState('connected');
             this.showMessage('account', this.getLocalizedMessage('error_sync') + ': ' + error.message, 'error');

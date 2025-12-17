@@ -476,6 +476,16 @@ class SyncController {
             return;
         }
 
+        // If a debounce timer is pending (scheduled sync), cancel it because
+        // the user requested an immediate sync and we don't want the timer
+        // to fire after this manual sync completes and cause a duplicate run.
+        if (this.debounceTimer) {
+            clearTimeout(this.debounceTimer);
+            this.debounceTimer = null;
+            // Helpful debug line when testing to show the pending debounce was cancelled
+            if (typeof console !== 'undefined' && console.log) console.log('🔁 SyncController: canceled pending debounce before immediate sync');
+        }
+
         if (this.isSyncing) return; // avoid concurrent syncs
         this.isSyncing = true;
         this.pendingChanges = false;
