@@ -122,17 +122,10 @@
 
 window.syncUI = {
     addDeletionEvent: function(key, type) {
-        // Track deletions in localStorage for sync (write both legacy and TrueHeart keys)
+        // Track deletions in localStorage for sync (canonical key only)
         const thDeletions = JSON.parse(localStorage.getItem('trueheart-deletions') || '[]');
         thDeletions.push({ key, type, timestamp: Date.now() });
         localStorage.setItem('trueheart-deletions', JSON.stringify(thDeletions));
-
-        const legacy = JSON.parse(localStorage.getItem('yoga-vasishtha-pending-deletions') || '[]');
-        if (!legacy.find(e => e.key === key && e.type === type)) {
-            legacy.push({ key, type, deletedAt: new Date().toISOString() });
-            localStorage.setItem('yoga-vasishtha-pending-deletions', JSON.stringify(legacy));
-        }
-
         console.log('📝 TrueHeart: Deletion tracked:', type, key);
     },
 

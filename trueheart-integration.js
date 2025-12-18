@@ -333,25 +333,14 @@ async function performTrueHeartSync() {
         throw new Error('Not authenticated');
     }
     // Collect local data (support app-specific keys for Yoga Vasishtha compatibility)
-    const localBookmarks = JSON.parse(localStorage.getItem('yoga-vasishtha-bookmarks') || localStorage.getItem('bookmarks') || '{}');
-    const localNotes = JSON.parse(localStorage.getItem('yoga-vasishtha-notes') || localStorage.getItem('notes') || '{}');
+    // Local bookmarks/notes are stored under canonical keys
+    const localBookmarks = JSON.parse(localStorage.getItem('bookmarks') || '{}');
+    const localNotes = JSON.parse(localStorage.getItem('notes') || '{}');
 
-    // Collect reading positions using app-style keys (epub-position-<index>)
-    const readingPositions = {};
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('epub-position-')) {
-            const bookIndex = key.replace('epub-position-', '');
-            readingPositions[bookIndex] = localStorage.getItem(key);
-        }
-    }
-
+    // Build local snapshot (only bookmarks & notes for Yoga Vasishtha)
     const localData = {
         bookmarks: localBookmarks,
         notes: localNotes,
-        prompts: JSON.parse(localStorage.getItem('prompts') || '{}'),
-        readingPositions: readingPositions,
-        settings: JSON.parse(localStorage.getItem('yoga-vasishtha-settings') || '{}'),
         timestamp: new Date().toISOString()
     };
 
@@ -359,19 +348,15 @@ async function performTrueHeartSync() {
     const remoteResult = await window.trueheartSync.load();
     const remoteData = remoteResult.data;
 
-    // Gather pending deletion events (compatibility with previous gsync and TrueHeart stubs)
-    const pendingTrueHeartDeletions = JSON.parse(localStorage.getItem('trueheart-deletions') || '[]');
-    const pendingOldDeletions = JSON.parse(localStorage.getItem('yoga-vasishtha-pending-deletions') || '[]');
-    const pendingDeletions = [...pendingTrueHeartDeletions, ...pendingOldDeletions];
+    // Gather pending deletion events (use canonical 'trueheart-deletions')
+    const pendingDeletions = JSON.parse(localStorage.getItem('trueheart-deletions') || '[]');
     // Clear pending deletions (they will be processed and uploaded)
-    if (pendingTrueHeartDeletions.length > 0) localStorage.removeItem('trueheart-deletions');
-    if (pendingOldDeletions.length > 0) localStorage.removeItem('yoga-vasishtha-pending-deletions');
+    if (pendingDeletions.length > 0) localStorage.removeItem('trueheart-deletions');
 
-    // Prefer a sensible merge between local and remote snapshots.
-    // Empty snapshots (no keys in main data sections) are treated as "no data".
+    // Prefer a sensible merge between local and remote snapshots for sync (bookmarks & notes only).
     function isEmptySnapshot(v) {
         if (!v) return true;
-        const keys = ['bookmarks','notes','prompts','readingPositions','settings'];
+        const keys = ['bookmarks','notes'];
         return keys.every(k => !v[k] || (typeof v[k] === 'object' && Object.keys(v[k]).length === 0));
     }
 
@@ -388,7 +373,7 @@ async function performTrueHeartSync() {
         console.warn('TrueHeart: remote snapshot empty while local has data — preparing to upload local snapshot.');
         mergedData = localData;
     } else {
-        // Both empty or both non-empty: choose by timestamp, otherwise merge fields
+        // Both empty or both non-empty: choose by timestamp, otherwise merge bookmarks and notes only
         const localTime = new Date(localData.timestamp || 0).getTime();
         const remoteTime = new Date(remoteData?.timestamp || 0).getTime();
         if (localTime > remoteTime) {
@@ -397,9 +382,6 @@ async function performTrueHeartSync() {
             mergedData = {
                 bookmarks: { ...(localData.bookmarks || {}), ...(remoteData?.bookmarks || {}) },
                 notes: { ...(localData.notes || {}), ...(remoteData?.notes || {}) },
-                prompts: { ...(localData.prompts || {}), ...(remoteData?.prompts || {}) },
-                readingPositions: (remoteData && remoteData.readingPositions) || localData.readingPositions,
-                settings: { ...(localData.settings || {}), ...(remoteData?.settings || {}) },
                 timestamp: (remoteData && remoteData.timestamp) || localData.timestamp
             };
         }
@@ -438,13 +420,9 @@ async function performTrueHeartSync() {
                 }
 
                 if (type === 'patch' || type === 'state') {
-                    Object.keys(payload).forEach(key => {
-                        if (['bookmarks','notes','prompts','readingPositions','settings'].includes(key)) {
-                            mergedData[key] = { ...(mergedData[key] || {}), ...(payload[key] || {}) };
-                        } else {
-                            mergedData[key] = payload[key];
-                        }
-                    });
+                    // Only merge bookmarks and notes for now
+                    if (payload.bookmarks) mergedData.bookmarks = { ...(mergedData.bookmarks || {}), ...(payload.bookmarks || {}) };
+                    if (payload.notes) mergedData.notes = { ...(mergedData.notes || {}), ...(payload.notes || {}) };
                     return;
                 }
 
@@ -473,43 +451,55 @@ async function performTrueHeartSync() {
 
     // Optionally, save merged data back to server to update snapshot
     try {
-        const payloadStr = JSON.stringify(mergedData);
+        // Only sync bookmarks and notes
+        const syncPayload = {
+            bookmarks: mergedData.bookmarks || {},
+            notes: mergedData.notes || {},
+            timestamp: mergedData.timestamp || new Date().toISOString()
+        };
+        const payloadStr = JSON.stringify(syncPayload);
         const payloadSample = payloadStr.length > 300 ? payloadStr.slice(0,300) + '... (truncated)' : payloadStr;
         console.debug('TrueHeart Debug: saving payload (truncated):', payloadSample);
-        const saveRes = await window.trueheartSync.save(mergedData);
+        const saveRes = await window.trueheartSync.save(syncPayload);
         console.debug('TrueHeart Debug: save result:', saveRes);
     } catch (err) {
-        console.warn('Failed to save merged data to server:', err);
+        // Handle defensive rejection: if server rejects empty snapshot to prevent wipe, reload server snapshot and apply it
+        if (err && err.message === 'empty_snapshot_rejected') {
+            console.warn('TrueHeart: save rejected as empty_snapshot_rejected — reloading server snapshot instead');
+            try {
+                const reload = await window.trueheartSync.load();
+                if (reload && reload.data) {
+                    mergedData.bookmarks = reload.data.bookmarks || {};
+                    mergedData.notes = reload.data.notes || {};
+                    // Update local storage with server snapshot (bookmarks & notes only)
+                    localStorage.setItem('bookmarks', JSON.stringify(mergedData.bookmarks || {}));
+                    localStorage.setItem('notes', JSON.stringify(mergedData.notes || {}));
+                    window.dispatchEvent(new CustomEvent('syncDataUpdated', { detail: { bookmarks: mergedData.bookmarks || {}, notes: mergedData.notes || {} } }));
+                    console.info('TrueHeart: local bookmarks/notes refreshed from server after rejected empty save');
+                } else {
+                    console.warn('TrueHeart: reload returned no data after empty save rejection');
+                }
+            } catch (reloadErr) {
+                console.error('TrueHeart: failed to reload server snapshot after empty save rejection', reloadErr);
+            }
+        } else {
+            console.warn('Failed to save merged data to server:', err);
+        }
     }
 
-    // Update local storage for both TrueHeart-standard keys and Yoga app keys
+    // Update local storage with merged bookmarks & notes only
     try {
-        // TrueHeart-style
         localStorage.setItem('bookmarks', JSON.stringify(mergedData.bookmarks));
         localStorage.setItem('notes', JSON.stringify(mergedData.notes));
-        localStorage.setItem('prompts', JSON.stringify(mergedData.prompts || {}));
-        localStorage.setItem('reading-positions', JSON.stringify(mergedData.readingPositions || {}));
-        localStorage.setItem('yoga-vasishtha-settings', JSON.stringify(mergedData.settings || {}));
-
-        // Yoga app backward-compatible keys
-        localStorage.setItem('yoga-vasishtha-bookmarks', JSON.stringify(mergedData.bookmarks || {}));
-        localStorage.setItem('yoga-vasishtha-notes', JSON.stringify(mergedData.notes || {}));
-
-        // Update epub-position-<index> keys (for compatibility)
-        Object.keys(mergedData.readingPositions || {}).forEach(bookIndex => {
-            const key = `epub-position-${bookIndex}`;
-            localStorage.setItem(key, mergedData.readingPositions[bookIndex]);
-        });
     } catch (err) {
-        console.warn('Could not update all local storage keys:', err);
+        console.warn('Could not update bookmarks/notes in local storage:', err);
     }
 
-    // Notify app of synced data in gsync-compatible format
+    // Notify app of synced data (bookmarks & notes only)
     window.dispatchEvent(new CustomEvent('syncDataUpdated', {
         detail: {
             bookmarks: mergedData.bookmarks || {},
             notes: mergedData.notes || {},
-            readingPositions: mergedData.readingPositions || {},
             deletedItems: deletedItems
         }
     }));
@@ -626,9 +616,6 @@ window.resetSync = async function() {
         const emptyState = {
             bookmarks: {},
             notes: {},
-            prompts: {},
-            readingPositions: {},
-            settings: {},
             timestamp: new Date().toISOString()
         };
 

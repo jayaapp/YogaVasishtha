@@ -1883,22 +1883,22 @@ const BookmarkManager = {
     },
 
     /**
-     * Save bookmarks to localStorage
+     * Save bookmarks to localStorage (canonical key: 'bookmarks')
      */
     saveToStorage() {
         try {
-            localStorage.setItem('yoga-vasishtha-bookmarks', JSON.stringify(State.bookmarks));
+            localStorage.setItem('bookmarks', JSON.stringify(State.bookmarks));
         } catch (error) {
             console.error('Failed to save bookmarks:', error);
         }
     },
 
     /**
-     * Load bookmarks from localStorage
+     * Load bookmarks from localStorage; migrate from legacy key if present
      */
     loadFromStorage() {
         try {
-            const saved = localStorage.getItem('yoga-vasishtha-bookmarks');
+            const saved = localStorage.getItem('bookmarks');
             State.bookmarks = saved ? JSON.parse(saved) : {};
         } catch (error) {
             console.error('Failed to load bookmarks:', error);
@@ -3277,14 +3277,12 @@ const NotesManager = {
     },
 
     /**
-     * Load notes from localStorage
+     * Load notes from localStorage; migrate from legacy key if present
      */
     loadFromStorage() {
         try {
-            const stored = localStorage.getItem('yoga-vasishtha-notes');
-            if (stored) {
-                State.notes = JSON.parse(stored);
-            }
+            const stored = localStorage.getItem('notes');
+            State.notes = stored ? JSON.parse(stored) : {};
         } catch (error) {
             console.error('Failed to load notes:', error);
             State.notes = {};
@@ -3292,11 +3290,11 @@ const NotesManager = {
     },
 
     /**
-     * Save notes to localStorage
+     * Save notes to localStorage (canonical key: 'notes')
      */
     saveToStorage() {
         try {
-            localStorage.setItem('yoga-vasishtha-notes', JSON.stringify(State.notes));
+            localStorage.setItem('notes', JSON.stringify(State.notes));
         } catch (error) {
             console.error('Failed to save notes:', error);
         }
