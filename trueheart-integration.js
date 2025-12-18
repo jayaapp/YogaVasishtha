@@ -267,6 +267,31 @@ class TrueHeartSyncClient {
         
         return await response.json();
     }
+
+    // Append events to the event-log via TrueHeartUser proxy (if available)
+    async appendEvents(events) {
+        if (!this.userClient.sessionToken) throw new Error('Not authenticated');
+        const response = await fetch(`${this.userClient.baseURL}/sync/event`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${this.userClient.sessionToken}`
+            },
+            body: JSON.stringify({ app_id: this.appId, events })
+        });
+        return await response.json();
+    }
+
+    async fetchEvents(since = 0, limit = 1000) {
+        if (!this.userClient.sessionToken) throw new Error('Not authenticated');
+        const response = await fetch(`${this.userClient.baseURL}/sync/events?app_id=${this.appId}&since=${since}&limit=${limit}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${this.userClient.sessionToken}`
+            }
+        });
+        return await response.json();
+    }
 }
 
 /**
@@ -342,62 +367,79 @@ async function performTrueHeartSync() {
     if (pendingTrueHeartDeletions.length > 0) localStorage.removeItem('trueheart-deletions');
     if (pendingOldDeletions.length > 0) localStorage.removeItem('yoga-vasishtha-pending-deletions');
 
-    let mergedData;
-    if (!remoteData) {
-        // No remote data, start with local
-        mergedData = localData;
-    } else {
-        // Merge local and remote data (simple: take newest by timestamp, then merge maps)
-        const localTime = new Date(localData.timestamp || 0);
-        const remoteTime = new Date(remoteData.timestamp || 0);
+    // Start with remote snapshot if available, otherwise local
+    let mergedData = remoteData || localData;
 
-        if (localTime > remoteTime) {
-            mergedData = {
-                ...localData,
-                // Keep remote fields where necessary
-                timestamp: localData.timestamp
-            };
-        } else {
-            mergedData = {
-                bookmarks: { ...(remoteData.bookmarks || {}), ...(localData.bookmarks || {}) },
-                notes: { ...(remoteData.notes || {}), ...(localData.notes || {}) },
-                prompts: { ...(remoteData.prompts || {}), ...(localData.prompts || {}) },
-                readingPositions: remoteData.readingPositions || localData.readingPositions,
-                settings: { ...(remoteData.settings || {}), ...(localData.settings || {}) },
-                timestamp: remoteData.timestamp || new Date().toISOString()
-            };
+    // Convert pending deletions into events and upload them
+    const eventsToAppend = [];
+    (pendingDeletions || []).forEach(event => {
+        const id = event.key || event.id || event;
+        const type = event.type || 'bookmark';
+        eventsToAppend.push({ event_id: `del-${id}-${Date.now()}`, type: 'delete', payload: { target: type === 'note' ? 'note' : 'bookmark', id }, created_at: Date.now() });
+    });
+
+    if (eventsToAppend.length > 0) {
+        try {
+            await window.trueheartSync.appendEvents(eventsToAppend);
+        } catch (err) {
+            console.warn('Failed to append events:', err);
         }
     }
 
-    // Apply pending deletion events to merged data
-    const deletedItems = { bookmarks: [], notes: [] };
-    if (pendingDeletions && pendingDeletions.length > 0) {
-        pendingDeletions.forEach(event => {
-            const id = event.key || event.id || event;
-            const type = event.type || 'bookmark';
+    // Fetch events and apply them to mergedData (simple replay)
+    let deletedItems = { bookmarks: [], notes: [] };
+    try {
+        const eventsRes = await window.trueheartSync.fetchEvents(0, 10000);
+        if (eventsRes && eventsRes.success && Array.isArray(eventsRes.events)) {
+            eventsRes.events.forEach(ev => {
+                const type = ev.type || 'patch';
+                const payload = ev.payload || {};
 
-            if (type === 'note') {
-                Object.keys(mergedData.notes || {}).forEach(bookIndex => {
-                    const beforeCount = (mergedData.notes[bookIndex] || []).length;
-                    mergedData.notes[bookIndex] = (mergedData.notes[bookIndex] || []).filter(n => n.id !== id);
-                    if ((mergedData.notes[bookIndex] || []).length < beforeCount) {
-                        deletedItems.notes.push({ id, bookIndex });
+                if (type === 'replace') {
+                    mergedData = payload;
+                    return;
+                }
+
+                if (type === 'patch' || type === 'state') {
+                    Object.keys(payload).forEach(key => {
+                        if (['bookmarks','notes','prompts','readingPositions','settings'].includes(key)) {
+                            mergedData[key] = { ...(mergedData[key] || {}), ...(payload[key] || {}) };
+                        } else {
+                            mergedData[key] = payload[key];
+                        }
+                    });
+                    return;
+                }
+
+                if (type === 'delete') {
+                    const target = payload.target || 'bookmark';
+                    const id = payload.id;
+                    if (target === 'note') {
+                        Object.keys(mergedData.notes || {}).forEach(bookIndex => {
+                            const beforeCount = (mergedData.notes[bookIndex] || []).length;
+                            mergedData.notes[bookIndex] = (mergedData.notes[bookIndex] || []).filter(n => n.id !== id);
+                            if ((mergedData.notes[bookIndex] || []).length < beforeCount) deletedItems.notes.push({ id, bookIndex });
+                        });
+                    } else {
+                        Object.keys(mergedData.bookmarks || {}).forEach(bookIndex => {
+                            const beforeCount = (mergedData.bookmarks[bookIndex] || []).length;
+                            mergedData.bookmarks[bookIndex] = (mergedData.bookmarks[bookIndex] || []).filter(b => b.id !== id);
+                            if ((mergedData.bookmarks[bookIndex] || []).length < beforeCount) deletedItems.bookmarks.push({ id, bookIndex });
+                        });
                     }
-                });
-            } else {
-                Object.keys(mergedData.bookmarks || {}).forEach(bookIndex => {
-                    const beforeCount = (mergedData.bookmarks[bookIndex] || []).length;
-                    mergedData.bookmarks[bookIndex] = (mergedData.bookmarks[bookIndex] || []).filter(b => b.id !== id);
-                    if ((mergedData.bookmarks[bookIndex] || []).length < beforeCount) {
-                        deletedItems.bookmarks.push({ id, bookIndex });
-                    }
-                });
-            }
-        });
+                }
+            });
+        }
+    } catch (err) {
+        console.warn('Failed to fetch or apply events:', err);
     }
 
-    // Save merged data back to server
-    await window.trueheartSync.save(mergedData);
+    // Optionally, save merged data back to server to update snapshot
+    try {
+        await window.trueheartSync.save(mergedData);
+    } catch (err) {
+        console.warn('Failed to save merged data to server:', err);
+    }
 
     // Update local storage for both TrueHeart-standard keys and Yoga app keys
     try {
