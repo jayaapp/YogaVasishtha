@@ -367,8 +367,31 @@ async function performTrueHeartSync() {
     if (pendingTrueHeartDeletions.length > 0) localStorage.removeItem('trueheart-deletions');
     if (pendingOldDeletions.length > 0) localStorage.removeItem('yoga-vasishtha-pending-deletions');
 
-    // Start with remote snapshot if available, otherwise local
-    let mergedData = remoteData || localData;
+    // Prefer a sensible merge between local and remote snapshots.
+    // If remote data is empty (no keys), treat it as absent.
+    function isEmptySnapshot(v) { return !v || (typeof v === 'object' && Object.keys(v).length === 0); }
+
+    let mergedData;
+    if (isEmptySnapshot(remoteData)) {
+        // No meaningful remote snapshot — use local
+        mergedData = localData;
+    } else {
+        // Choose based on timestamp (newer snapshot wins), otherwise merge fields
+        const localTime = new Date(localData.timestamp || 0).getTime();
+        const remoteTime = new Date(remoteData.timestamp || 0).getTime();
+        if (localTime > remoteTime) {
+            mergedData = localData;
+        } else {
+            mergedData = {
+                bookmarks: { ...(localData.bookmarks || {}), ...(remoteData.bookmarks || {}) },
+                notes: { ...(localData.notes || {}), ...(remoteData.notes || {}) },
+                prompts: { ...(localData.prompts || {}), ...(remoteData.prompts || {}) },
+                readingPositions: remoteData.readingPositions || localData.readingPositions,
+                settings: { ...(localData.settings || {}), ...(remoteData.settings || {}) },
+                timestamp: remoteData.timestamp || localData.timestamp
+            };
+        }
+    }
 
     // Convert pending deletions into events and upload them
     const eventsToAppend = [];
