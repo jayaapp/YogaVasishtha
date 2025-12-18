@@ -415,7 +415,8 @@ async function performTrueHeartSync() {
 
     if (eventsToAppend.length > 0) {
         try {
-            await window.trueheartSync.appendEvents(eventsToAppend);
+            const appendRes = await window.trueheartSync.appendEvents(eventsToAppend);
+            console.debug('TrueHeart Debug: appendEvents result:', { appended: eventsToAppend.length, result: appendRes });
         } catch (err) {
             console.warn('Failed to append events:', err);
         }
@@ -425,6 +426,7 @@ async function performTrueHeartSync() {
     let deletedItems = { bookmarks: [], notes: [] };
     try {
         const eventsRes = await window.trueheartSync.fetchEvents(0, 10000);
+        console.debug('TrueHeart Debug: fetched events response', { success: eventsRes && eventsRes.success, count: eventsRes && Array.isArray(eventsRes.events) ? eventsRes.events.length : 0 });
         if (eventsRes && eventsRes.success && Array.isArray(eventsRes.events)) {
             eventsRes.events.forEach(ev => {
                 const type = ev.type || 'patch';
@@ -471,7 +473,11 @@ async function performTrueHeartSync() {
 
     // Optionally, save merged data back to server to update snapshot
     try {
-        await window.trueheartSync.save(mergedData);
+        const payloadStr = JSON.stringify(mergedData);
+        const payloadSample = payloadStr.length > 300 ? payloadStr.slice(0,300) + '... (truncated)' : payloadStr;
+        console.debug('TrueHeart Debug: saving payload (truncated):', payloadSample);
+        const saveRes = await window.trueheartSync.save(mergedData);
+        console.debug('TrueHeart Debug: save result:', saveRes);
     } catch (err) {
         console.warn('Failed to save merged data to server:', err);
     }
