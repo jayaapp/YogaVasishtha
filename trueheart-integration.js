@@ -453,17 +453,41 @@ async function performTrueHeartSync() {
 
     // Optionally, save merged data back to server to update snapshot
     try {
-        // Only sync bookmarks and notes
-        const syncPayload = {
-            bookmarks: mergedData.bookmarks || {},
-            notes: mergedData.notes || {},
-            timestamp: mergedData.timestamp || new Date().toISOString()
-        };
-        const payloadStr = JSON.stringify(syncPayload);
-        const payloadSample = payloadStr.length > 300 ? payloadStr.slice(0,300) + '... (truncated)' : payloadStr;
-        console.debug('TrueHeart Debug: saving payload (truncated):', payloadSample);
-        const saveRes = await window.trueheartSync.save(syncPayload);
-        console.debug('TrueHeart Debug: save result:', saveRes);
+        // Guard: if mergedData is empty but there are fetched events or remote had data, reload server snapshot instead of saving an empty snapshot
+        const mergedEmpty = isEmptySnapshot(mergedData);
+        const hadRemote = !isEmptySnapshot(remoteData);
+        const eventsCount = (eventsRes && eventsRes.success && Array.isArray(eventsRes.events)) ? eventsRes.events.length : 0;
+        if (mergedEmpty && (eventsCount > 0 || hadRemote)) {
+            console.warn('TrueHeart: merged result is empty while server/events suggest data exists — reloading server snapshot instead of saving empty');
+            try {
+                const reload = await window.trueheartSync.load();
+                if (reload && reload.data) {
+                    mergedData.bookmarks = reload.data.bookmarks || {};
+                    mergedData.notes = reload.data.notes || {};
+                    // Update local storage with server snapshot (bookmarks & notes only)
+                    localStorage.setItem('bookmarks', JSON.stringify(mergedData.bookmarks || {}));
+                    localStorage.setItem('notes', JSON.stringify(mergedData.notes || {}));
+                    window.dispatchEvent(new CustomEvent('syncDataUpdated', { detail: { bookmarks: mergedData.bookmarks || {}, notes: mergedData.notes || {} } }));
+                    console.info('TrueHeart: local bookmarks/notes refreshed from server after empty-merge guard');
+                } else {
+                    console.warn('TrueHeart: reload returned no data after empty-merge guard');
+                }
+            } catch (reloadErr) {
+                console.error('TrueHeart: failed to reload server snapshot after empty-merge guard', reloadErr);
+            }
+        } else {
+            // Only sync bookmarks and notes (avoid syncing reading positions, prompts, settings)
+            const syncPayload = {
+                bookmarks: mergedData.bookmarks || {},
+                notes: mergedData.notes || {},
+                timestamp: mergedData.timestamp || new Date().toISOString()
+            };
+            const payloadStr = JSON.stringify(syncPayload);
+            const payloadSample = payloadStr.length > 300 ? payloadStr.slice(0,300) + '... (truncated)' : payloadStr;
+            console.debug('TrueHeart Debug: saving payload (truncated):', payloadSample);
+            const saveRes = await window.trueheartSync.save(syncPayload);
+            console.debug('TrueHeart Debug: save result:', saveRes);
+        }
     } catch (err) {
         // Handle defensive rejection: if server rejects empty snapshot to prevent wipe, reload server snapshot and apply it
         if (err && err.message === 'empty_snapshot_rejected') {
