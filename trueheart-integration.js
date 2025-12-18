@@ -373,18 +373,34 @@ async function performTrueHeartSync() {
         console.warn('TrueHeart: remote snapshot empty while local has data — preparing to upload local snapshot.');
         mergedData = localData;
     } else {
-        // Both empty or both non-empty: choose by timestamp, otherwise merge bookmarks and notes only
-        const localTime = new Date(localData.timestamp || 0).getTime();
-        const remoteTime = new Date(remoteData?.timestamp || 0).getTime();
-        if (localTime > remoteTime) {
-            mergedData = localData;
-        } else {
-            mergedData = {
-                bookmarks: { ...(localData.bookmarks || {}), ...(remoteData?.bookmarks || {}) },
-                notes: { ...(localData.notes || {}), ...(remoteData?.notes || {}) },
-                timestamp: (remoteData && remoteData.timestamp) || localData.timestamp
-            };
+        // Both non-empty: merge bookmarks and notes per-item to avoid one-client snapshot overwriting another
+        function mergeListsById(localObj = {}, remoteObj = {}) {
+            const out = {};
+            const bookIndexes = new Set([...Object.keys(localObj), ...Object.keys(remoteObj)]);
+            bookIndexes.forEach(bi => {
+                const localArr = (localObj[bi] || []).slice();
+                const remoteArr = (remoteObj[bi] || []).slice();
+                const byId = Object.create(null);
+                localArr.concat(remoteArr).forEach(item => {
+                    if (!item || !item.id) return;
+                    const existing = byId[item.id];
+                    if (!existing) byId[item.id] = item;
+                    else {
+                        const exT = new Date(existing.timestamp || 0).getTime();
+                        const itT = new Date(item.timestamp || 0).getTime();
+                        if (itT > exT) byId[item.id] = item;
+                    }
+                });
+                out[bi] = Object.values(byId).sort((a,b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0));
+            });
+            return out;
         }
+
+        mergedData = {
+            bookmarks: mergeListsById(localData.bookmarks, remoteData?.bookmarks),
+            notes: mergeListsById(localData.notes, remoteData?.notes),
+            timestamp: new Date(Math.max(new Date(localData.timestamp || 0).getTime(), new Date(remoteData?.timestamp || 0).getTime())).toISOString()
+        };
     }
 
     // Convert pending deletions into events and upload them
