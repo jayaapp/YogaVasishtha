@@ -368,27 +368,39 @@ async function performTrueHeartSync() {
     if (pendingOldDeletions.length > 0) localStorage.removeItem('yoga-vasishtha-pending-deletions');
 
     // Prefer a sensible merge between local and remote snapshots.
-    // If remote data is empty (no keys), treat it as absent.
-    function isEmptySnapshot(v) { return !v || (typeof v === 'object' && Object.keys(v).length === 0); }
+    // Empty snapshots (no keys in main data sections) are treated as "no data".
+    function isEmptySnapshot(v) {
+        if (!v) return true;
+        const keys = ['bookmarks','notes','prompts','readingPositions','settings'];
+        return keys.every(k => !v[k] || (typeof v[k] === 'object' && Object.keys(v[k]).length === 0));
+    }
 
     let mergedData;
-    if (isEmptySnapshot(remoteData)) {
-        // No meaningful remote snapshot — use local
+    const localEmpty = isEmptySnapshot(localData);
+    const remoteEmpty = isEmptySnapshot(remoteData);
+
+    if (localEmpty && !remoteEmpty) {
+        // Local is empty but remote has data — don't overwrite server
+        console.warn('TrueHeart: local state empty while remote has data — preserving remote snapshot.');
+        mergedData = remoteData;
+    } else if (remoteEmpty && !localEmpty) {
+        // Remote is empty but local has data — client should upload local
+        console.warn('TrueHeart: remote snapshot empty while local has data — preparing to upload local snapshot.');
         mergedData = localData;
     } else {
-        // Choose based on timestamp (newer snapshot wins), otherwise merge fields
+        // Both empty or both non-empty: choose by timestamp, otherwise merge fields
         const localTime = new Date(localData.timestamp || 0).getTime();
-        const remoteTime = new Date(remoteData.timestamp || 0).getTime();
+        const remoteTime = new Date(remoteData?.timestamp || 0).getTime();
         if (localTime > remoteTime) {
             mergedData = localData;
         } else {
             mergedData = {
-                bookmarks: { ...(localData.bookmarks || {}), ...(remoteData.bookmarks || {}) },
-                notes: { ...(localData.notes || {}), ...(remoteData.notes || {}) },
-                prompts: { ...(localData.prompts || {}), ...(remoteData.prompts || {}) },
-                readingPositions: remoteData.readingPositions || localData.readingPositions,
-                settings: { ...(localData.settings || {}), ...(remoteData.settings || {}) },
-                timestamp: remoteData.timestamp || localData.timestamp
+                bookmarks: { ...(localData.bookmarks || {}), ...(remoteData?.bookmarks || {}) },
+                notes: { ...(localData.notes || {}), ...(remoteData?.notes || {}) },
+                prompts: { ...(localData.prompts || {}), ...(remoteData?.prompts || {}) },
+                readingPositions: (remoteData && remoteData.readingPositions) || localData.readingPositions,
+                settings: { ...(localData.settings || {}), ...(remoteData?.settings || {}) },
+                timestamp: (remoteData && remoteData.timestamp) || localData.timestamp
             };
         }
     }
