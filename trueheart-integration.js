@@ -346,6 +346,7 @@ async function performTrueHeartSync() {
 
     // Load remote data
     const remoteResult = await window.trueheartSync.load();
+    console.debug('TrueHeart Debug: initial load result', { success: remoteResult && remoteResult.success, dataSample: remoteResult && remoteResult.data ? (JSON.stringify(remoteResult.data).slice(0,300) + (JSON.stringify(remoteResult.data).length > 300 ? '... (truncated)' : '')) : null });
     const remoteData = remoteResult.data;
 
     // Gather pending deletion events (use canonical 'trueheart-deletions')
@@ -461,7 +462,16 @@ async function performTrueHeartSync() {
         if (mergedEmpty && (eventsCount > 0 || hadRemote)) {
             console.warn('TrueHeart: merged result is empty while server/events suggest data exists — reloading server snapshot instead of saving empty');
             try {
+                const checkRes = await window.trueheartSync.check().catch(e => { console.warn('TrueHeart: sync check failed', e); return null; });
+                console.debug('TrueHeart Debug: sync check result', checkRes);
+                if (checkRes && checkRes.success && checkRes.data && (checkRes.data.size_bytes || 0) > 0) {
+                    console.debug('TrueHeart: sync check indicates server snapshot present (size_bytes=' + (checkRes.data.size_bytes || 0) + ')');
+                } else {
+                    console.debug('TrueHeart: sync check indicates no server snapshot');
+                }
+
                 const reload = await window.trueheartSync.load();
+                console.debug('TrueHeart Debug: reload result (raw)', reload);
                 if (reload && reload.data) {
                     mergedData.bookmarks = reload.data.bookmarks || {};
                     mergedData.notes = reload.data.notes || {};
