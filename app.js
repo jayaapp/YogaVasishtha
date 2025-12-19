@@ -3072,40 +3072,82 @@ const NotesManager = {
     /**
      * Navigate to note
      */
-    navigateToNote(noteId) {
+    async navigateToNote(noteId) {
 
         const note = this.findNoteById(noteId);
         if (!note) {
             return;
         }
 
-
         // Switch to the correct book if needed
         if (note.bookIndex !== State.currentBookIndex) {
             State.currentBookIndex = note.bookIndex;
-            UIManager.displayCurrentBook();
+            // Update selectors immediately so UI reflects the switch
+            if (Elements.bookSelector) Elements.bookSelector.value = State.currentBookIndex;
+            if (Elements.bookSelectorMobile) Elements.bookSelectorMobile.value = State.currentBookIndex;
+            // Wait for book content to render and highlights to be restored
+            await UIManager.displayCurrentBook();
         }
 
-        // Scroll to the note position
-        setTimeout(() => {
-            const highlight = document.querySelector(`[data-note-id="${noteId}"]`);
+        // Wait briefly for the highlight to be inserted (poll with timeout)
+        const waitForHighlight = async (timeout = 500, interval = 50) => {
+            const start = Date.now();
+            while (Date.now() - start < timeout) {
+                const h = document.querySelector(`[data-note-id="${noteId}"]`);
+                if (h) return h;
+                await new Promise(r => setTimeout(r, interval));
+            }
+            return null;
+        };
+
+        let highlight = await waitForHighlight();
+
+        if (highlight) {
+            highlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Briefly highlight the note
+            highlight.style.backgroundColor = 'rgba(255, 193, 7, 0.6)';
+            setTimeout(() => {
+                highlight.style.backgroundColor = '';
+            }, 2000);
+        } else {
+            // Try to restore this specific note on demand and re-check
+            try {
+                this.restoreHighlight(note);
+            } catch (e) {
+                console.warn('On-demand restoreHighlight failed for note', note.id, e);
+            }
+
+            // Wait again briefly after attempting per-note restore
+            highlight = await waitForHighlight(400, 50);
 
             if (highlight) {
                 highlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                // Briefly highlight the note
                 highlight.style.backgroundColor = 'rgba(255, 193, 7, 0.6)';
                 setTimeout(() => {
                     highlight.style.backgroundColor = '';
                 }, 2000);
-            } else {
-                // Fallback to scroll position
-                window.scrollTo({
-                    top: note.scrollPosition,
-                    behavior: 'smooth'
-                });
+                ModalManager.close('notes');
+                return;
             }
-            ModalManager.close('notes');
-        }, 100);
+
+            // Fallback: try chapter anchor first
+            if (note.chapterAnchor) {
+                const anchorElement = document.getElementById(note.chapterAnchor) || document.querySelector(`[name="${note.chapterAnchor}"]`);
+                if (anchorElement) {
+                    anchorElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    ModalManager.close('notes');
+                    return;
+                }
+            }
+
+            // Final fallback to stored scroll position
+            window.scrollTo({
+                top: note.scrollPosition,
+                behavior: 'smooth'
+            });
+        }
+
+        ModalManager.close('notes');
     },
 
     /**
@@ -3348,59 +3390,93 @@ const NotesManager = {
     restoreHighlights() {
         const currentBookNotes = State.notes[State.currentBookIndex] || [];
 
+        // Normalize text nodes to reduce fragmentation before attempting restores
+        const bookContent = document.getElementById('book-content');
+        if (bookContent) bookContent.normalize();
+
+        const failed = [];
+
         currentBookNotes.forEach((note, index) => {
             // Try to find and restore highlight based on text content
             // This is a simplified restoration - in a production app you'd want more robust text anchoring
-            this.restoreHighlight(note);
+            const ok = this.restoreHighlight(note);
+            if (!ok) failed.push(note);
         });
+
+        // Retry failed restores a few times in case DOM processing (lexicon, links) completes slightly later
+        if (failed.length > 0) {
+            let tries = 0;
+            const maxTries = 4;
+            const retryDelay = 200;
+
+            const retry = () => {
+                tries++;
+                const remaining = [];
+                failed.forEach(note => {
+                    const ok = this.restoreHighlight(note);
+                    if (!ok) remaining.push(note);
+                });
+
+                if (remaining.length > 0 && tries < maxTries) {
+                    // Replace failed list and schedule another attempt
+                    failed.length = 0;
+                    failed.push(...remaining);
+                    setTimeout(retry, retryDelay);
+                } else if (remaining.length > 0) {
+                    if (ENABLE_SYNC_LOGGING) console.warn('Notes restoration: some notes could not be restored after retries', remaining.map(n => n.id));
+                }
+            };
+
+            setTimeout(retry, retryDelay);
+        }
     },
 
     /**
      * Restore individual highlight using word-index-based positioning
+     * Returns true on success, false otherwise
      */
     restoreHighlight(note) {
         // Check if note highlight already exists
         const existingHighlight = document.querySelector(`[data-note-id="${note.id}"]`);
         if (existingHighlight) {
-            return;
+            return true;
         }
 
         const bookContent = document.getElementById('book-content');
         if (!bookContent) {
-            return;
+            return false;
         }
 
         // Check if note has word index data (new format)
         if (note.previousWordIndex !== undefined) {
             // Use word-index-based restoration
-            this.restoreHighlightWithWordIndex(note);
+            const success = this.restoreHighlightWithWordIndex(note);
+            if (success) return true;
+            // Try fallback
+            return this.restoreHighlightFallback(note);
         } else {
             // Fallback to old method for backward compatibility
-            this.restoreHighlightFallback(note);
+            return this.restoreHighlightFallback(note);
         }
     },
 
     /**
      * Restore highlight using volume-level word index positioning
+     * Returns true if restored, false otherwise
      */
     restoreHighlightWithWordIndex(note) {
-
         // Use the new volume-level positioning system
-        const success = VolumePositioning.restoreHighlightAtWordIndex(note, State.currentBookIndex);
-
-        if (!success) {
-            console.warn('Volume-level positioning failed, using fallback');
-            this.restoreHighlightFallback(note);
-        }
+        return VolumePositioning.restoreHighlightAtWordIndex(note, State.currentBookIndex);
     },
 
 
     /**
      * Fallback restoration method for old notes or when word index fails
+     * Returns true on success, false otherwise
      */
     restoreHighlightFallback(note) {
         const bookContent = document.getElementById('book-content');
-        if (!bookContent) return;
+        if (!bookContent) return false;
 
 
         // Original method: find first occurrence
@@ -3429,13 +3505,29 @@ const NotesManager = {
                     range.surroundContents(highlight);
                     const noteIcon = this.createNoteIcon(note.id);
                     highlight.appendChild(noteIcon);
-                    break; // Only restore first match
+                    return true; // restored successfully
                 } catch (e) {
-                    console.warn('Could not restore highlight for note:', note.id);
+                    // Fallback: try a robust extract-and-insert approach which works when surroundContents fails
+                    try {
+                        range.setStart(node, index);
+                        range.setEnd(node, index + note.selectedText.length);
+                        const fragment = range.extractContents();
+                        highlight.appendChild(fragment);
+                        range.insertNode(highlight);
+                        const noteIcon = this.createNoteIcon(note.id);
+                        highlight.appendChild(noteIcon);
+                        return true; // restored with fallback
+                    } catch (e2) {
+                        console.warn('Could not restore highlight for note (fallback also failed):', note.id, e2);
+                        return false;
+                    }
                 }
             }
         }
+
+        return false;
     },
+
 
     /**
      * Remove specific note highlight from DOM
@@ -5326,9 +5418,12 @@ const UIManager = {
         if (!content) {
             console.error(`No content for book ${State.currentBookIndex}`);
             ErrorHandler.showError('Book content not available');
-            return;
+            return Promise.resolve();
         }
 
+        // Ensure toolbar selectors reflect current book immediately
+        if (Elements.bookSelector) Elements.bookSelector.value = State.currentBookIndex;
+        if (Elements.bookSelectorMobile) Elements.bookSelectorMobile.value = State.currentBookIndex;
 
         ErrorHandler.clearError();
         Utils.hide(Elements.loadingIndicator);
@@ -5337,20 +5432,20 @@ const UIManager = {
         LexiconManager.processContent(Elements.bookContent);
 
         // Restore note highlights and bookmark highlights after content is processed
-        setTimeout(() => {
-            NotesManager.restoreHighlights();
-            BookmarkManager.restoreBookmarkHighlights();
-        }, 100);
+        NotesManager.restoreHighlights();
+        BookmarkManager.restoreBookmarkHighlights();
 
         Utils.show(Elements.bookContent);
 
-        // Restore position after DOM has had time to render
-        requestAnimationFrame(() => {
-            SettingsManager.restorePosition();
+        // Restore position after DOM has had time to render and resolve when done
+        return new Promise((resolve) => {
+            requestAnimationFrame(() => {
+                SettingsManager.restorePosition();
+                // Update TOC with extracted chapter titles
+                EPUBManager.updateTOCWithTitles();
+                resolve();
+            });
         });
-
-        // Update TOC with extracted chapter titles
-        EPUBManager.updateTOCWithTitles();
     },
 
     /**
