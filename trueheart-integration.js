@@ -408,8 +408,9 @@ async function performTrueHeartSync() {
 
     // Fetch events and apply them to mergedData (simple replay)
     let deletedItems = { bookmarks: [], notes: [] };
+    let eventsRes = null;
     try {
-        const eventsRes = await window.trueheartSync.fetchEvents(0, 10000);
+        eventsRes = await window.trueheartSync.fetchEvents(0, 10000);
         console.debug('TrueHeart Debug: fetched events response', { success: eventsRes && eventsRes.success, count: eventsRes && Array.isArray(eventsRes.events) ? eventsRes.events.length : 0 });
         if (eventsRes && eventsRes.success && Array.isArray(eventsRes.events)) {
             eventsRes.events.forEach(ev => {
