@@ -468,7 +468,18 @@ async function performTrueHeartSync() {
                     // Update local storage with server snapshot (bookmarks & notes only)
                     localStorage.setItem('bookmarks', JSON.stringify(mergedData.bookmarks || {}));
                     localStorage.setItem('notes', JSON.stringify(mergedData.notes || {}));
-                    window.dispatchEvent(new CustomEvent('syncDataUpdated', { detail: { bookmarks: mergedData.bookmarks || {}, notes: mergedData.notes || {} } }));
+                    // Debug: log counts and keys, then notify app and attempt immediate UI refresh
+                    try {
+                        const bookKeys = Object.keys(mergedData.bookmarks || {});
+                        let total = 0;
+                        bookKeys.forEach(k => { total += (mergedData.bookmarks[k] || []).length; });
+                        console.debug('TrueHeart Debug: reloaded bookmarks from server', { books: bookKeys.length, total });
+                        window.dispatchEvent(new CustomEvent('syncDataUpdated', { detail: { bookmarks: mergedData.bookmarks || {}, notes: mergedData.notes || {} } }));
+                        // If app's BookmarkManager is present, call its reload helpers immediately to ensure UI reflects the update
+                        if (window.BookmarkManager && typeof window.BookmarkManager.loadFromStorage === 'function') {
+                            try { window.BookmarkManager.loadFromStorage(); window.BookmarkManager.renderBookmarks(); } catch (e) { console.warn('TrueHeart: failed to trigger BookmarkManager reload', e); }
+                        }
+                    } catch (e) { console.warn('TrueHeart: error during reload handling:', e); }
                     console.info('TrueHeart: local bookmarks/notes refreshed from server after empty-merge guard');
                 } else {
                     console.warn('TrueHeart: reload returned no data after empty-merge guard');
