@@ -80,22 +80,22 @@ Each pattern searches across all books simultaneously, showing results with cont
 ## Acknowledgments
 
 The Yoga Vasishtha ebooks were sourced from 
-<a href="https://www.gutenberg.org/ebooks/search/?query=Yoga-Vasishtha" target="_blank" rel="noopener" style="color: blue;">Project Gutenberg</a>.
+<a href="https://www.gutenberg.org/ebooks/search/?query=Yoga-Vasishtha" target="_blank" rel="noopener" class="help-content">Project Gutenberg</a>.
 
 AI tools were used in the development of this application (Claude, VS Code Copilot).
 
 ## Bugs & Feedback
 
 For bugs, suggestions, or feedback, please file a GitHub issue at YogaVasishtha repository's
-<a href="https://github.com/jayaapp/YogaVasishtha/issues" target="_blank" rel="noopener" style="color: blue;">issues page</a>.
+<a href="https://github.com/jayaapp/YogaVasishtha/issues" target="_blank" rel="noopener" class="help-content">issues page</a>.
 
 ## License
 
-The application's source is available under the <a href="https://mit-license.org/" target="_blank" rel="noopener" style="color: blue;">MIT License</a> via <a href="https://github.com/jayaapp" target="_blank" rel="noopener" style="color: blue;">GitHub</a>.
+The application's source is available under the <a href="https://mit-license.org/" target="_blank" rel="noopener" class="help-content">MIT License</a> via <a href="https://github.com/jayaapp" target="_blank" rel="noopener" class="help-content">GitHub</a>.
 
 ## Copyright
 
-© ${new Date().getFullYear()} <a href="https://trueheartapps.com" target="_blank" rel="noopener" style="color: blue;">True❤️Apps</a>`
+© ${new Date().getFullYear()} <a href="https://trueheartapps.com" target="_blank" rel="noopener" class="help-content">True❤️Apps</a>`
 };
 
 // ===== APPLICATION STATE =====

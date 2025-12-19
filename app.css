@@ -1847,3 +1847,9 @@ body.dark-theme .bookmark-icon:hover {
     --error-border: #4a2828;
     --notification-bg: rgba(45, 55, 72, 0.95);
 }
+
+.help-content a {
+    color: #0078d7;
+    text-decoration: none;
+}
+
