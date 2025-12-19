@@ -1964,20 +1964,30 @@ const BookmarkManager = {
             return;
         }
 
-        // Create a single list for all bookmarks from other books
-        const bookmarksList = document.createElement('div');
-        bookmarksList.className = 'bookmarks-list';
-
-        // Collect all bookmarks from other books and sort by book order
+        // Create per-book sections with headers (like notes)
         otherBooksWithBookmarks.forEach(bookIndex => {
-            const bookmarks = State.bookmarks[bookIndex];
+            const bookmarks = State.bookmarks[bookIndex] || [];
+            if (bookmarks.length === 0) return;
+
+            const bookSection = document.createElement('div');
+            bookSection.className = 'bookmark-book-section';
+
+            const bookTitle = document.createElement('h3');
+            bookTitle.className = 'bookmark-book-title';
+            bookTitle.textContent = Utils.getBookTitle(CONFIG.EPUB_FILES[bookIndex]);
+            bookSection.appendChild(bookTitle);
+
+            const bookmarksList = document.createElement('div');
+            bookmarksList.className = 'bookmarks-list';
+
             bookmarks.forEach(bookmark => {
                 const item = this.createBookmarkItem(bookmark);
                 bookmarksList.appendChild(item);
             });
-        });
 
-        container.appendChild(bookmarksList);
+            bookSection.appendChild(bookmarksList);
+            container.appendChild(bookSection);
+        });
     },
 
     /**
