@@ -462,19 +462,35 @@ async function performTrueHeartSync() {
         if (mergedEmpty && (eventsCount > 0 || hadRemote)) {
             console.warn('TrueHeart: merged result is empty while server/events suggest data exists — reloading server snapshot instead of saving empty');
             try {
-                const checkRes = await window.trueheartSync.check().catch(e => { console.warn('TrueHeart: sync check failed', e); return null; });
+                        const checkRes = await window.trueheartSync.check().catch(e => { console.warn('TrueHeart: sync check failed', e); return null; });
                 console.debug('TrueHeart Debug: sync check result', checkRes);
-                if (checkRes && checkRes.success && checkRes.data && (checkRes.data.size_bytes || 0) > 0) {
-                    console.debug('TrueHeart: sync check indicates server snapshot present (size_bytes=' + (checkRes.data.size_bytes || 0) + ')');
+                const checkSize = (checkRes && checkRes.success) ? ((checkRes.data && checkRes.data.size_bytes) || checkRes.size_bytes || 0) : 0;
+                const checkExists = (checkRes && (checkRes.exists || (checkRes.data && checkRes.data.exists))) || (checkSize > 0);
+                if (checkSize > 0 || checkExists) {
+                    console.debug('TrueHeart: sync check indicates server snapshot present (size_bytes=' + checkSize + ')');
                 } else {
                     console.debug('TrueHeart: sync check indicates no server snapshot');
                 }
 
-                const reload = await window.trueheartSync.load();
+                let reload = await window.trueheartSync.load();
                 console.debug('TrueHeart Debug: reload result (raw)', reload);
+                // If reload returned empty but check indicates data, retry once after a brief delay
+                if ((!(reload && reload.data && !(_isEmptySnapshot(reload.data)))) && (checkSize > 0 || checkExists)) {
+                    console.warn('TrueHeart: reload returned empty but check indicates server data; retrying load once');
+                    await new Promise(r => setTimeout(r, 350));
+                    try {
+                        const reload2 = await window.trueheartSync.load();
+                        console.debug('TrueHeart Debug: reload retry result (raw)', reload2);
+                        if (reload2 && reload2.data && !(_isEmptySnapshot(reload2.data))) {
+                            reload = reload2;
+                        } else {
+                            console.warn('TrueHeart: reload retry also returned no usable data');
+                        }
+                    } catch (e) { console.warn('TrueHeart: reload retry failed', e); }
+                }
                 if (reload && reload.data) {
                     mergedData.bookmarks = reload.data.bookmarks || {};
-                    mergedData.notes = reload.data.notes || {};
+                    mergedData.notes = reload.data.notes || {}; 
                     // Update local storage with server snapshot (bookmarks & notes only)
                     localStorage.setItem('bookmarks', JSON.stringify(mergedData.bookmarks || {}));
                     localStorage.setItem('notes', JSON.stringify(mergedData.notes || {}));
