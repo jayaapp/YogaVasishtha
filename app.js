@@ -211,6 +211,26 @@ const Utils = {
     },
 
     /**
+     * Clear verse link parameters (book & verse) from URL hash without adding history entries
+     */
+    clearVerseHash() {
+        try {
+            const hs = window.location.hash.replace(/^#/, '');
+            if (!hs) return;
+            const params = new URLSearchParams(hs);
+            if (!params.has('book') && !params.has('verse')) return;
+            params.delete('book');
+            params.delete('verse');
+            const newHash = params.toString();
+            const newUrl = window.location.pathname + window.location.search + (newHash ? ('#' + newHash) : '');
+            history.replaceState(null, '', newUrl);
+        } catch (e) {
+            // ignore failures
+            console.warn('Failed to clear verse hash', e);
+        }
+    },
+
+    /**
      * Get clean book title from filename
      */
     getBookTitle(filename) {
@@ -4399,6 +4419,8 @@ const LexiconManager = {
         }
     },
 
+
+
     /**
      * Generate a unique hash key for a Sanskrit passage (browser-compatible version)
      * This replicates the exact same hashing as passage-manager.js
@@ -5395,6 +5417,176 @@ const LexiconManager = {
     }
 };
 
+// ===== VERSE MANAGER =====
+const VerseManager = {
+    processVerses(bookIndex) {
+        const container = Elements.bookContent;
+        if (!container) return;
+
+        const blocks = container.querySelectorAll('p, div, li, section');
+        blocks.forEach(block => {
+            if (block.dataset.verseProcessed) return;
+
+            const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT, null, false);
+            let node;
+            let firstTextNode = null;
+            while ((node = walker.nextNode())) {
+                if (node.textContent && node.textContent.trim().length > 0) { firstTextNode = node; break; }
+            }
+            if (!firstTextNode) return;
+
+            const text = firstTextNode.textContent.trimStart();
+            const m = text.match(/^(\d{1,4})\.\s+/);
+            if (!m) return;
+            const verseNum = m[1];
+            if (block.id && block.id.indexOf(`verse-B${bookIndex}-V${verseNum}`) !== -1) return;
+
+            block.id = block.id || `verse-B${bookIndex}-V${verseNum}`;
+            block.dataset.verse = verseNum;
+            block.dataset.book = bookIndex;
+            block.dataset.verseProcessed = '1';
+
+            const wrapper = document.createElement('span');
+            wrapper.className = 'verse-link';
+            const link = document.createElement('a');
+            link.href = '#';
+            link.textContent = `${verseNum}.`;
+            link.setAttribute('data-verse', verseNum);
+            link.setAttribute('data-book', bookIndex);
+            link.addEventListener('click', (e) => { e.preventDefault(); this.copyVerseLink(bookIndex, verseNum); });
+            wrapper.appendChild(link);
+
+            const fullText = firstTextNode.textContent;
+            const prefixMatch = fullText.match(/^(\s*)(\d{1,4}\.\s+)/);
+            if (!prefixMatch) return;
+            const leadingWhitespace = prefixMatch[1] || '';
+            const prefixLength = prefixMatch[0].length;
+            const afterText = fullText.substring(prefixLength);
+
+            const parent = firstTextNode.parentNode;
+            if (!parent) return;
+
+            if (leadingWhitespace) parent.insertBefore(document.createTextNode(leadingWhitespace), firstTextNode);
+            parent.insertBefore(wrapper, firstTextNode);
+            parent.insertBefore(document.createTextNode(afterText), firstTextNode);
+            parent.removeChild(firstTextNode);
+        });
+    },
+
+    async copyVerseLink(bookIndex, verseNum) {
+        try {
+            const base = window.location.origin + window.location.pathname + window.location.search;
+            const hash = `#book=${bookIndex}&verse=${verseNum}`;
+            const url = base + hash;
+            const notifier = window.showAlert || window.showAllert || ((msg) => { try { window.alert(msg); } catch(e){} });
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(url);
+                notifier('Link copied to clipboard');
+            } else {
+                const ta = document.createElement('textarea');
+                ta.value = url;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                ta.remove();
+                notifier('Link copied to clipboard');
+            }
+        } catch (e) {
+            console.error('Failed to copy verse link', e);
+            showAlert('Failed to copy link', 2500, { bg_color: 'red' });
+        }
+    },
+
+    async handleHashOnLoad() {
+        if (!window.location.hash) return;
+        try {
+            const hs = window.location.hash.replace(/^#/, '');
+            const params = new URLSearchParams(hs);
+            if (!params.has('book') || !params.has('verse')) return;
+            const bookIndex = parseInt(params.get('book'), 10);
+            const verseNum = params.get('verse');
+            if (isNaN(bookIndex) || !verseNum) return;
+
+            if (bookIndex !== State.currentBookIndex) {
+                State.currentBookIndex = bookIndex;
+                if (Elements.bookSelector) Elements.bookSelector.value = State.currentBookIndex;
+                if (Elements.bookSelectorMobile) Elements.bookSelectorMobile.value = State.currentBookIndex;
+                await UIManager.displayCurrentBook();
+            } else {
+                this.processVerses(bookIndex);
+                await UIManager.displayCurrentBook();
+            }
+
+            // Re-run verse processing (post-restore) to ensure anchors exist
+            this.processVerses(bookIndex);
+
+            // Wait for the verse element to appear (some DOM operations may complete slightly later)
+            const id = `verse-B${bookIndex}-V${verseNum}`;
+            const el = await this.waitForElementById(id, 2500, 50);
+            if (el) {
+                // Small delay to allow final layout changes to settle
+                setTimeout(() => { this.highlightVerse(el); }, 100);
+            } else {
+                console.warn('Verse element not found for highlight:', id);
+            }
+        } catch (e) {
+            console.error('Error handling verse hash on load', e);
+        }
+    },
+
+    // Wait for an element with id to appear in DOM. Returns element or null on timeout
+    waitForElementById(id, timeout = 2000, interval = 50) {
+        return new Promise((resolve) => {
+            const start = Date.now();
+            const check = () => {
+                const el = document.getElementById(id);
+                if (el) return resolve(el);
+                if (Date.now() - start > timeout) return resolve(null);
+                setTimeout(check, interval);
+            };
+            check();
+        });
+    },
+
+    highlightVerse(el) {
+        if (!el) return;
+
+        // Apply highlight and ensure styling gets applied after layout
+        el.classList.add('verse-highlight');
+
+        // Ensure visible and scroll to element
+        const headerOffset = 80;
+        const rectTop = el.getBoundingClientRect().top + window.pageYOffset;
+        const offset = rectTop - headerOffset;
+        window.scrollTo({ top: offset, behavior: 'smooth' });
+
+        // Keep highlight visible for 7s then fade over 3s
+        // Also guard against accidental early removal: re-apply if class disappears within first 500ms
+        let removedObserver = null;
+        const ensureHighlight = () => {
+            if (!el.classList.contains('verse-highlight')) el.classList.add('verse-highlight');
+        };
+
+        // Observe for class removal briefly
+        try {
+            removedObserver = new MutationObserver(() => {
+                ensureHighlight();
+            });
+            removedObserver.observe(el, { attributes: true, attributeFilter: ['class'] });
+        } catch (e) {
+            // ignore observer errors
+        }
+
+        setTimeout(() => {
+            if (removedObserver) removedObserver.disconnect();
+            el.classList.add('verse-highlight-fade');
+            setTimeout(() => {
+                el.classList.remove('verse-highlight', 'verse-highlight-fade');
+            }, 3000);
+        }, 7000);
+    }
+};
+
 // ===== UI MANAGER =====
 const UIManager = {
     /**
@@ -5446,9 +5638,20 @@ const UIManager = {
         Elements.bookContent.innerHTML = Utils.createSafeHTML(content);
         LexiconManager.processContent(Elements.bookContent);
 
+        // Inject verse links and ids (for sharing / linking to exact verse)
+        try { VerseManager.processVerses(State.currentBookIndex); } catch (e) { console.warn('Verse processing failed', e); }
+
         // Restore note highlights and bookmark highlights after content is processed
         NotesManager.restoreHighlights();
         BookmarkManager.restoreBookmarkHighlights();
+
+        // Re-run verse processing after restores to ensure verse anchors survive highlight restore modifications
+        requestAnimationFrame(() => {
+            try { VerseManager.processVerses(State.currentBookIndex); } catch (e) { console.warn('Verse processing failed on re-run', e); }
+        });
+        setTimeout(() => {
+            try { VerseManager.processVerses(State.currentBookIndex); } catch (e) { console.warn('Verse processing failed on delayed re-run', e); }
+        }, 120);
 
         Utils.show(Elements.bookContent);
 
@@ -5843,6 +6046,8 @@ const EventHandlers = {
         // Save current reading position before switching books
         SettingsManager.savePosition();
 
+        // Clear any verse/book hash when user manually navigates to a different book
+        Utils.clearVerseHash();
 
         State.currentBookIndex = newIndex;
         SettingsManager.save(CONFIG.STORAGE_KEYS.CURRENT_BOOK, newIndex);
@@ -6351,6 +6556,8 @@ const App = {
             State.isInitialized = true;
             State.isLoading = false;
 
+            // Handle an incoming verse link (if any) after initial display
+            try { VerseManager.handleHashOnLoad(); } catch (e) { console.warn('Verse hash handling failed', e); }
 
         } catch (error) {
             ErrorHandler.handle(error, 'Initialization');
@@ -6368,6 +6575,9 @@ const App = {
                 if (link.classList.contains('passage-location-link')) {
                     return;
                 }
+
+                // If user clicks internal anchors (e.g. in the TOC), clear any existing verse/book link in the URL
+                Utils.clearVerseHash();
 
                 e.preventDefault();
                 const targetId = link.getAttribute('href').substring(1);
