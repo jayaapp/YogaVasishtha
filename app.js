@@ -328,7 +328,7 @@ const SettingsManager = {
     },
 
     /**
-     * Save reading position using simplified word-based positioning
+     * Save reading position using simplified word-based positioning (enhanced)
      */
     savePosition() {
         const key = CONFIG.STORAGE_KEYS.READING_POSITION + State.currentBookIndex;
@@ -351,15 +351,61 @@ const SettingsManager = {
 
             const wordIndex = VolumePositioning.getWordIndexBeforeRange(topWord.range, State.currentBookIndex);
 
+            // Attempt to locate chapter-scoped information
+            let chapterAnchor = null;
+            let wordIndexInChapter = null;
+            let snippet = null;
+
+            try {
+                const startContainer = topWord.range.startContainer;
+                const parentEl = startContainer.nodeType === Node.TEXT_NODE ? startContainer.parentElement : (startContainer.closest ? startContainer.closest('.chapter-content') : null);
+                const chapterEl = parentEl ? parentEl.closest ? parentEl.closest('.chapter-content') : null : null;
+
+                if (chapterEl) {
+                    // Determine anchor (id) if present
+                    chapterAnchor = chapterEl.id || null;
+
+                    // Compute offset within chapter
+                    const offsetInChapter = VolumePositioning.getRangeOffsetInContainer(startContainer, topWord.range.startOffset, chapterEl);
+
+                    // Compute wordIndexInChapter from chapter text
+                    const chapterText = chapterEl.textContent || '';
+                    const textBefore = chapterText.substring(0, offsetInChapter);
+                    const wordsBefore = textBefore.match(/\S+/g) || [];
+                    wordIndexInChapter = wordsBefore.length;
+
+                    // Create snippet (40 chars around offset)
+                    const startSnippet = Math.max(0, offsetInChapter - 40);
+                    const endSnippet = Math.min(chapterText.length, offsetInChapter + 40);
+                    snippet = chapterText.substring(startSnippet, endSnippet).replace(/\s+/g, ' ').trim();
+                }
+            } catch (e) {
+                console.debug('//DEBUG ORIENT savePosition: chapter-scoped computation failed', e); //DEBUG ORIENT
+            }
+
             const positionData = {
                 wordIndex: wordIndex,
                 word: topWord.word,
+                chapterAnchor: chapterAnchor,
+                wordIndexInChapter: wordIndexInChapter !== null ? wordIndexInChapter : null,
+                snippet: snippet !== null ? snippet : null,
                 timestamp: Date.now()
             };
 
             try {
+                // Log JSON before saving
+                console.debug('//DEBUG ORIENT savedJSON', JSON.stringify(positionData)); //DEBUG ORIENT
+
                 localStorage.setItem(key, JSON.stringify(positionData));
-                console.debug('//DEBUG ORIENT savePosition: saved positionData', positionData); //DEBUG ORIENT
+
+                // Read back and log stored JSON
+                try {
+                    const readBack = JSON.parse(localStorage.getItem(key));
+                    console.debug('//DEBUG ORIENT savedReadback', readBack); //DEBUG ORIENT
+                } catch (e) {
+                    console.debug('//DEBUG ORIENT savedReadback: failed to parse', e); //DEBUG ORIENT
+                }
+
             } catch (e) {
                 console.debug('//DEBUG ORIENT savePosition: failed to save', e); //DEBUG ORIENT
             }
@@ -422,34 +468,89 @@ const SettingsManager = {
     },
 
     /**
-     * Restore reading position using simplified word-based positioning
+     * Helper: wait for layout to become stable (no changes in scrollHeight) before restoring
      */
-    restorePosition() {
+    waitForLayoutStable(maxWaitMs = 300, intervalMs = 20) {
+        return new Promise((resolve) => {
+            const start = Date.now();
+            let lastHeight = document.documentElement.scrollHeight;
+
+            const check = () => {
+                const now = Date.now();
+                if (now - start >= maxWaitMs) {
+                    resolve();
+                    return;
+                }
+
+                const currentHeight = document.documentElement.scrollHeight;
+                if (currentHeight === lastHeight) {
+                    // confirm stability after one interval
+                    setTimeout(() => {
+                        if (document.documentElement.scrollHeight === currentHeight) {
+                            resolve();
+                        } else {
+                            lastHeight = document.documentElement.scrollHeight;
+                            setTimeout(check, intervalMs);
+                        }
+                    }, intervalMs);
+                } else {
+                    lastHeight = currentHeight;
+                    setTimeout(check, intervalMs);
+                }
+            };
+
+            check();
+        });
+    },
+
+    /**
+     * Restore reading position using simplified word-based positioning (async)
+     */
+    async restorePosition() {
         const key = CONFIG.STORAGE_KEYS.READING_POSITION + State.currentBookIndex;
         const savedData = localStorage.getItem(key);
         console.debug('//DEBUG ORIENT restorePosition: raw savedData', { key, raw: savedData }); //DEBUG ORIENT
 
-        if (!savedData) return; 
+        if (!savedData) return;
 
         try {
             const positionData = JSON.parse(savedData);
+            console.debug('//DEBUG ORIENT restorePosition: parsed positionData', JSON.stringify(positionData)); //DEBUG ORIENT
 
+            // Wait for layout to settle before attempting restores
+            await this.waitForLayoutStable(300, 20);
+
+            // Try chapter-scoped restore first (createPositionMarker handles chapter preference)
+            const chapterMarker = this.createPositionMarker(positionData);
+
+            if (chapterMarker) {
+                console.debug('//DEBUG ORIENT restorePosition: chapter-scoped marker created'); //DEBUG ORIENT
+
+                chapterMarker.scrollIntoView({ behavior: 'auto', block: 'start', inline: 'nearest' });
+                chapterMarker.remove();
+                return true;
+            }
+
+            // Fallback to global word-based restore
             if (positionData.wordIndex !== undefined && positionData.word) {
-                // Restore using word-based positioning with scrollIntoView
                 const success = this.restoreWordPositionWithScrollIntoView(positionData);
-                console.debug('//DEBUG ORIENT restorePosition: attempted restore, success=', success, 'positionData=', positionData); //DEBUG ORIENT
+                console.debug('//DEBUG ORIENT restorePosition: attempted global restore, success=', success, 'positionData=', positionData); //DEBUG ORIENT
                 if (!success) {
                     console.warn('Word-based restoration failed - scrolling to top');
                     window.scrollTo({ top: 0, behavior: 'auto' });
                 }
-            } else {
-                // Legacy format: migrate to new system
-                window.scrollTo({ top: 0, behavior: 'auto' });
+                return success;
             }
+
+            // Legacy or missing information: scroll to top
+            window.scrollTo({ top: 0, behavior: 'auto' });
+            return false;
+
         } catch (e) {
             // Invalid format: scroll to top
             console.warn('Invalid position data - scrolling to top');
             window.scrollTo({ top: 0, behavior: 'auto' });
+            return false;
         }
     },
 
@@ -2432,6 +2533,53 @@ const VolumePositioning = {
         }
 
         return 0; // Return 0 instead of totalOffset when not found
+    },
+
+    /**
+     * Get character offset of range within a specific containerElement (chapter-scoped)
+     */
+    getRangeOffsetInContainer(container, offset, containerElement) {
+        if (!containerElement) return 0;
+
+        // Resolve target text node similar to getRangeOffsetInDOM
+        let targetNode = container;
+        let targetOffset = offset;
+
+        if (container.nodeType === Node.ELEMENT_NODE) {
+            const childNodes = Array.from(container.childNodes);
+            let currentOffset = 0;
+
+            for (let i = 0; i < childNodes.length; i++) {
+                const child = childNodes[i];
+                if (child.nodeType === Node.TEXT_NODE) {
+                    if (currentOffset === offset) {
+                        targetNode = child;
+                        targetOffset = 0;
+                        break;
+                    }
+                    currentOffset++;
+                }
+            }
+        }
+
+        const walker = document.createTreeWalker(
+            containerElement,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+
+        let totalOffset = 0;
+        let node;
+
+        while (node = walker.nextNode()) {
+            if (node === targetNode) {
+                return totalOffset + targetOffset;
+            }
+            totalOffset += node.textContent.length;
+        }
+
+        return 0;
     },
 
     /**
