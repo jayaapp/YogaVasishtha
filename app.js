@@ -218,9 +218,9 @@ const Utils = {
             const hs = window.location.hash.replace(/^#/, '');
             if (!hs) return;
             const params = new URLSearchParams(hs);
-            if (!params.has('book') && !params.has('verse')) return;
-            params.delete('book');
-            params.delete('verse');
+            // Only clear the new verseId param (legacy `verse` is no longer used)
+            if (!params.has('verseId')) return;
+            params.delete('verseId');
             const newHash = params.toString();
             const newUrl = window.location.pathname + window.location.search + (newHash ? ('#' + newHash) : '');
             history.replaceState(null, '', newUrl);
@@ -5423,6 +5423,12 @@ const VerseManager = {
         const container = Elements.bookContent;
         if (!container) return;
 
+        // Assign stable per-book chapter UIDs (index-based) to avoid collisions from sanitized hrefs
+        const chapterElems = Array.from(container.querySelectorAll('.chapter-content'));
+        chapterElems.forEach((el, idx) => {
+            if (!el.dataset.chapterUid) el.dataset.chapterUid = `C${idx}`;
+        });
+
         const blocks = container.querySelectorAll('p, div, li, section');
         blocks.forEach(block => {
             if (block.dataset.verseProcessed) return;
@@ -5439,11 +5445,26 @@ const VerseManager = {
             const m = text.match(/^(\d{1,4})\.\s+/);
             if (!m) return;
             const verseNum = m[1];
-            if (block.id && block.id.indexOf(`verse-B${bookIndex}-V${verseNum}`) !== -1) return;
 
-            block.id = block.id || `verse-B${bookIndex}-V${verseNum}`;
+            // Determine chapter context using stable per-book chapter UID
+            const chapterEl = block.closest('.chapter-content');
+            const chapterUid = chapterEl ? (chapterEl.dataset.chapterUid || (() => { chapterEl.dataset.chapterUid = `C${chapterElems.indexOf(chapterEl)}`; return chapterEl.dataset.chapterUid; })()) : 'Cglobal';
+
+            // Base id uses book index + chapter UID + verse number
+            const baseId = `verse-B${bookIndex}-${chapterUid}-V${verseNum}`;
+
+            // Ensure DOM id uniqueness - append suffix if needed
+            let uniqueId = baseId;
+            let suffix = 1;
+            while (document.getElementById(uniqueId) && document.getElementById(uniqueId) !== block) {
+                uniqueId = `${baseId}-${suffix++}`;
+            }
+
+            // Assign id and metadata
+            block.id = uniqueId;
             block.dataset.verse = verseNum;
             block.dataset.book = bookIndex;
+            block.dataset.chapter = chapterUid;
             block.dataset.verseProcessed = '1';
 
             const wrapper = document.createElement('span');
@@ -5453,7 +5474,8 @@ const VerseManager = {
             link.textContent = `${verseNum}.`;
             link.setAttribute('data-verse', verseNum);
             link.setAttribute('data-book', bookIndex);
-            link.addEventListener('click', (e) => { e.preventDefault(); this.copyVerseLink(bookIndex, verseNum); });
+            link.setAttribute('data-verse-id', uniqueId);
+            link.addEventListener('click', (e) => { e.preventDefault(); this.copyVerseLinkById(uniqueId); });
             wrapper.appendChild(link);
 
             const fullText = firstTextNode.textContent;
@@ -5473,10 +5495,16 @@ const VerseManager = {
         });
     },
 
-    async copyVerseLink(bookIndex, verseNum) {
+    /**
+     * Copy a robust, unique verse link using a verse element id
+     */
+    async copyVerseLinkById(verseId) {
         try {
             const base = window.location.origin + window.location.pathname + window.location.search;
-            const hash = `#book=${bookIndex}&verse=${verseNum}`;
+            const el = document.getElementById(verseId);
+            let bookIndex = State.currentBookIndex;
+            if (el && el.dataset && el.dataset.book) bookIndex = el.dataset.book;
+            const hash = `#book=${bookIndex}&verseId=${encodeURIComponent(verseId)}`;
             const url = base + hash;
             const notifier = window.showAlert || window.showAllert || ((msg) => { try { window.alert(msg); } catch(e){} });
             if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -5493,42 +5521,61 @@ const VerseManager = {
             }
         } catch (e) {
             console.error('Failed to copy verse link', e);
-            showAlert('Failed to copy link', 2500, { bg_color: 'red' });
+            try { showAlert('Failed to copy link', 2500, { bg_color: 'red' }); } catch (e2) { /* ignore */ }
         }
     },
+
+
 
     async handleHashOnLoad() {
         if (!window.location.hash) return;
         try {
             const hs = window.location.hash.replace(/^#/, '');
             const params = new URLSearchParams(hs);
-            if (!params.has('book') || !params.has('verse')) return;
-            const bookIndex = parseInt(params.get('book'), 10);
-            const verseNum = params.get('verse');
-            if (isNaN(bookIndex) || !verseNum) return;
 
-            if (bookIndex !== State.currentBookIndex) {
-                State.currentBookIndex = bookIndex;
-                if (Elements.bookSelector) Elements.bookSelector.value = State.currentBookIndex;
-                if (Elements.bookSelectorMobile) Elements.bookSelectorMobile.value = State.currentBookIndex;
-                await UIManager.displayCurrentBook();
-            } else {
-                this.processVerses(bookIndex);
-                await UIManager.displayCurrentBook();
+            // Prefer explicit unique verse id if present (new format)
+            if (params.has('verseId')) {
+                const verseId = decodeURIComponent(params.get('verseId'));
+
+                // Attempt to determine book from either param or id itself
+                let bookIndex = null;
+                if (params.has('book')) {
+                    const bi = parseInt(params.get('book'), 10);
+                    if (!isNaN(bi)) bookIndex = bi;
+                }
+
+                if (bookIndex === null) {
+                    // Extract book index from verseId if possible
+                    const m = verseId.match(/^verse-B(\d+)-/);
+                    if (m) bookIndex = parseInt(m[1], 10);
+                }
+
+                if (bookIndex !== null && bookIndex !== State.currentBookIndex) {
+                    State.currentBookIndex = bookIndex;
+                    if (Elements.bookSelector) Elements.bookSelector.value = State.currentBookIndex;
+                    if (Elements.bookSelectorMobile) Elements.bookSelectorMobile.value = State.currentBookIndex;
+                    await UIManager.displayCurrentBook();
+                } else {
+                    // Ensure verses are processed for current book
+                    this.processVerses(State.currentBookIndex);
+                    await UIManager.displayCurrentBook();
+                }
+
+                // Re-run verse processing (post-restore) to ensure anchors exist
+                this.processVerses(State.currentBookIndex);
+
+                // Wait for the specific element id to appear
+                const el = await this.waitForElementById(verseId, 2500, 50);
+                if (el) {
+                    setTimeout(() => { this.highlightVerse(el); }, 100);
+                } else {
+                    console.warn('Verse element not found for highlight (verseId):', verseId);
+                }
+
+                return;
             }
 
-            // Re-run verse processing (post-restore) to ensure anchors exist
-            this.processVerses(bookIndex);
 
-            // Wait for the verse element to appear (some DOM operations may complete slightly later)
-            const id = `verse-B${bookIndex}-V${verseNum}`;
-            const el = await this.waitForElementById(id, 2500, 50);
-            if (el) {
-                // Small delay to allow final layout changes to settle
-                setTimeout(() => { this.highlightVerse(el); }, 100);
-            } else {
-                console.warn('Verse element not found for highlight:', id);
-            }
         } catch (e) {
             console.error('Error handling verse hash on load', e);
         }
