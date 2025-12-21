@@ -337,6 +337,18 @@ const SettingsManager = {
         const topWord = this.findTopVisibleWord();
 
         if (topWord) {
+            try {
+                const rect = topWord.range.getBoundingClientRect ? topWord.range.getBoundingClientRect() : { top: null };
+                console.debug('//DEBUG ORIENT savePosition: topWord found', {
+                    word: topWord.word,
+                    nodeSnippet: topWord.textNode ? topWord.textNode.textContent.slice(0, 60) : null,
+                    rectTop: rect.top,
+                    bookIndex: State.currentBookIndex
+                }); //DEBUG ORIENT
+            } catch (e) {
+                console.debug('//DEBUG ORIENT savePosition: topWord found (no rect)', { word: topWord.word, bookIndex: State.currentBookIndex }); //DEBUG ORIENT
+            }
+
             const wordIndex = VolumePositioning.getWordIndexBeforeRange(topWord.range, State.currentBookIndex);
 
             const positionData = {
@@ -345,11 +357,18 @@ const SettingsManager = {
                 timestamp: Date.now()
             };
 
-            localStorage.setItem(key, JSON.stringify(positionData));
+            try {
+                localStorage.setItem(key, JSON.stringify(positionData));
+                console.debug('//DEBUG ORIENT savePosition: saved positionData', positionData); //DEBUG ORIENT
+            } catch (e) {
+                console.debug('//DEBUG ORIENT savePosition: failed to save', e); //DEBUG ORIENT
+            }
+
             // Schedule sync for reading position update
             if (window.syncController?.scheduleSync) window.syncController.scheduleSync('position');
         } else {
             console.warn('Could not find visible word for reading position - position not saved');
+            console.debug('//DEBUG ORIENT savePosition: no topWord found', { bookIndex: State.currentBookIndex }); //DEBUG ORIENT
         }
     },
 
@@ -408,8 +427,9 @@ const SettingsManager = {
     restorePosition() {
         const key = CONFIG.STORAGE_KEYS.READING_POSITION + State.currentBookIndex;
         const savedData = localStorage.getItem(key);
+        console.debug('//DEBUG ORIENT restorePosition: raw savedData', { key, raw: savedData }); //DEBUG ORIENT
 
-        if (!savedData) return;
+        if (!savedData) return; 
 
         try {
             const positionData = JSON.parse(savedData);
@@ -417,6 +437,7 @@ const SettingsManager = {
             if (positionData.wordIndex !== undefined && positionData.word) {
                 // Restore using word-based positioning with scrollIntoView
                 const success = this.restoreWordPositionWithScrollIntoView(positionData);
+                console.debug('//DEBUG ORIENT restorePosition: attempted restore, success=', success, 'positionData=', positionData); //DEBUG ORIENT
                 if (!success) {
                     console.warn('Word-based restoration failed - scrolling to top');
                     window.scrollTo({ top: 0, behavior: 'auto' });
@@ -466,6 +487,7 @@ const SettingsManager = {
 
         if (positionData.wordIndex >= words.length) {
             console.warn('Reading position word index out of range');
+            console.debug('//DEBUG ORIENT createPositionMarker: out of range', { wordIndex: positionData.wordIndex, wordsLength: words.length }); //DEBUG ORIENT
             return null;
         }
 
@@ -489,6 +511,7 @@ const SettingsManager = {
 
         if (relativeIndex === -1) {
             console.warn('Could not find reading position word in DOM');
+            console.debug('//DEBUG ORIENT createPositionMarker: word not found from approximateCharPos', { positionData, approximateCharPos, textFromPositionSnippet: textFromPosition.substring(0,80) }); //DEBUG ORIENT
             return null;
         }
 
@@ -517,10 +540,11 @@ const SettingsManager = {
                 // Split the text node and insert marker
                 const range = document.createRange();
                 range.setStart(node, nodeOffset);
+                console.debug('//DEBUG ORIENT createPositionMarker: inserting marker', { absoluteCharPos, nodeSnippet: node.textContent ? node.textContent.substring(0,80) : '' }); //DEBUG ORIENT
                 range.collapse(true);
                 range.insertNode(marker);
 
-                return marker;
+                return marker; 
             }
 
             currentOffset += nodeLength;
@@ -533,19 +557,25 @@ const SettingsManager = {
      * Handle window resize events to maintain reading position
      */
     handleWindowResize() {
+        console.debug('//DEBUG ORIENT handleWindowResize: resize event', { time: new Date().toISOString(), bookIndex: State.currentBookIndex }); //DEBUG ORIENT
         // Save current position before resize effects take place
         const currentPosition = this.getCurrentReadingPosition();
+        console.debug('//DEBUG ORIENT handleWindowResize: currentPosition', currentPosition); //DEBUG ORIENT
         if (currentPosition) {
             // Use a short delay to allow layout to settle, then restore position
             setTimeout(() => {
                 const marker = this.createPositionMarker(currentPosition);
                 if (marker) {
+                    console.debug('//DEBUG ORIENT handleWindowResize: created marker for restore'); //DEBUG ORIENT
                     marker.scrollIntoView({
                         behavior: 'auto',
                         block: 'start',
                         inline: 'nearest'
                     });
                     marker.remove();
+                    console.debug('//DEBUG ORIENT handleWindowResize: restore scroll complete'); //DEBUG ORIENT
+                } else {
+                    console.debug('//DEBUG ORIENT handleWindowResize: could not create marker for currentPosition', currentPosition); //DEBUG ORIENT
                 }
             }, 50);
         }
@@ -5705,6 +5735,7 @@ const UIManager = {
         // Restore position after DOM has had time to render and resolve when done
         return new Promise((resolve) => {
             requestAnimationFrame(() => {
+                console.debug('//DEBUG ORIENT displayCurrentBook: about to restore position for book', State.currentBookIndex); //DEBUG ORIENT
                 SettingsManager.restorePosition();
                 // Update TOC with extracted chapter titles
                 EPUBManager.updateTOCWithTitles();
@@ -6078,6 +6109,26 @@ const EventHandlers = {
         window.addEventListener('resize',
             Utils.debounce(SettingsManager.handleWindowResize.bind(SettingsManager), 250)
         );
+
+        // Listen for orientation changes (mobile/tablet) and log for debugging
+        window.addEventListener('orientationchange', () => {
+            console.debug('//DEBUG ORIENT orientationchange: fired', { time: new Date().toISOString(), bookIndex: State.currentBookIndex }); //DEBUG ORIENT
+            // Save immediately before layout changes
+            SettingsManager.savePosition();
+            // Log saved position shortly after
+            setTimeout(() => {
+                try {
+                    const key = CONFIG.STORAGE_KEYS.READING_POSITION + State.currentBookIndex;
+                    console.debug('//DEBUG ORIENT orientationchange: saved position after event', JSON.parse(localStorage.getItem(key))); //DEBUG ORIENT
+                } catch (e) {
+                    console.debug('//DEBUG ORIENT orientationchange: error reading saved data', e); //DEBUG ORIENT
+                }
+            }, 600);
+            // Also trigger a handled resize restore shortly after to attempt to re-align
+            setTimeout(() => {
+                SettingsManager.handleWindowResize();
+            }, 700);
+        });
 
         // Global keyboard shortcuts
         document.addEventListener('keydown', this.onGlobalKeydown.bind(this));
