@@ -14,6 +14,8 @@ The TrueHeart modules provide a full-featured authentication and sync solution w
 ## Features
 
 - ✅ **Complete authentication** - Registration, login, logout, password reset
+
+**Note:** Password reset is handled by a backend-hosted page by default. When a user requests a reset, they'll receive an email with a link to the central reset page (e.g., `https://trueheartapps.com/user/reset?reset_token=...`). Apps no longer need to implement a password-reset form unless you prefer in-app flows.
 - ✅ **User account management** - Account deletion with data cleanup
 - ✅ **Manual sync control** - User-triggered synchronization
 - ✅ **Storage quota display** - Real-time usage tracking (MB used / quota)
