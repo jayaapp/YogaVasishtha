@@ -62,5 +62,5 @@ Contributions are welcome — please open issues and PRs on the repository. If y
 ## License & Acknowledgments
 
 - License: MIT (see repository).  
-- The EPUB sources and passages were collected from public-domain sources (refer to headers in `/epub` files and `Yoga-Vasishtha*.txt`).
-- Many tooling and AI helpers were used during development — please see headers in code for more details.
+- The EPUB sources and passages were collected from public-domain sources (refer to headers in `/epub` files and `Yoga-Vasishtha*.txt`). They are distributed under their own Project Gutenberg terms — please consult the original entries and license details at: https://www.gutenberg.org/ebooks/search/?query=Yoga-Vasishtha
+- Many tooling and AI helpers were used during development (Claude Sonnet and other models available via GitHub's Copilot).
