@@ -323,6 +323,13 @@ async function initTrueHeart() {
         // Remove from URL without page reload
         window.history.replaceState({}, document.title, window.location.pathname);
     }
+
+    // Initialize shared password-reset overlay if present
+    try {
+      if (window.TrueHeartPasswd && typeof window.TrueHeartPasswd.init === 'function') {
+        window.TrueHeartPasswd.init({ apiBase: window.TRUEHEART_CONFIG.userAPI });
+      }
+    } catch (e) {}
 }
 
 /**
