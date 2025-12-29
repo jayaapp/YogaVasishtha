@@ -409,9 +409,6 @@ const SettingsManager = {
             } catch (e) {
                 console.debug('//DEBUG ORIENT savePosition: failed to save', e); //DEBUG ORIENT
             }
-
-            // Schedule sync for reading position update
-            if (window.syncController?.scheduleSync) window.syncController.scheduleSync('position');
         } else {
             console.warn('Could not find visible word for reading position - position not saved');
             console.debug('//DEBUG ORIENT savePosition: no topWord found', { bookIndex: State.currentBookIndex }); //DEBUG ORIENT
