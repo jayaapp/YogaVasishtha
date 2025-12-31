@@ -53,24 +53,6 @@
             applyLocalization();
         }
 
-
-        // Listen for sync complete events to refresh UI components
-        window.addEventListener('trueheart-sync-complete', () => {
-            console.log('✅ TrueHeart sync completed, refreshing data...');
-            
-            // Trigger any necessary UI refreshes
-            // For example, reload bookmarks, notes, etc.
-            if (typeof window.loadBookmarks === 'function') {
-                window.loadBookmarks();
-            }
-            if (typeof window.loadNotes === 'function') {
-                window.loadNotes();
-            }
-            if (typeof window.loadPrompts === 'function') {
-                window.loadPrompts();
-            }
-        });
-
         // Notify the compatibility UI that the sync manager is ready
         if (window.syncUI && typeof window.syncUI.onSyncManagerReady === 'function') {
             window.syncUI.onSyncManagerReady();
