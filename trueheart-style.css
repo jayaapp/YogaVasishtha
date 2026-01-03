@@ -19,7 +19,7 @@
 
 .trueheart-sync-container {
     padding: 20px;
-    background: var(--panel-bg, #f5f5f5);
+    background: var(--panel-bg, #1e1e1e);
     border-radius: 8px;
     margin-top: 20px;  /* Hand-tunable: top spacing */
     margin-bottom: 20px;
@@ -31,7 +31,7 @@
     display: flex;
     align-items: center;
     margin-bottom: 20px;
-    border-bottom: 2px solid var(--border-color, #ddd);
+    border-bottom: 2px solid var(--border-color, #444);
     padding-bottom: 10px;
 }
 
@@ -60,18 +60,18 @@
 .trueheart-tab {
     flex: 1;
     padding: 10px 20px;
-    background: var(--button-bg, #fff);
-    border: 2px solid var(--border-color, #ddd);
+    background: var(--button-bg, #2d2d2d);
+    border: 2px solid var(--border-color, #444);
     border-radius: 6px;
     cursor: pointer;
     font-size: 14px;
     font-weight: 500;
-    color: var(--text-primary, #333);
+    color: var(--text-primary, #e0e0e0);
     transition: all 0.2s;
 }
 
 .trueheart-tab:hover {
-    background: var(--button-hover, #f0f0f0);
+    background: var(--button-hover, #3a3a3a);
 }
 
 .trueheart-tab.active {
@@ -98,10 +98,10 @@
 .trueheart-form input[type="email"],
 .trueheart-form input[type="password"] {
     padding: 12px;
-    border: 2px solid var(--border-color, #ddd);
+    border: 2px solid var(--border-color, #444);
     border-radius: 6px;
     font-size: 14px;
-    background: var(--input-bg, #fff);
+    background: var(--input-bg, #2d2d2d);
     color: var(--text-primary, #e0e0e0);
     transition: border-color 0.2s;
     width: 100%;
@@ -147,13 +147,13 @@
 }
 
 .trueheart-btn-secondary {
-    background: var(--button-bg, #fff);
-    color: var(--text-primary, #333);
-    border: 2px solid var(--border-color, #ddd);
+    background: var(--button-bg, #2d2d2d);
+    color: var(--text-primary, #e0e0e0);
+    border: 2px solid var(--border-color, #444);
 }
 
 .trueheart-btn-secondary:hover {
-    background: var(--button-hover, #f0f0f0);
+    background: var(--button-hover, #3a3a3a);
 }
 
 .trueheart-btn-sync {
@@ -237,14 +237,14 @@
 
 /* Description text */
 .trueheart-description {
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary, #999);
     font-size: 13px;
     margin-bottom: 15px;
     line-height: 1.5;
 }
 
 .trueheart-note {
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary, #999);
     font-size: 12px;
     margin-top: 8px;
     line-height: 1.4;
@@ -257,8 +257,8 @@
     margin: 12px 0;
     padding: 8px 12px;
     font-size: 11px;
-    color: var(--text-secondary, #666);
-    background: var(--panel-bg-lighter, #f5f5f5);
+    color: var(--text-secondary, #999);
+    background: var(--panel-bg-lighter, #2d2d2d);
     border-radius: 4px;
     text-align: center;
 }
@@ -277,14 +277,14 @@
     margin: 15px 0;
     padding: 12px;
     font-size: 12px;
-    color: var(--text-secondary, #666);
-    background: var(--panel-bg-lighter, #f9f9f9);
+    color: var(--text-secondary, #999);
+    background: var(--panel-bg-lighter, #2d2d2d);
     border-radius: 6px;
     border-left: 3px solid var(--primary-color, #4285f4);
 }
 
 .trueheart-hobby-notice strong {
-    color: var(--text-primary, #333);
+    color: var(--text-primary, #e0e0e0);
 }
 
 .trueheart-hobby-notice a {
@@ -302,10 +302,10 @@
     align-items: center;
     gap: 12px;
     padding: 15px;
-    background: var(--panel-bg-lighter, #fff);
+    background: var(--panel-bg-lighter, #2d2d2d);
     border-radius: 6px;
     margin-bottom: 20px;
-    border: 2px solid var(--border-color, #ddd);
+    border: 2px solid var(--border-color, #444);
 }
 
 .trueheart-user-info i,
@@ -356,7 +356,7 @@
 .trueheart-sync-info,
 .trueheart-storage-info {
     font-size: 12px;
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary, #999);
     margin-top: 8px;
     text-align: center;
 }
